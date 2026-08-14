@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/liujitcn/kratos-core/api/gen/go/common/v1;commonv1";
+
+import "gnostic/openapi/v3/annotations.proto";
+
+// 分析时间类型。
+enum AnalyticsTimeType {
+  // 未指定统计时间类型，服务端按默认周维度处理。
+  ANALYTICS_TIME_TYPE_UNSPECIFIED = 0;
+  // 按周统计。
+  ANALYTICS_TIME_TYPE_WEEK = 1;
+  // 按月统计。
+  ANALYTICS_TIME_TYPE_MONTH = 2;
+  // 按年统计。
+  ANALYTICS_TIME_TYPE_YEAR = 3;
+}
+
+// 分析图表系列类型。
+enum AnalyticsSeriesType {
+  // 未指定图表系列类型。
+  ANALYTICS_SERIES_TYPE_UNSPECIFIED = 0;
+  // 柱状图系列。
+  ANALYTICS_SERIES_TYPE_BAR = 1;
+  // 折线图系列。
+  ANALYTICS_SERIES_TYPE_LINE = 2;
+}
+
+// 分析时间请求参数。
+message AnalyticsTimeRequest {
+  AnalyticsTimeType time_type = 1 [(gnostic.openapi.v3.property) = {description: "时间类型"}]; // 时间类型
+}
+
+// 趋势分析系列。
+message AnalyticsTrendSeries {
+  string name = 1 [(gnostic.openapi.v3.property) = {description: "系列名称"}]; // 系列名称
+  AnalyticsSeriesType type = 2 [(gnostic.openapi.v3.property) = {description: "图表类型"}]; // 图表类型
+  repeated int64 data = 3 [(gnostic.openapi.v3.property) = {description: "数据数组"}]; // 数据数组
+  int32 y_axis_index = 4 [(gnostic.openapi.v3.property) = {description: "Y轴索引"}]; // Y轴索引
+}
+
+// 趋势分析响应。
+message AnalyticsTrendResponse {
+  repeated string axis = 1 [(gnostic.openapi.v3.property) = {description: "坐标轴数据"}]; // 坐标轴数据
+  repeated AnalyticsTrendSeries series = 2 [(gnostic.openapi.v3.property) = {description: "系列列表"}]; // 系列列表
+  repeated string y_axis_names = 3 [(gnostic.openapi.v3.property) = {description: "Y轴名称列表"}]; // Y轴名称列表
+}
+
+// 排行分析项。
+message AnalyticsRankItem {
+  string name = 1 [(gnostic.openapi.v3.property) = {description: "名称"}]; // 名称
+  int64 value = 2 [(gnostic.openapi.v3.property) = {description: "值"}]; // 值
+}
+
+// 排行分析响应。
+message AnalyticsRankResponse {
+  repeated AnalyticsRankItem items = 1 [(gnostic.openapi.v3.property) = {description: "排行列表"}]; // 排行列表
+}
+
+// 占比分析项。
+message AnalyticsPieItem {
+  string name = 1 [(gnostic.openapi.v3.property) = {description: "名称"}]; // 名称
+  int64 value = 2 [(gnostic.openapi.v3.property) = {description: "值"}]; // 值
+}
+
+// 占比分析响应。
+message AnalyticsPieResponse {
+  repeated AnalyticsPieItem items = 1 [(gnostic.openapi.v3.property) = {description: "饼图数据"}]; // 饼图数据
+}

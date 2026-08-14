@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/liujitcn/kratos-core/api/gen/go/common/v1;commonv1";
+
+import "errors/errors.proto";
+
+// 通用错误原因。
+enum ErrorReason {
+  option (errors.default_code) = 500;
+
+  INVALID_ARGUMENT = 0 [(errors.code) = 400]; // 请求参数错误
+  UNAUTHENTICATED = 1 [(errors.code) = 401]; // 用户未通过认证
+  PERMISSION_DENIED = 2 [(errors.code) = 403]; // 用户没有权限
+  RESOURCE_NOT_FOUND = 3 [(errors.code) = 404]; // 资源不存在
+  CONFLICT = 4 [(errors.code) = 409]; // 当前状态冲突
+  INTERNAL_ERROR = 5 [(errors.code) = 500]; // 服务内部异常
+}

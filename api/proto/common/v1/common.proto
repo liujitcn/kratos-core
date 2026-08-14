@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/liujitcn/kratos-core/api/gen/go/common/v1;commonv1";
+
+import "gnostic/openapi/v3/annotations.proto";
+
+// 状态设置请求参数
+message SetStatusRequest {
+  int64 id = 1 [(gnostic.openapi.v3.property) = {description: "主键id"}]; // 主键id
+
+  int32 status = 2 [(gnostic.openapi.v3.property) = {description: "状态"}]; // 状态
+}
+
+// 树形选项响应
+message TreeOptionResponse {
+  // 树形选项
+  message Option {
+    string label = 1 [(gnostic.openapi.v3.property) = {description: "选项名"}]; // 选项名
+    int64 value = 2 [(gnostic.openapi.v3.property) = {description: "选项值"}]; // 选项值
+    bool disabled = 3 [(gnostic.openapi.v3.property) = {description: "是否禁用"}]; // 是否禁用
+    bool has_children = 4 [(gnostic.openapi.v3.property) = {description: "是否存在子节点"}]; // 是否存在子节点
+    repeated Option children = 101 [(gnostic.openapi.v3.property) = {description: "子节点树"}]; // 子节点树
+  }
+  repeated Option list = 1 [(gnostic.openapi.v3.property) = {description: "选项列表"}]; // 选项列表
+}
+
+// 下拉选项响应
+message SelectOptionResponse {
+  // 下拉选项
+  message Option {
+    string label = 1 [(gnostic.openapi.v3.property) = {description: "选项名"}]; // 选项名
+    int64 value = 2 [(gnostic.openapi.v3.property) = {description: "选项值"}]; // 选项值
+    bool disabled = 3 [(gnostic.openapi.v3.property) = {description: "是否禁用"}]; // 是否禁用
+  }
+  repeated Option list = 1 [(gnostic.openapi.v3.property) = {description: "选项列表"}]; // 选项列表
+}
+
+// 应用树形选项响应
+message AppTreeOptionResponse {
+  // 应用树形选项
+  message Option {
+    string value = 1 [(gnostic.openapi.v3.property) = {description: "值。必填"}]; // 值。必填
+    string text = 2 [(gnostic.openapi.v3.property) = {description: "显示文字。必填"}]; // 显示文字。必填
+
+    bool selected = 3 [(gnostic.openapi.v3.property) = {description: "是否默认选中。默认值false"}]; // 是否默认选中。默认值false
+
+    bool disable = 4 [(gnostic.openapi.v3.property) = {description: "是否禁用。默认值false"}]; // 是否禁用。默认值false
+
+    repeated Option children = 101 [(gnostic.openapi.v3.property) = {description: "子节点树"}]; // 子节点树
+  }
+  repeated Option list = 1 [(gnostic.openapi.v3.property) = {description: "选项列表"}]; // 选项列表
+}
