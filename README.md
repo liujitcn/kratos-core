@@ -1,6 +1,6 @@
 # kratos-core
 
-[简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en-US.md)
+[简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en-US.md) | [日本語](README.ja-JP.md)
 
 `kratos-core` 是 Kratos 服务的通用运行时。宿主项目负责业务 Case、Service、API 和进程入口；Core 负责基础设施、传输层、资源注册以及应用生命周期。
 
@@ -95,7 +95,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `Migrations` | 版本化迁移列表。每项 `module.Migration` 声明 `Name`、`FS`、`Path` 和 `Dependencies`，Core 按依赖顺序执行。 |
 | `OpenAPI` | 包含 `openapi.yaml`、`openapi.yml` 或 `openapi.json` 的 `fs.FS`。启用 Swagger 后，Core 会为每个项目挂载原文和 Swagger UI。 |
 | `Docs` | 通常包含 `docs.json` 的 `fs.FS`，用于构建项目文档树并通过 `biz.Docs` 查询。 |
-| `I18n` | 包含 `zh-CN.json`、`zh-TW.json`、`en-US.json` 等语言文件的 `fs.FS`。Core 会与内置文案合并。 |
+| `I18n` | 包含 `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` 等语言文件的 `fs.FS`。Core 会与内置文案合并。 |
 
 资源通常由宿主通过 `embed.FS`、代码生成器或 `fstest.MapFS` 提供：
 

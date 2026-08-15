@@ -18,7 +18,7 @@ fmt:
 lint: vet
 
 # 生成 wire 依赖注入代码
-wire:
+wire: fmt
 	@if [ ! -f "$(WIRE_DIR)/wire.go" ]; then \
 		echo "==> 未找到 $(WIRE_DIR)/wire.go，跳过 wire 依赖注入代码生成"; \
 	else \

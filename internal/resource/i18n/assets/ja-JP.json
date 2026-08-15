@@ -1,0 +1,10 @@
+{
+  "common.error.conflict": {"other": "リソースの状態がこの操作と競合しています"},
+  "common.error.internal": {"other": "システム内部エラーが発生しました"},
+  "common.error.invalid_argument": {"other": "リクエストパラメータが正しくありません"},
+  "common.error.permission_denied": {"other": "この操作を実行する権限がありません"},
+  "common.error.resource_not_found": {"other": "要求されたリソースが見つかりません"},
+  "common.error.unauthenticated": {"other": "セッションの有効期限が切れています。もう一度サインインしてください"},
+  "common.validation.invalid": {"other": "フィールド {{.Field}} が無効です"},
+  "common.validation.required": {"other": "フィールド {{.Field}} は必須です"}
+}

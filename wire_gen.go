@@ -155,7 +155,7 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 	baseUserRepository := data.NewBaseUserRepository(dataData)
 	userToken := middleware.NewUserToken(authentication_Jwt, cacheCache, authenticator)
 	moduleI18n := module.NewI18nFromResources(v2)
-	i18nI18n, err := i18n.NewI18nCatalog(moduleI18n)
+	i18nI18n, err := i18n.NewCatalog(moduleI18n)
 	if err != nil {
 		cleanup4()
 		cleanup3()

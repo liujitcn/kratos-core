@@ -1,6 +1,6 @@
 # kratos-core
 
-[简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en-US.md)
+[简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en-US.md) | [日本語](README.ja-JP.md)
 
 `kratos-core` is the shared runtime for Kratos services. The host project owns its business cases, services, APIs, and process entry point; Core owns infrastructure, transports, resource registration, and application lifecycle.
 
@@ -93,7 +93,7 @@ Multiple business modules can be passed as separate arguments to `NewApp`. Core 
 | `Migrations` | Versioned migrations. Each `module.Migration` declares `Name`, `FS`, `Path`, and `Dependencies`; Core runs them in dependency order. |
 | `OpenAPI` | An `fs.FS` containing `openapi.yaml`, `openapi.yml`, or `openapi.json`. When Swagger is enabled, Core mounts the raw document and Swagger UI for each project. |
 | `Docs` | An `fs.FS` normally containing `docs.json`, used to build the project documentation tree and queried through `biz.Docs`. |
-| `I18n` | An `fs.FS` containing locale files such as `zh-CN.json`, `zh-TW.json`, and `en-US.json`; Core merges them with its built-in messages. |
+| `I18n` | An `fs.FS` containing locale files such as `zh-CN.json`, `zh-TW.json`, `en-US.json`, and `ja-JP.json`; Core merges them with its built-in messages. |
 
 Hosts commonly provide these resources through `embed.FS`, a code generator, or `fstest.MapFS`:
 

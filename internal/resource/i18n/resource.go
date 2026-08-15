@@ -10,19 +10,14 @@ import (
 	"github.com/liujitcn/kratos-core/pkg/module"
 )
 
-// NewI18nCatalog 根据 Core 和模块国际化资源创建目录。
-func NewI18nCatalog(resources module.I18n) (*I18n, error) {
-	items := module.I18n{{
+// NewCatalog 根据 Core 和模块国际化资源创建目录。
+func NewCatalog(resources module.I18n) (*I18n, error) {
+	items := module.ResourcesItem{
 		ProjectKey:  "core",
 		ProjectName: "Kratos Core",
 		FS:          Assets(),
-	}}
-	items = append(items, resources...)
-	return NewCatalog(items)
-}
-
-// NewCatalog 根据模块国际化资源创建语言目录。
-func NewCatalog(resources module.I18n) (*I18n, error) {
+	}
+	resources = append(resources, items)
 	files := fstest.MapFS{}
 	var err error
 	for _, resource := range resources {
