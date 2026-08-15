@@ -27,9 +27,15 @@ type SSE struct {
 
 var _ biz.SSE = (*SSE)(nil)
 
-// NewSSE 创建 SSE 服务。
-func NewSSE(authenticator authnEngine.Authenticator, userToken *authData.UserToken, registry *Registry) *SSE {
-	return &SSE{authenticator: authenticator, userToken: userToken, registry: registry}
+// NewSSE 创建 SSE 服务运行时并绑定底层服务。
+func NewSSE(authenticator authnEngine.Authenticator, userToken *authData.UserToken, registry *Registry, server *Server) (*SSE, func()) {
+	runtime := &SSE{authenticator: authenticator, userToken: userToken, registry: registry}
+	if server != nil {
+		runtime.BindServer(server.Server)
+	}
+	return runtime, func() {
+		runtime.UnbindServer()
+	}
 }
 
 // Serve 校验当前 HTTP 请求并建立指定业务流的 SSE 订阅。
@@ -80,16 +86,16 @@ func (r *SSE) PublishJSON(ctx context.Context, streamID, eventID string, payload
 	}
 }
 
-// BindTransport 绑定应用启动后创建的 SSE 传输实现。
-func (r *SSE) BindTransport(server *sseServer.Server) {
+// BindServer 绑定 SSE 服务。
+func (r *SSE) BindServer(server *sseServer.Server) {
 	r.mu.Lock()
 	r.server = server
 	r.publisher = NewPublisher(server)
 	r.mu.Unlock()
 }
 
-// UnbindTransport 清除已经停止的 SSE 传输实现。
-func (r *SSE) UnbindTransport() {
+// UnbindServer 清除已经停止的 SSE 服务。
+func (r *SSE) UnbindServer() {
 	r.mu.Lock()
 	r.server = nil
 	r.publisher = nil

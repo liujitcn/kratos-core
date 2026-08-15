@@ -12,13 +12,13 @@ Core is not a complete business template. A host supplies one `module.Module` co
 - Build multi-database GORM clients, cache, queue, OSS, translator, and the shared `biz.BaseCase` from module resources.
 - Create HTTP, gRPC, MCP, SSE, queue, and persistent Cron runtimes according to configuration, then register host services with the matching transport.
 - Run database migrations, OpenAPI synchronization, tenant role/menu synchronization, and Casbin policy rebuilds during startup.
-- Start and stop Kratos services as one application and return an idempotent cleanup function.
+- Start and stop Kratos services as one application and return an application cleanup function.
 
 ## Public Boundary
 
 Cross-project Go code is exposed through four entry points:
 
-- The root package provides `ProviderSet`, `NewApplication`, and the `Module` alias. A host normally only adds `ProviderSet` to its own Wire graph.
+- The root package provides `ProviderSet`, `NewApplication`, `NewApplicationWithModule`, and the `Module` alias. A host normally only adds `ProviderSet` to its own Wire graph.
 - `pkg` provides the public `biz`, `config`, `const`, `dto`, `errorsx`, and `module` packages.
 - `api` is an independent Go module. `api/proto` contains Core protobuf definitions and `api/gen/go` contains generated Go types.
 - `client` is an independent Go module that provides gRPC connections based on `kratos-kit` configuration, including in-process gRPC connections.
@@ -79,7 +79,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `RegisterSSE` | Register business SSE streams, usually with `server.RegisterStream`. An error aborts assembly. |
 | `Resources` | Return models, migrations, OpenAPI, project documentation, and i18n resources. |
 
-Multiple business modules can be passed as separate arguments to `NewApplication`. Core collects resources and forwards protocol registration in argument order. Duplicate OpenAPI documents, documentation paths, i18n message keys, or SSE stream IDs are rejected during assembly.
+Multiple business modules can be passed as separate arguments to `NewApplication`. Core collects resources and forwards protocol registration in argument order. Duplicate documentation paths, conflicting OpenAPI documents, i18n keys with different contents, or duplicate SSE stream IDs are rejected during assembly.
 
 ## Build-Time Resources
 

@@ -1,11 +1,14 @@
 package sse
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	stdhttp "net/http"
+	"net/url"
 	"strings"
 
+	kratosTransport "github.com/go-kratos/kratos/v3/transport"
 	_const "github.com/liujitcn/kratos-core/pkg/const"
 	"github.com/liujitcn/kratos-core/pkg/module"
 	bootstrapConfigv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
@@ -19,14 +22,17 @@ import (
 
 var errStreamNotRegistered = errors.New("SSE流未注册")
 
-// Transport 描述 Core SSE transport 服务及其传输模式。
-type Transport struct {
+// Server 描述 Core SSE 服务及其传输模式。
+type Server struct {
 	// Server 是 Core 创建的底层 SSE 服务。
 	Server *sseServer.Server
 	// InProcess 表示 SSE 是否挂载到 Core HTTP 服务。
 	InProcess bool
 	resolver  sseServer.StreamIDResolver
 }
+
+var _ kratosTransport.Server = (*Server)(nil)
+var _ kratosTransport.Endpointer = (*Server)(nil)
 
 // NewStreamResolver 创建根据模块流声明解析实际传输流的请求解析器。
 func NewStreamResolver(registry *Registry, authenticator authnEngine.Authenticator, userToken *authData.UserToken) sseServer.StreamIDResolver {
@@ -56,8 +62,8 @@ func NewStreamResolver(registry *Registry, authenticator authnEngine.Authenticat
 	}
 }
 
-// NewTransport 按 Server_Sse 配置创建 SSE transport，并调用模块注册业务流。
-func NewTransport(ctx *bootstrap.Context, resolver sseServer.StreamIDResolver, modules module.Modules, registry *Registry) (*Transport, error) {
+// NewServer 按 Server_Sse 配置创建 SSE 服务，并调用模块注册业务流。
+func NewServer(ctx *bootstrap.Context, resolver sseServer.StreamIDResolver, modules module.Modules, registry *Registry) (*Server, error) {
 	cfg := ctx.GetConfig()
 	if cfg == nil || cfg.Server == nil || cfg.Server.Sse == nil {
 		return nil, nil
@@ -66,17 +72,6 @@ func NewTransport(ctx *bootstrap.Context, resolver sseServer.StreamIDResolver, m
 	var server *sseServer.Server
 	transportResolver := resolver
 	if resolver != nil {
-		transportResolver = func(request *stdhttp.Request) (string, error) {
-			streamID, err := resolver(request)
-			if err == nil || !errors.Is(err, errStreamNotRegistered) || server == nil || request == nil || request.URL == nil {
-				return streamID, err
-			}
-			directStreamID := request.URL.Query().Get("stream")
-			if directStreamID != "" && server.GetStream(sseServer.StreamID(directStreamID)) != nil {
-				return directStreamID, nil
-			}
-			return streamID, err
-		}
 		options = append(options, sseServer.WithStreamIDResolver(transportResolver), sseServer.WithAutoStream(true))
 	}
 	inProcess := cfg.Server.Sse.GetTransport() == bootstrapConfigv1.Server_Sse_IN_PROCESS
@@ -100,11 +95,35 @@ func NewTransport(ctx *bootstrap.Context, resolver sseServer.StreamIDResolver, m
 			return nil, err
 		}
 	}
-	return &Transport{Server: server, InProcess: inProcess, resolver: transportResolver}, nil
+	return &Server{Server: server, InProcess: inProcess, resolver: transportResolver}, nil
 }
 
-// Resolver 返回当前 SSE transport 实际使用的流解析器。
-func (t *Transport) Resolver() sseServer.StreamIDResolver {
+// Start 启动独立 SSE 服务，进程内模式由 HTTP 宿主负责承载。
+func (s *Server) Start(ctx context.Context) error {
+	if s == nil || s.Server == nil || s.InProcess {
+		return nil
+	}
+	return s.Server.Start(ctx)
+}
+
+// Stop 停止 SSE 服务并释放连接资源。
+func (s *Server) Stop(ctx context.Context) error {
+	if s == nil || s.Server == nil {
+		return nil
+	}
+	return s.Server.Stop(ctx)
+}
+
+// Endpoint 返回独立 SSE 服务的注册端点。
+func (s *Server) Endpoint() (*url.URL, error) {
+	if s == nil || s.Server == nil {
+		return nil, errors.New("SSE服务未初始化")
+	}
+	return s.Server.Endpoint()
+}
+
+// Resolver 返回当前 SSE 服务实际使用的流解析器。
+func (t *Server) Resolver() sseServer.StreamIDResolver {
 	if t == nil {
 		return nil
 	}

@@ -14,5 +14,4 @@ var ProviderSet = wire.NewSet(
 	NewGRPCMiddleware,
 	NewGRPCServer,
 	NewHTTPServer,
-	NewMCPServer,
 )

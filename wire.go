@@ -9,6 +9,7 @@ import (
 	internalBiz "github.com/liujitcn/kratos-core/internal/biz"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/job"
+	"github.com/liujitcn/kratos-core/internal/mcp"
 	"github.com/liujitcn/kratos-core/internal/queue"
 	"github.com/liujitcn/kratos-core/internal/resource"
 	"github.com/liujitcn/kratos-core/internal/server"
@@ -27,12 +28,12 @@ func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.A
 		module.ProviderSet,
 		biz.ProviderSet,
 		data.ProviderSet,
-		wire.Bind(new(data.Transaction), new(*data.Data)),
 		// 2. 创建 Core 资源注册表和运行时传输组件。
 		resource.ProviderSet,
 		sse.ProviderSet,
 		queue.ProviderSet,
 		job.ProviderSet,
+		mcp.ProviderSet,
 		// 3. 创建鉴权、中间件和协议服务器。
 		server.ProviderSet,
 		// 4. 创建启动期资源同步业务，并组装服务列表和应用生命周期。

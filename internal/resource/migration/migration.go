@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-kit/bootstrap"
 	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
 	gormmigration "github.com/liujitcn/kratos-kit/database/gorm/migration"
 )
@@ -17,8 +18,8 @@ type Migration struct {
 	databases map[string]*databaseGorm.Client
 }
 
-// NewMigration 创建迁移注册表并按模块顺序注册迁移资源。
-func NewMigration(databases map[string]*databaseGorm.Client, migrations module.Migrations) (*Migration, error) {
+// NewMigration 创建迁移注册表，注册资源后立即执行数据库迁移。
+func NewMigration(ctx *bootstrap.Context, databases map[string]*databaseGorm.Client, migrations module.Migrations) (*Migration, error) {
 	contributors := make(gormmigration.AdditionalMigrations, 0, len(migrations))
 	names := make([]gormmigration.ModuleName, 0, len(migrations))
 	for _, value := range migrations {
@@ -42,23 +43,11 @@ func NewMigration(databases map[string]*databaseGorm.Client, migrations module.M
 	if err != nil {
 		return nil, fmt.Errorf("注册数据库迁移: %w", err)
 	}
+	err = registry.Run(ctx.Context())
+	if err != nil {
+		return nil, err
+	}
 	return registry, nil
-}
-
-// Start 按模块依赖顺序同步执行数据库迁移。
-func (r *Migration) Start(ctx context.Context) error {
-	if r == nil {
-		return nil
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return r.Run(ctx)
-}
-
-// Stop 停止数据库迁移生命周期；迁移执行完成后不需要额外清理。
-func (r *Migration) Stop(context.Context) error {
-	return nil
 }
 
 // Run 使用当前注册表中的多数据源客户端并按依赖顺序执行宿主迁移。

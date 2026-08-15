@@ -11,7 +11,10 @@ import (
 	biz2 "github.com/liujitcn/kratos-core/internal/biz"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/job"
+	"github.com/liujitcn/kratos-core/internal/mcp"
 	queue2 "github.com/liujitcn/kratos-core/internal/queue"
+	"github.com/liujitcn/kratos-core/internal/resource"
+	"github.com/liujitcn/kratos-core/internal/resource/docs"
 	"github.com/liujitcn/kratos-core/internal/resource/i18n"
 	"github.com/liujitcn/kratos-core/internal/resource/migration"
 	"github.com/liujitcn/kratos-core/internal/resource/openapi"
@@ -33,16 +36,7 @@ import (
 
 // NewApplication 通过 Core ProviderSet 装配多个业务模块。
 func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func(), error) {
-	appInfo := config.ParseAppInfo(ctx)
 	configv1Bootstrap, err := config.ParseBootstrap(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	authentication_Jwt, err := config.ParseAuthnJWT(configv1Bootstrap)
-	if err != nil {
-		return nil, nil, err
-	}
-	authenticator, err := middleware.NewAuthenticator(authentication_Jwt)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -57,17 +51,57 @@ func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.A
 	if err != nil {
 		return nil, nil, err
 	}
+	migrations := module.NewMigrations(v2)
+	migrationMigration, err := migration.NewMigration(ctx, v3, migrations)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	openAPI := module.NewOpenAPIFromResources(v2)
+	registry, err := openapi.NewRegistry(openAPI)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
 	dataData, err := data.NewData(v3)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
-	baseUserRepository := data.NewBaseUserRepository(dataData)
+	baseAPIRepository := data.NewBaseAPIRepository(dataData)
+	baseAPICase := biz2.NewBaseAPICase(baseAPIRepository)
+	baseRoleRepository := data.NewBaseRoleRepository(dataData)
+	baseTenantRepository := data.NewBaseTenantRepository(dataData)
+	baseTenantCase := biz2.NewBaseTenantCase(dataData, baseRoleRepository, baseTenantRepository)
+	casbinRuleRepository := data.NewCasbinRuleRepository(dataData)
+	baseMenuRepository := data.NewBaseMenuRepository(dataData)
 	engine, err := middleware.NewAuthzEngine()
 	if err != nil {
 		cleanup()
 		return nil, nil, err
 	}
+	casbinRuleCase, err := biz2.NewCasbinRuleCase(casbinRuleRepository, baseMenuRepository, baseRoleRepository, baseTenantRepository, baseAPICase, engine)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	permissionSynchronizer, err := resource.NewPermissionSynchronizer(ctx, migrationMigration, registry, baseAPICase, baseTenantCase, casbinRuleCase)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	appInfo := config.ParseAppInfo(ctx)
+	authentication_Jwt, err := config.ParseAuthnJWT(configv1Bootstrap)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	authenticator, err := middleware.NewAuthenticator(authentication_Jwt)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	baseUserRepository := data.NewBaseUserRepository(dataData)
 	data_Redis := config.ParseRedis(configv1Bootstrap)
 	cacheCache, cleanup2, err := cache.NewCache(data_Redis)
 	if err != nil {
@@ -83,14 +117,7 @@ func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.A
 		return nil, nil, err
 	}
 	httpMiddlewares := server.NewHTTPMiddleware(ctx, authenticator, baseUserRepository, engine, userToken, authentication_Jwt, cacheCache, i18nI18n)
-	openAPI := module.NewOpenAPIFromResources(v2)
-	registry, err := openapi.NewRegistry(openAPI)
-	if err != nil {
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	mcpRuntime, err := server.NewMCPServer(ctx, moduleModules)
+	mcpServer, err := mcp.NewServer(ctx, moduleModules)
 	if err != nil {
 		cleanup2()
 		cleanup()
@@ -98,13 +125,13 @@ func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.A
 	}
 	sseRegistry := sse.NewRegistry()
 	streamIDResolver := sse.NewStreamResolver(sseRegistry, authenticator, userToken)
-	transport, err := sse.NewTransport(ctx, streamIDResolver, moduleModules, sseRegistry)
+	sseServer, err := sse.NewServer(ctx, streamIDResolver, moduleModules, sseRegistry)
 	if err != nil {
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	transportServer, err := server.NewHTTPServer(ctx, appInfo, httpMiddlewares, moduleModules, authenticator, userToken, registry, mcpRuntime, transport)
+	transportServer, err := server.NewHTTPServer(ctx, appInfo, httpMiddlewares, moduleModules, authenticator, userToken, registry, mcpServer, sseServer)
 	if err != nil {
 		cleanup2()
 		cleanup()
@@ -126,7 +153,7 @@ func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.A
 	}
 	baseJobLogRepository := data.NewBaseJobLogRepository(dataData)
 	baseLogRepository := data.NewBaseLogRepository(dataData)
-	queue3, err := queue2.NewQueue(queueQueue, baseJobLogRepository, baseLogRepository, moduleModules)
+	queueServer, err := queue2.NewServer(queueQueue, baseJobLogRepository, baseLogRepository, moduleModules)
 	if err != nil {
 		cleanup3()
 		cleanup2()
@@ -142,31 +169,8 @@ func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.A
 		return nil, nil, err
 	}
 	scheduler := job.NewScheduler(baseJobRepository, jobRegistry)
-	runtime := job.NewRuntime(scheduler)
-	v4 := newServers(transportServer, grpcServer, mcpRuntime, transport, queue3, runtime)
-	migrations := module.NewMigrations(v2)
-	migrationMigration, err := migration.NewMigration(v3, migrations)
-	if err != nil {
-		cleanup3()
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	baseAPIRepository := data.NewBaseAPIRepository(dataData)
-	baseAPICase := biz2.NewBaseAPICase(baseAPIRepository)
-	baseRoleRepository := data.NewBaseRoleRepository(dataData)
-	baseTenantRepository := data.NewBaseTenantRepository(dataData)
-	baseTenantCase := biz2.NewBaseTenantCase(dataData, baseRoleRepository, baseTenantRepository)
-	casbinRuleRepository := data.NewCasbinRuleRepository(dataData)
-	baseMenuRepository := data.NewBaseMenuRepository(dataData)
-	casbinRuleCase, err := biz2.NewCasbinRuleCase(casbinRuleRepository, baseMenuRepository, baseRoleRepository, baseTenantRepository, baseAPICase, engine)
-	if err != nil {
-		cleanup3()
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	sseSSE := sse.NewSSE(authenticator, userToken, sseRegistry)
+	jobServer := job.NewServer(scheduler)
+	v4 := newServers(transportServer, grpcServer, mcpServer, sseServer, queueServer, jobServer)
 	configv1Pprof := config.ParsePprof(configv1Bootstrap)
 	pprofPprof, err := pprof.NewPprof(configv1Pprof)
 	if err != nil {
@@ -192,7 +196,9 @@ func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.A
 		return nil, nil, err
 	}
 	baseCase, cleanup4 := biz.NewBaseCase(ctx, pprofPprof, cacheCache, queueQueue, ossOSS, translatorTranslator, v3)
-	app, cleanup5, err := newApplication(ctx, v4, migrationMigration, registry, baseAPICase, baseTenantCase, casbinRuleCase, sseSSE, transport, baseCase)
+	jobJob := job.NewJob(scheduler)
+	moduleDocs := module.NewDocsFromResources(v2)
+	docsRegistry, err := docs.NewRegistry(moduleDocs)
 	if err != nil {
 		cleanup4()
 		cleanup3()
@@ -200,7 +206,20 @@ func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.A
 		cleanup()
 		return nil, nil, err
 	}
+	docsDocs := docs.NewDocs(docsRegistry)
+	openapiOpenAPI := openapi.NewOpenAPI(registry)
+	sseSSE, cleanup5 := sse.NewSSE(authenticator, userToken, sseRegistry, sseServer)
+	app, cleanup6, err := newApplication(ctx, permissionSynchronizer, v4, sseServer, baseCase, jobJob, docsDocs, openapiOpenAPI, sseSSE)
+	if err != nil {
+		cleanup5()
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
 	return app, func() {
+		cleanup6()
 		cleanup5()
 		cleanup4()
 		cleanup3()

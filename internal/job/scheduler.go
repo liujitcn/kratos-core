@@ -45,8 +45,8 @@ func NewScheduler(baseJobRepo *data.BaseJobRepository, registry *Registry) *Sche
 	}
 }
 
-// TransportServer 返回定时任务使用的 transport 服务。
-func (c *Scheduler) TransportServer() *cronTransport.Server {
+// Server 返回定时任务使用的 Cron 服务。
+func (c *Scheduler) Server() *cronTransport.Server {
 	if c == nil {
 		return nil
 	}

@@ -10,8 +10,9 @@ import (
 
 // ProviderSet 提供 Core 四类模块资源的统一组装器。
 var ProviderSet = wire.NewSet(
-	docs.NewRegistry,
+	docs.ProviderSet,
 	i18n.ProviderSet,
-	openapi.NewRegistry,
+	openapi.ProviderSet,
 	migration.NewMigration,
+	NewPermissionSynchronizer,
 )

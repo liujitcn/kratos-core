@@ -12,13 +12,13 @@ Core 不是完整的业务模板。宿主通过一个 `module.Module` 把业务�
 - 按模块资源创建多数据源 GORM 客户端、缓存、队列、OSS、翻译器和共享 `biz.BaseCase`。
 - 按配置创建 HTTP、gRPC、MCP、SSE、队列和持久化定时任务运行时，并把模块服务注册到对应传输层。
 - 启动时按顺序执行数据库迁移、OpenAPI 接口同步、租户角色菜单同步和 Casbin 策略重建。
-- 统一启动、停止 Kratos 服务，并返回可重复调用的清理函数。
+- 统一启动、停止 Kratos 服务，并返回应用清理函数。
 
 ## 公共边界
 
 跨项目可以依赖的 Go 代码分为四个入口：
 
-- 根包提供 `ProviderSet`、`NewApplication` 和 `Module` 别名。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 图。
+- 根包提供 `ProviderSet`、`NewApplication`、`NewApplicationWithModule` 和 `Module` 别名。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 图。
 - `pkg` 提供 `biz`、`config`、`const`、`dto`、`errorsx` 和 `module` 公共包。
 - `api` 是独立 Go 模块，`api/proto` 保存 Core 的 protobuf 定义，`api/gen/go` 保存生成的 Go 类型。
 - `client` 是独立 Go 模块，提供基于 `kratos-kit` 配置的 gRPC 连接和进程内 gRPC 连接。
@@ -81,7 +81,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `RegisterSSE` | 注册业务 SSE 流，通常调用 `server.RegisterStream`。返回错误会中止装配。 |
 | `Resources` | 返回模型、迁移、OpenAPI、项目文档和 I18n 等静态资源。 |
 
-多个业务模块可以作为 `NewApplication` 的多个参数传入。Core 会按传入顺序收集资源并转发协议注册；重复的 OpenAPI、文档路径、I18n 消息键或 SSE 流标识会在装配时被拒绝。
+多个业务模块可以作为 `NewApplication` 的多个参数传入。Core 会按传入顺序收集资源并转发协议注册；重复文档路径、冲突的 OpenAPI 文档、内容不同的 I18n 消息键或重复 SSE 流标识会在装配时被拒绝。
 
 ## 构建期资源
 

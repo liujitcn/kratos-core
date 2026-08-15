@@ -14,15 +14,15 @@ import (
 	queueTransport "github.com/liujitcn/kratos-kit/transport/queue"
 )
 
-var _ kratosTransport.Server = (*Queue)(nil)
+var _ kratosTransport.Server = (*Server)(nil)
 
-// Queue 将 Core 队列服务接入 Kratos 应用生命周期。
-type Queue struct {
+// Server 将 Core 队列服务接入 Kratos 应用生命周期。
+type Server struct {
 	server *queueTransport.Server
 }
 
-// NewQueue 创建队列服务，注册 Core 和模块提供的队列消费者。
-func NewQueue(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogRepository, baseLogRepository *data.BaseLogRepository, modules module.Modules) (*Queue, error) {
+// NewServer 创建队列服务，注册 Core 和模块提供的队列消费者。
+func NewServer(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogRepository, baseLogRepository *data.BaseLogRepository, modules module.Modules) (*Server, error) {
 	if queue == nil {
 		return nil, fmt.Errorf("队列适配器不能为空")
 	}
@@ -31,16 +31,14 @@ func NewQueue(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogReposit
 		return nil, err
 	}
 	server.Register(_const.JOB_LOG, func(message queueData.Message) error {
-		var entity *models.BaseJobLog
-		entity, err = Decode[models.BaseJobLog](message)
+		entity, err := Decode[models.BaseJobLog](message)
 		if err != nil {
 			return err
 		}
 		return baseJobLogRepository.Create(context.Background(), entity)
 	})
 	server.Register(_const.LOG, func(message queueData.Message) error {
-		var entity *models.BaseLog
-		entity, err = Decode[models.BaseLog](message)
+		entity, err := Decode[models.BaseLog](message)
 		if err != nil {
 			return err
 		}
@@ -48,21 +46,21 @@ func NewQueue(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogReposit
 	})
 
 	modules.RegisterQueue(server)
-	return &Queue{server: server}, nil
+	return &Server{server: server}, nil
 }
 
 // Start 启动队列消费服务。
-func (q *Queue) Start(ctx context.Context) error {
-	if q == nil || q.server == nil {
+func (s *Server) Start(ctx context.Context) error {
+	if s == nil || s.server == nil {
 		return nil
 	}
-	return q.server.Start(ctx)
+	return s.server.Start(ctx)
 }
 
 // Stop 停止队列消费服务。
-func (q *Queue) Stop(ctx context.Context) error {
-	if q == nil || q.server == nil {
+func (s *Server) Stop(ctx context.Context) error {
+	if s == nil || s.server == nil {
 		return nil
 	}
-	return q.server.Stop(ctx)
+	return s.server.Stop(ctx)
 }

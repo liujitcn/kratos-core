@@ -13,6 +13,7 @@ import (
 	kratosTransport "github.com/go-kratos/kratos/v3/transport"
 	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
 	"github.com/liujitcn/kratos-core/internal/data"
+	"github.com/liujitcn/kratos-core/internal/mcp"
 	"github.com/liujitcn/kratos-core/internal/resource/i18n"
 	"github.com/liujitcn/kratos-core/internal/resource/openapi"
 	_middleware "github.com/liujitcn/kratos-core/internal/server/middleware"
@@ -73,12 +74,12 @@ func NewHTTPServer(
 	authenticator authnEngine.Authenticator,
 	userToken *authData.UserToken,
 	openAPIRegistry *openapi.Registry,
-	mcpRuntime *MCPRuntime,
-	sseTransport *sse.Transport,
+	mcpServer *mcp.Server,
+	sseServer *sse.Server,
 ) (kratosTransport.Server, error) {
 	cfg := ctx.GetConfig()
 	httpConfigured := cfg != nil && cfg.Server != nil && cfg.Server.Http != nil
-	err := validateInProcessHTTPHost(httpConfigured, mcpRuntime, sseTransport)
+	err := validateInProcessHTTPHost(httpConfigured, mcpServer, sseServer)
 	if err != nil {
 		return nil, err
 	}
@@ -118,9 +119,9 @@ func NewHTTPServer(
 	// 将本地 OSS 目录暴露为静态资源目录，默认访问 /shop/* 时映射到 ./data/shop/*。
 	staticHandler := stdhttp.StripPrefix(staticPrefix, stdhttp.FileServer(stdhttp.Dir(staticDirectory)))
 	srv.HandlePrefix(staticPrefix, staticHandler)
-	if mcpRuntime != nil && mcpRuntime.Server != nil && mcpRuntime.InProcess {
+	if mcpServer != nil && mcpServer.Server != nil && mcpServer.InProcess {
 		var mcpHandler stdhttp.Handler
-		mcpHandler, err = mcpRuntime.Server.HTTPHandler()
+		mcpHandler, err = mcpServer.Server.HTTPHandler()
 		if err != nil {
 			return nil, err
 		}
@@ -130,12 +131,12 @@ func NewHTTPServer(
 		}
 		srv.Handle(mcpPath, mcpHandler)
 	}
-	if sseTransport != nil && sseTransport.Server != nil && sseTransport.InProcess {
+	if sseServer != nil && sseServer.Server != nil && sseServer.InProcess {
 		ssePath := "/events"
 		if cfg.GetServer().GetSse().GetPath() != "" {
 			ssePath = cfg.GetServer().GetSse().GetPath()
 		}
-		srv.Handle(ssePath, NewSSEHTTPHandler(sseTransport.Server, sseTransport.Resolver()))
+		srv.Handle(ssePath, NewSSEHTTPHandler(sseServer.Server, sseServer.Resolver()))
 	}
 	// 显式启用 Swagger 时，使用同一个注册表挂载 Core 和模块文档。
 	if cfg.GetServer().GetHttp().GetEnableSwagger() {
@@ -154,14 +155,14 @@ func NewHTTPServer(
 }
 
 // validateInProcessHTTPHost 校验进程内传输是否具备 HTTP 宿主。
-func validateInProcessHTTPHost(httpConfigured bool, mcpRuntime *MCPRuntime, sseTransport *sse.Transport) error {
+func validateInProcessHTTPHost(httpConfigured bool, mcpServer *mcp.Server, sseServer *sse.Server) error {
 	if httpConfigured {
 		return nil
 	}
-	if mcpRuntime != nil && mcpRuntime.InProcess {
+	if mcpServer != nil && mcpServer.InProcess {
 		return errors.New("进程内 MCP 需要配置 HTTP 服务作为宿主")
 	}
-	if sseTransport != nil && sseTransport.InProcess {
+	if sseServer != nil && sseServer.InProcess {
 		return errors.New("进程内 SSE 需要配置 HTTP 服务作为宿主")
 	}
 	return nil

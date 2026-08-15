@@ -5,4 +5,4 @@ import (
 )
 
 // ProviderSet 提供 Core 队列服务。
-var ProviderSet = wire.NewSet(NewQueue)
+var ProviderSet = wire.NewSet(NewServer)

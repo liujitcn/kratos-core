@@ -14,4 +14,5 @@ var ProviderSet = wire.NewSet(
 	NewBaseTenantRepository,
 	NewBaseUserRepository,
 	NewCasbinRuleRepository,
+	wire.Bind(new(Transaction), new(*Data)),
 )
