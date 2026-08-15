@@ -1,0 +1,10 @@
+{
+  "common.error.conflict": {"other": "資源狀態衝突"},
+  "common.error.internal": {"other": "系統內部錯誤"},
+  "common.error.invalid_argument": {"other": "請求參數錯誤"},
+  "common.error.permission_denied": {"other": "沒有操作權限"},
+  "common.error.resource_not_found": {"other": "找不到請求的資源"},
+  "common.error.unauthenticated": {"other": "登入狀態已失效，請重新登入"},
+  "common.validation.invalid": {"other": "欄位 {{.Field}} 不符合要求"},
+  "common.validation.required": {"other": "欄位 {{.Field}} 不得為空"}
+}

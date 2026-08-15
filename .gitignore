@@ -1,0 +1,74 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.app
+
+# Go build output
+bin/
+!frontend/taro-app/packages/cli/bin/
+!frontend/taro-app/packages/cli/bin/kratos-taro-app.mjs
+dist/
+
+# Go workspace file
+go.work
+
+# Go coverage
+*.cover
+coverage.out
+cover.out
+
+# Dependency directories (optional if using Go Modules)
+vendor/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+
+# Test binary
+
+# Go cache
+.gocache/
+
+# Delve debugger
+__debug_bin
+
+# Local config
+*_local.yaml
+.codex-output/
+.git.backup/
+certs/
+web/
+service_tmp/
+/backend/data/
+/gorse/data/
+
+.pnpm-store/
+*.tgz
+.turbo/
+.workbuddy/
+/docs/superpowers/

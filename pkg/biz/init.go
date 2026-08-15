@@ -1,0 +1,21 @@
+package biz
+
+import (
+	"github.com/google/wire"
+	"github.com/liujitcn/kratos-kit/cache"
+	"github.com/liujitcn/kratos-kit/oss"
+	"github.com/liujitcn/kratos-kit/pprof"
+	"github.com/liujitcn/kratos-kit/queue"
+	"github.com/liujitcn/kratos-kit/translator"
+)
+
+// ProviderSet 提供宿主业务模块共用的 Core 基础上下文。
+var ProviderSet = wire.NewSet(
+	pprof.NewPprof,
+	cache.NewCache,
+	queue.NewQueue,
+	oss.NewOSS,
+	translator.NewTranslator,
+	NewClients,
+	NewBaseCase,
+)

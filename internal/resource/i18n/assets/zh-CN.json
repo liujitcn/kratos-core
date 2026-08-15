@@ -1,0 +1,10 @@
+{
+  "common.error.conflict": {"other": "资源状态冲突"},
+  "common.error.internal": {"other": "系统内部错误"},
+  "common.error.invalid_argument": {"other": "请求参数错误"},
+  "common.error.permission_denied": {"other": "没有操作权限"},
+  "common.error.resource_not_found": {"other": "请求的资源不存在"},
+  "common.error.unauthenticated": {"other": "登录状态已失效，请重新登录"},
+  "common.validation.invalid": {"other": "字段 {{.Field}} 不符合要求"},
+  "common.validation.required": {"other": "字段 {{.Field}} 不能为空"}
+}

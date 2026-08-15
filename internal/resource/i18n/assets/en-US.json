@@ -1,0 +1,10 @@
+{
+  "common.error.conflict": {"other": "The resource state conflicts with this operation"},
+  "common.error.internal": {"other": "An internal error occurred"},
+  "common.error.invalid_argument": {"other": "The request parameters are invalid"},
+  "common.error.permission_denied": {"other": "You do not have permission to perform this operation"},
+  "common.error.resource_not_found": {"other": "The requested resource was not found"},
+  "common.error.unauthenticated": {"other": "Your session has expired. Please sign in again"},
+  "common.validation.invalid": {"other": "Field {{.Field}} is invalid"},
+  "common.validation.required": {"other": "Field {{.Field}} is required"}
+}
