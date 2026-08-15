@@ -68,7 +68,9 @@ func (r *SSE) Serve(ctx context.Context, streamID, channelID string) error {
 	if err != nil {
 		return err
 	}
-	server.ServeStreamHTTP(w, request, sseServer.StreamID(transportID))
+	streamRequest, cleanup := DetachRequestContext(request)
+	defer cleanup()
+	server.ServeStreamHTTP(w, streamRequest, sseServer.StreamID(transportID))
 	return nil
 }
 

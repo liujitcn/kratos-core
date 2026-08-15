@@ -18,6 +18,7 @@ var _ biz.Casbin = (*CasbinRuleCase)(nil)
 
 // CasbinRuleCase 提供 Casbin 权限规则重建能力。
 type CasbinRuleCase struct {
+	*biz.BaseCase
 	*data.CasbinRuleRepository
 	baseMenuRepo   *data.BaseMenuRepository
 	baseRoleRepo   *data.BaseRoleRepository
@@ -28,6 +29,7 @@ type CasbinRuleCase struct {
 
 // NewCasbinRuleCase 创建权限规则业务实例。
 func NewCasbinRuleCase(
+	baseCase *biz.BaseCase,
 	casbinRuleRepo *data.CasbinRuleRepository,
 	baseMenuRepo *data.BaseMenuRepository,
 	baseRoleRepo *data.BaseRoleRepository,
@@ -36,6 +38,7 @@ func NewCasbinRuleCase(
 	authzEngine authzEngine.Engine,
 ) (*CasbinRuleCase, error) {
 	return &CasbinRuleCase{
+		BaseCase:             baseCase,
 		CasbinRuleRepository: casbinRuleRepo,
 		baseMenuRepo:         baseMenuRepo,
 		baseRoleRepo:         baseRoleRepo,
@@ -50,6 +53,15 @@ func NewCasbinRuleCase(
 // 该方法必须在 OpenAPI 接口和租户角色菜单同步完成后调用，以当前数据库数据覆盖 casbin_rule
 // 表，并在规则写入成功后刷新 Casbin 内存策略。
 func (c *CasbinRuleCase) RebuildPolicy(ctx context.Context) error {
+	err := c.RebuildPolicyData(ctx)
+	if err != nil {
+		return err
+	}
+	return c.RefreshPolicy(ctx)
+}
+
+// RebuildPolicyData 按角色、菜单和 API 重建数据库中的 Casbin 规则快照。
+func (c *CasbinRuleCase) RebuildPolicyData(ctx context.Context) error {
 	baseRoleList, err := c.baseRoleRepo.List(ctx)
 	if err != nil {
 		return err
@@ -88,12 +100,11 @@ func (c *CasbinRuleCase) RebuildPolicy(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// 数据库规则提交后再刷新内存策略，确保鉴权引擎看到完整且一致的规则集合。
-	return c.rebuildPolicyRule(ctx)
+	return nil
 }
 
-// rebuildPolicyRule 根据数据库规则刷新内存权限策略。
-func (c *CasbinRuleCase) rebuildPolicyRule(ctx context.Context) error {
+// RefreshPolicy 根据数据库规则刷新内存权限策略。
+func (c *CasbinRuleCase) RefreshPolicy(ctx context.Context) error {
 	policyRule := make([]casbin.PolicyRule, 0)
 	// 为默认租户的超级角色授予全部 API 权限。
 	baseAPIList, err := c.baseAPICase.FindAll(ctx)

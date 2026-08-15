@@ -4,7 +4,7 @@
 
 `kratos-core` is the shared runtime for Kratos services. The host project owns its business cases, services, APIs, and process entry point; Core owns infrastructure, transports, resource registration, and application lifecycle.
 
-Core is not a complete business template. A host supplies one `module.Module` containing its business services and build-time resources, and `NewApplication` assembles and starts the application.
+Core is not a complete business template. A host supplies one `module.Module` containing its business services and build-time resources, and `NewApp` assembles and starts the application.
 
 ## Core Responsibilities
 
@@ -18,7 +18,7 @@ Core is not a complete business template. A host supplies one `module.Module` co
 
 Cross-project Go code is exposed through four entry points:
 
-- The root package provides `ProviderSet`, `NewApplication`, `NewApplicationWithModule`, and the `Module` alias. A host normally only adds `ProviderSet` to its own Wire graph.
+- The root package provides `ProviderSet` and `NewApp`. A host normally only adds `ProviderSet` to its own Wire graph.
 - `pkg` provides the public `biz`, `config`, `const`, `dto`, `errorsx`, and `module` packages.
 - `api` is an independent Go module. `api/proto` contains Core protobuf definitions and `api/gen/go` contains generated Go types.
 - `client` is an independent Go module that provides gRPC connections based on `kratos-kit` configuration, including in-process gRPC connections.
@@ -51,7 +51,7 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 }
 ```
 
-Core's `ProviderSet` already includes configuration parsing, data access, authentication middleware, resource registries, transports, job scheduling, and `biz.ProviderSet`. The host must not add those providers a second time. `wire_gen.go` must be generated with `make wire` or the host project's Wire command; it is not hand-maintained.
+Core's `ProviderSet` only adds `NewApp` to the host's Wire graph; it does not expose `BaseCase`, `Job`, `Docs`, `OpenAPI`, or `SSE` as host Wire outputs. Host business cases should still add the public `pkg/biz.ProviderSet`, `pkg/config.ProviderSet`, and their own providers as needed, without importing Core's `internal` packages. `wire_gen.go` must be generated with `make wire` or the host project's Wire command; it is not hand-maintained.
 
 ## Module Contract
 
@@ -79,7 +79,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `RegisterSSE` | Register business SSE streams, usually with `server.RegisterStream`. An error aborts assembly. |
 | `Resources` | Return models, migrations, OpenAPI, project documentation, and i18n resources. |
 
-Multiple business modules can be passed as separate arguments to `NewApplication`. Core collects resources and forwards protocol registration in argument order. Duplicate documentation paths, conflicting OpenAPI documents, i18n keys with different contents, or duplicate SSE stream IDs are rejected during assembly.
+Multiple business modules can be passed as separate arguments to `NewApp`. Core collects resources and forwards protocol registration in argument order. Duplicate documentation paths, conflicting OpenAPI documents, i18n keys with different contents, or duplicate SSE stream IDs are rejected during assembly.
 
 ## Build-Time Resources
 
@@ -134,13 +134,12 @@ The queue runtime consumes Core log and job-log messages and forwards host consu
 
 ## Startup Order
 
-The main `NewApplication` assembly sequence is:
+The main `NewApp` assembly sequence is:
 
-1. Parse startup settings, JWT, and databases, then create data sources from module models.
-2. Collect module resources and build documentation, i18n, OpenAPI, and migration registries.
-3. Create authentication/authorization, HTTP/gRPC/MCP/SSE, queue, and Cron runtimes, invoking module registration methods.
-4. Run database migrations, then rebuild OpenAPI APIs, tenant role menus, and Casbin policies.
-5. Return the Kratos App and cleanup function. Cleanup stops services, migrations, databases, cache, queue, and other infrastructure in reverse order.
+1. Parse startup settings and collect module resources, then create data sources and the migration registry from module models.
+2. Run database migrations, then synchronize OpenAPI APIs, tenant role menus, and Casbin database rules in one transaction; refresh in-memory policies after commit.
+3. Create shared infrastructure, authentication/authorization, HTTP/gRPC/MCP/SSE, queue, and Cron runtimes, invoking module registration methods.
+4. Assemble the Kratos App. Kratos owns transport startup and shutdown; the returned cleanup function releases the remaining infrastructure.
 
 ## Directory Responsibilities
 
@@ -170,7 +169,7 @@ internal/
   server/                HTTP, gRPC, MCP, and middleware
   sse/                   SSE stream registration, transport, and publishing
 
-application.go           Public ProviderSet and application lifecycle assembly
+bootstrap.go             Public ProviderSet and application lifecycle assembly
 wire.go                  Core Wire composition root
 wire_gen.go              Wire-generated output
 Makefile                 Generation, formatting, testing, and static checks

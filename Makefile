@@ -1,4 +1,4 @@
-.PHONY: help fmt lint test vet api wire buf-push
+.PHONY: help fmt lint test vet api wire buf-push tag
 
 GO_BIN_DIR ?= $(or $(shell go env GOBIN),$(shell go env GOPATH)/bin)
 WIRE_DIR ?= .
@@ -44,6 +44,10 @@ buf-push: api fmt
 		exit 0; \
 	fi; \
 	$(MAKE) fmt && cd api && buf push --label main
+
+# 统一打 tag：默认递归扫描；MODULE 指定起始目录，EXACT=1 时仅处理该 module（不提交代码）
+tag:
+	@python3 scripts/tag_release.py $(if $(MODULE),--path $(MODULE),) $(if $(EXACT),--exact,)
 
 # 显示帮助
 help:

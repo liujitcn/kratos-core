@@ -14,5 +14,5 @@ var ProviderSet = wire.NewSet(
 	i18n.ProviderSet,
 	openapi.ProviderSet,
 	migration.NewMigration,
-	NewPermissionSynchronizer,
+	NewSyncResult,
 )

@@ -6,8 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/liujitcn/kratos-core/internal/biz/dto"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/data/models"
+	"github.com/liujitcn/kratos-core/pkg/biz"
 	_const "github.com/liujitcn/kratos-core/pkg/const"
 	kitutils "github.com/liujitcn/kratos-kit/utils"
 	"gopkg.in/yaml.v3"
@@ -15,107 +17,13 @@ import (
 
 // BaseAPICase 接口业务实例。
 type BaseAPICase struct {
+	*biz.BaseCase
 	*data.BaseAPIRepository
 }
 
-// OpenAPI 描述 OpenAPI 文档结构。
-type OpenAPI struct {
-	Paths      map[string]PathItem `yaml:"paths"`
-	Tags       []TagsItem          `yaml:"tags"`
-	Components Components          `yaml:"components"`
-}
-
-// PathItem 描述单个路径的请求方法。
-type PathItem struct {
-	Get    *Operation `yaml:"get,omitempty"`
-	Post   *Operation `yaml:"post,omitempty"`
-	Put    *Operation `yaml:"put,omitempty"`
-	Delete *Operation `yaml:"delete,omitempty"`
-}
-
-// PathOperation 描述单个路径下的 HTTP 操作。
-type PathOperation struct {
-	Method    string
-	Operation *Operation
-}
-
-// TagsItem 描述 OpenAPI 标签信息。
-type TagsItem struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-}
-
-// Operation 描述单个接口操作项。
-type Operation struct {
-	Tags        []string            `yaml:"tags"`
-	Summary     string              `yaml:"summary"`
-	Description string              `yaml:"description"`
-	OperationID string              `yaml:"operationId"`
-	Parameters  []Parameter         `yaml:"parameters"`
-	RequestBody *RequestBody        `yaml:"requestBody"`
-	Responses   map[string]Response `yaml:"responses"`
-}
-
-// Components 描述 OpenAPI 组件定义。
-type Components struct {
-	Schemas map[string]Schema `yaml:"schemas"`
-}
-
-// Parameter 描述 OpenAPI 请求参数。
-type Parameter struct {
-	Name        string `yaml:"name"`
-	In          string `yaml:"in"`
-	Description string `yaml:"description"`
-	Required    bool   `yaml:"required"`
-	Schema      Schema `yaml:"schema"`
-}
-
-// RequestBody 描述 OpenAPI 请求体。
-type RequestBody struct {
-	Description string               `yaml:"description"`
-	Required    bool                 `yaml:"required"`
-	Content     map[string]MediaType `yaml:"content"`
-}
-
-// Response 描述 OpenAPI 响应。
-type Response struct {
-	Description string               `yaml:"description"`
-	Content     map[string]MediaType `yaml:"content"`
-}
-
-// MediaType 描述 OpenAPI 媒体类型。
-type MediaType struct {
-	Schema Schema `yaml:"schema"`
-}
-
-// Schema 描述 OpenAPI Schema。
-type Schema struct {
-	Ref         string            `yaml:"$ref"`
-	Type        string            `yaml:"type"`
-	Format      string            `yaml:"format"`
-	Description string            `yaml:"description"`
-	Enum        []string          `yaml:"enum"`
-	Required    []string          `yaml:"required"`
-	Properties  map[string]Schema `yaml:"properties"`
-	Items       *Schema           `yaml:"items"`
-}
-
 // NewBaseAPICase 创建接口业务实例。
-func NewBaseAPICase(baseAPIRepo *data.BaseAPIRepository) *BaseAPICase {
-	return &BaseAPICase{BaseAPIRepository: baseAPIRepo}
-}
-
-// ParseOpenAPI 解析 OpenAPI YAML 文档。
-//
-// 该方法只做 YAML 解码并完整保留 paths、tags 与 schemas，业务层可同时复用同一份文档
-// 生成权限数据和展示接口文档。
-func ParseOpenAPI(openAPIData []byte) (*OpenAPI, error) {
-	var api OpenAPI
-	err := yaml.Unmarshal(openAPIData, &api)
-	if err != nil {
-		return nil, err
-	}
-	return &api, nil
+func NewBaseAPICase(baseCase *biz.BaseCase, baseAPIRepo *data.BaseAPIRepository) *BaseAPICase {
+	return &BaseAPICase{BaseCase: baseCase, BaseAPIRepository: baseAPIRepo}
 }
 
 // OpenAPIDataToBaseAPI 将 OpenAPI 文档转换为待持久化的接口模型。
@@ -155,30 +63,17 @@ func (c *BaseAPICase) OpenAPIDataToBaseAPI(openAPIData []byte) ([]*models.BaseAP
 	return baseAPIList, nil
 }
 
-// Operation 按精确的 HTTP path 和 method 查询 OpenAPI 操作定义。
+// ParseOpenAPI 解析 OpenAPI YAML 文档。
 //
-// 未找到路径、文档为空或 method 不在当前权限同步支持的 GET、POST、PUT、DELETE 范围时返回 nil。
-func (api *OpenAPI) Operation(path, method string) *Operation {
-	if api == nil {
-		return nil
+// 该方法只做 YAML 解码并完整保留 paths、tags 与 schemas，业务层可同时复用同一份文档
+// 生成权限数据和展示接口文档。
+func ParseOpenAPI(openAPIData []byte) (*dto.OpenAPI, error) {
+	var api dto.OpenAPI
+	err := yaml.Unmarshal(openAPIData, &api)
+	if err != nil {
+		return nil, err
 	}
-	item, ok := api.Paths[path]
-	if !ok {
-		return nil
-	}
-	// HTTP 方法决定同一路径下需要返回的操作定义。
-	switch method {
-	case "GET":
-		return item.Get
-	case "POST":
-		return item.Post
-	case "PUT":
-		return item.Put
-	case "DELETE":
-		return item.Delete
-	default:
-		return nil
-	}
+	return &api, nil
 }
 
 // buildServicePackageMap 从全部 OpenAPI operation 的 schema 引用推断服务所属 protobuf 包。
@@ -186,7 +81,7 @@ func (api *OpenAPI) Operation(path, method string) *Operation {
 // 返回键为 servicePackageKey(path, operationId服务名)，值为唯一候选包。一个服务的多个
 // operation 可以共同提供 schema 线索；只要候选包不唯一就不返回该服务，宁可跳过错误记录，
 // 也不能把权限 operation 绑定到另一个模块。
-func buildServicePackageMap(paths map[string]PathItem) map[string]string {
+func buildServicePackageMap(paths map[string]dto.PathItem) map[string]string {
 	candidatesByService := make(map[string]map[string]struct{})
 	for path, item := range paths {
 		for _, pathOperation := range pathOperations(item) {
@@ -227,8 +122,8 @@ func buildServicePackageMap(paths map[string]PathItem) map[string]string {
 //
 // 当前生成链路只把 GET、POST、PUT、DELETE 写入 base_api；未列出的 HEAD、OPTIONS、PATCH
 // 不会生成权限记录，新增受支持方法时必须同时扩展此处和 OpenAPI.Operation。
-func pathOperations(item PathItem) []PathOperation {
-	return []PathOperation{
+func pathOperations(item dto.PathItem) []dto.PathOperation {
+	return []dto.PathOperation{
 		{Method: "GET", Operation: item.Get},
 		{Method: "POST", Operation: item.Post},
 		{Method: "PUT", Operation: item.Put},
@@ -277,7 +172,7 @@ func openAPITerminal(path string) string {
 //
 // 请求参数、请求体和响应可能引用不同的 schema；统一收集后由 buildServicePackageMap
 // 判断服务是否只有一个候选包，防止共享 DTO 或错误引用污染权限 operation。
-func operationProtoPackages(path string, operation *Operation) map[string]struct{} {
+func operationProtoPackages(path string, operation *dto.Operation) map[string]struct{} {
 	packages := make(map[string]struct{})
 	// 缺少 operation 时没有 schema 可以用于包名推断。
 	if operation == nil {
@@ -305,7 +200,7 @@ func operationProtoPackages(path string, operation *Operation) map[string]struct
 //
 // 共享 schema（如 common.v1）会出现在多种业务 operation 中，只有包名终端与 HTTP 路径终端
 // 一致时才成为候选，避免将共享类型误认为服务所属包。
-func collectSchemaProtoPackages(path string, schema Schema, packages map[string]struct{}) {
+func collectSchemaProtoPackages(path string, schema dto.Schema, packages map[string]struct{}) {
 	packageName := protoPackageFromSchemaRef(schema.Ref)
 	// schema 引用的包与当前 HTTP 终端一致时，才能作为服务所属包名候选。
 	if packageName != "" && protoPackageTerminal(packageName) == openAPITerminal(path) {
@@ -364,7 +259,7 @@ func protoPackageTerminal(packageName string) string {
 // buildTagsMap 构建“完整服务名 -> 服务描述”的索引。
 //
 // OpenAPI tag 名可能在 admin 与 app 重复，因此先由 tag 描述确定终端，再结合服务包索引生成完整键。
-func buildTagsMap(tags []TagsItem, servicePackages map[string]string) map[string]string {
+func buildTagsMap(tags []dto.TagsItem, servicePackages map[string]string) map[string]string {
 	tagsMap := make(map[string]string, len(tags))
 	for _, item := range tags {
 		terminal := terminalByTagDescription(item.Description)
@@ -400,7 +295,7 @@ func terminalByTagDescription(description string) string {
 //
 // service_name 固定为 {protobuf包}.{operationId服务名}，operation 固定为
 // /{protobuf包}.{operationId服务名}/{operationId方法名}，两者与 Kratos 运行时鉴权值保持一致。
-func parseOperation(path, method string, op *Operation, tagsMap map[string]string, servicePackages map[string]string) (*models.BaseAPI, error) {
+func parseOperation(path, method string, op *dto.Operation, tagsMap map[string]string, servicePackages map[string]string) (*models.BaseAPI, error) {
 	// 操作项为空时，当前请求方法无需生成接口权限数据。
 	if op == nil {
 		return nil, nil
@@ -445,7 +340,7 @@ func parseOperation(path, method string, op *Operation, tagsMap map[string]strin
 
 // operationDescription 获取接口面向管理端和工具目录的说明文本。
 // description 用于完整说明，缺失时才使用简短的 summary。
-func operationDescription(op *Operation) string {
+func operationDescription(op *dto.Operation) string {
 	if op.Description != "" {
 		return op.Description
 	}

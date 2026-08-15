@@ -20,8 +20,8 @@ import (
 	"github.com/liujitcn/kratos-kit/bootstrap"
 )
 
-// NewApplication 通过 Core ProviderSet 装配多个业务模块。
-func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func(), error) {
+// NewApp 通过 Core ProviderSet 装配多个业务模块。
+func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func(), error) {
 	panic(wire.Build(
 		// 1. 解析配置并收集宿主模块资源，供数据库、资源注册表和服务使用。
 		config.ProviderSet,
@@ -36,9 +36,8 @@ func NewApplication(ctx *bootstrap.Context, modules ...module.Module) (*kratos.A
 		mcp.ProviderSet,
 		// 3. 创建鉴权、中间件和协议服务器。
 		server.ProviderSet,
-		// 4. 创建启动期资源同步业务，并组装服务列表和应用生命周期。
+		// 4. 创建启动期资源同步业务，并组装应用生命周期。
 		internalBiz.ProviderSet,
-		newServers,
-		newApplication,
+		newApp,
 	))
 }

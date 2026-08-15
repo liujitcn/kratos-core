@@ -23,12 +23,12 @@ func (r *CasbinRuleRepository) FindAll(ctx context.Context) ([]*models.CasbinRul
 	return result, err
 }
 
-// ReplaceAll 使用当前数据源重建全部 Casbin 规则，并通过 TRUNCATE 重置自增 ID。
+// ReplaceAll 使用当前数据源重建全部 Casbin 规则，并在事务内删除旧快照。
 func (r *CasbinRuleRepository) ReplaceAll(ctx context.Context, items []*models.CasbinRule) error {
 	return r.data.Transaction(ctx, func(ctx context.Context) error {
 		db := r.data.DB(ctx)
 		var err error
-		err = db.Exec("TRUNCATE TABLE `casbin_rule`").Error //nolint:forbidigo // 重建规则并重置自增 ID，GORM 无法表达 TRUNCATE
+		err = db.Exec("DELETE FROM `casbin_rule`").Error //nolint:forbidigo // 事务内重建权限快照，避免 TRUNCATE 的隐式提交
 		if err != nil {
 			return err
 		}

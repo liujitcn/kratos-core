@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 
+	"github.com/go-kratos/kratos/v3/log"
 	kratosTransport "github.com/go-kratos/kratos/v3/transport"
 	"github.com/liujitcn/kratos-core/pkg/module"
 	bootstrapConfigv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
@@ -24,11 +25,11 @@ type Server struct {
 var _ kratosTransport.Server = (*Server)(nil)
 var _ kratosTransport.Endpointer = (*Server)(nil)
 
-// NewServer 按 Server_Mcp 配置创建 MCP 服务，并注册全部模块工具。
-func NewServer(ctx *bootstrap.Context, modules module.Modules) (*Server, error) {
+// NewServer 按 Server_Mcp 配置创建 MCP 服务、注册全部模块工具，并返回进程内服务清理函数。
+func NewServer(ctx *bootstrap.Context, modules module.Modules) (*Server, func(), error) {
 	cfg := ctx.GetConfig()
 	if cfg == nil || cfg.Server == nil || cfg.Server.Mcp == nil {
-		return nil, nil
+		return nil, func() {}, nil
 	}
 	inProcess := cfg.Server.Mcp.GetTransport() == bootstrapConfigv1.Server_Mcp_IN_PROCESS
 	var server *mcpServer.Server
@@ -39,12 +40,21 @@ func NewServer(ctx *bootstrap.Context, modules module.Modules) (*Server, error) 
 		server, err = rpc.CreateMcpServer(cfg)
 	}
 	if err != nil {
-		return nil, err
+		return nil, func() {}, err
+	}
+	runtime := &Server{Server: server, InProcess: inProcess}
+	cleanup := func() {
+		if !runtime.InProcess || runtime.Server == nil {
+			return
+		}
+		if stopErr := runtime.Stop(context.Background()); stopErr != nil {
+			log.Error("停止进程内 MCP 服务失败", "error", stopErr)
+		}
 	}
 	if server != nil {
 		modules.RegisterMCP(server)
 	}
-	return &Server{Server: server, InProcess: inProcess}, nil
+	return runtime, cleanup, nil
 }
 
 // Start 启动独立 MCP 服务，进程内模式由 HTTP 宿主负责承载。

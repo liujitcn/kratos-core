@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-kratos/kratos/v3/log"
 	kratosMiddleware "github.com/go-kratos/kratos/v3/middleware"
 	kratosTransport "github.com/go-kratos/kratos/v3/transport"
 	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
@@ -98,7 +99,9 @@ func NewHTTPServer(
 		if serverReturned {
 			return
 		}
-		_ = srv.Stop(context.Background())
+		if stopErr := srv.Stop(context.Background()); stopErr != nil {
+			log.Error("停止 Core HTTP 服务失败", "error", stopErr)
+		}
 	}()
 
 	modules.RegisterHTTP(srv)
@@ -195,25 +198,8 @@ func NewSSEHTTPHandler(server *sseServer.Server, resolver sseServer.StreamIDReso
 
 // serveSSEHTTP 为 SSE 请求移除服务级 deadline，同时保留客户端断开带来的取消信号。
 func serveSSEHTTP(request *stdhttp.Request, handler func(*stdhttp.Request)) {
-	if request == nil || request.Context() == nil {
-		handler(request)
-		return
-	}
-	originalContext := request.Context()
-	streamContext, cancel := context.WithCancel(context.WithoutCancel(originalContext))
-	finished := make(chan struct{})
-	go func() {
-		select {
-		case <-originalContext.Done():
-			if !errors.Is(originalContext.Err(), context.DeadlineExceeded) {
-				cancel()
-			}
-		case <-finished:
-		}
-	}()
-	defer close(finished)
-	defer cancel()
-	streamRequest := request.WithContext(streamContext)
+	streamRequest, cleanup := sse.DetachRequestContext(request)
+	defer cleanup()
 	handler(streamRequest)
 }
 

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-kratos/kratos/v3/log"
 	kratosTransport "github.com/go-kratos/kratos/v3/transport"
 	_const "github.com/liujitcn/kratos-core/pkg/const"
 	"github.com/liujitcn/kratos-core/pkg/module"
@@ -62,11 +63,11 @@ func NewStreamResolver(registry *Registry, authenticator authnEngine.Authenticat
 	}
 }
 
-// NewServer 按 Server_Sse 配置创建 SSE 服务，并调用模块注册业务流。
-func NewServer(ctx *bootstrap.Context, resolver sseServer.StreamIDResolver, modules module.Modules, registry *Registry) (*Server, error) {
+// NewServer 按 Server_Sse 配置创建 SSE 服务、注册业务流，并返回进程内服务清理函数。
+func NewServer(ctx *bootstrap.Context, resolver sseServer.StreamIDResolver, modules module.Modules, registry *Registry) (*Server, func(), error) {
 	cfg := ctx.GetConfig()
 	if cfg == nil || cfg.Server == nil || cfg.Server.Sse == nil {
-		return nil, nil
+		return nil, func() {}, nil
 	}
 	options := make([]sseServer.ServerOption, 0, 2)
 	var server *sseServer.Server
@@ -85,17 +86,28 @@ func NewServer(ctx *bootstrap.Context, resolver sseServer.StreamIDResolver, modu
 		server, err = rpc.CreateSseHandler(handlerConfig, options...)
 	}
 	if err != nil {
-		return nil, err
+		return nil, func() {}, err
+	}
+	runtime := &Server{Server: server, InProcess: inProcess, resolver: transportResolver}
+	cleanup := func() {
+		if !runtime.InProcess || runtime.Server == nil {
+			return
+		}
+		if stopErr := runtime.Stop(context.Background()); stopErr != nil {
+			log.Error("停止进程内 SSE 服务失败", "error", stopErr)
+		}
 	}
 	if err = modules.RegisterSSE(server); err != nil {
-		return nil, err
+		cleanup()
+		return nil, func() {}, err
 	}
 	if registry != nil {
 		if err = registry.Register(server.StreamDefinitions()...); err != nil {
-			return nil, err
+			cleanup()
+			return nil, func() {}, err
 		}
 	}
-	return &Server{Server: server, InProcess: inProcess, resolver: transportResolver}, nil
+	return runtime, cleanup, nil
 }
 
 // Start 启动独立 SSE 服务，进程内模式由 HTTP 宿主负责承载。

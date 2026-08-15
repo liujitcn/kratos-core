@@ -4,7 +4,7 @@
 
 `kratos-core` 是 Kratos 服务的通用运行时。宿主项目负责业务 Case、Service、API 和进程入口；Core 负责基础设施、传输层、资源注册以及应用生命周期。
 
-Core 不是完整的业务模板。宿主通过一个 `module.Module` 把业务服务和构建期资源交给 Core，再由 `NewApplication` 统一装配和启动。
+Core 不是完整的业务模板。宿主通过一个 `module.Module` 把业务服务和构建期资源交给 Core，再由 `NewApp` 统一装配和启动。
 
 ## Core 负责什么
 
@@ -18,7 +18,7 @@ Core 不是完整的业务模板。宿主通过一个 `module.Module` 把业务�
 
 跨项目可以依赖的 Go 代码分为四个入口：
 
-- 根包提供 `ProviderSet`、`NewApplication`、`NewApplicationWithModule` 和 `Module` 别名。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 图。
+- 根包提供 `ProviderSet` 和 `NewApp`。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 图。
 - `pkg` 提供 `biz`、`config`、`const`、`dto`、`errorsx` 和 `module` 公共包。
 - `api` 是独立 Go 模块，`api/proto` 保存 Core 的 protobuf 定义，`api/gen/go` 保存生成的 Go 类型。
 - `client` 是独立 Go 模块，提供基于 `kratos-kit` 配置的 gRPC 连接和进程内 gRPC 连接。
@@ -51,7 +51,7 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 }
 ```
 
-Core 的 `ProviderSet` 已经包含配置解析、数据访问、认证中间件、资源注册、传输服务、任务调度和 `biz.ProviderSet`，宿主不需要重复引入这些 Provider。`wire_gen.go` 只能通过 `make wire` 或项目自己的 Wire 命令生成，不能手工维护。
+Core 的 `ProviderSet` 只负责把 `NewApp` 接入宿主的 Wire 图；它不会把 `BaseCase`、`Job`、`Docs`、`OpenAPI` 或 `SSE` 作为宿主 Wire 输出。宿主自己的业务 Case 仍应按需引入 `pkg/biz.ProviderSet`、`pkg/config.ProviderSet` 和业务 Provider，但不应直接依赖 Core 的 `internal` 包。`wire_gen.go` 只能通过 `make wire` 或项目自己的 Wire 命令生成，不能手工维护。
 
 ## 模块契约
 
@@ -81,7 +81,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `RegisterSSE` | 注册业务 SSE 流，通常调用 `server.RegisterStream`。返回错误会中止装配。 |
 | `Resources` | 返回模型、迁移、OpenAPI、项目文档和 I18n 等静态资源。 |
 
-多个业务模块可以作为 `NewApplication` 的多个参数传入。Core 会按传入顺序收集资源并转发协议注册；重复文档路径、冲突的 OpenAPI 文档、内容不同的 I18n 消息键或重复 SSE 流标识会在装配时被拒绝。
+多个业务模块可以作为 `NewApp` 的多个参数传入。Core 会按传入顺序收集资源并转发协议注册；重复文档路径、冲突的 OpenAPI 文档、内容不同的 I18n 消息键或重复 SSE 流标识会在装配时被拒绝。
 
 ## 构建期资源
 
@@ -136,13 +136,12 @@ HTTP 和 gRPC 服务会按配置挂载 request ID、I18n、日志、认证授权
 
 ## 启动顺序
 
-`NewApplication` 的主要装配顺序如下：
+`NewApp` 的主要装配顺序如下：
 
-1. 解析启动配置、JWT 和数据库，并根据模块模型创建数据源。
-2. 收集模块资源，建立文档、I18n、OpenAPI 和迁移注册表。
-3. 创建认证授权、HTTP/gRPC/MCP/SSE、队列和 Cron 运行时，并调用模块注册方法。
-4. 执行数据库迁移；随后重建 OpenAPI 接口、租户角色菜单和 Casbin 策略。
-5. 返回 Kratos App 和清理函数。清理时按逆序停止服务、迁移、数据库、缓存、队列和其他基础组件。
+1. 解析启动配置并收集模块资源，根据模块模型创建数据源和迁移注册表。
+2. 执行数据库迁移，随后在同一事务中同步 OpenAPI 接口、租户角色菜单和 Casbin 数据库规则；事务提交后刷新内存策略。
+3. 创建共享基础服务、认证授权、HTTP/gRPC/MCP/SSE、队列和 Cron 运行时，并调用模块注册方法。
+4. 组装 Kratos App；应用运行时统一启动和停止传输服务，返回的清理函数负责释放其余基础资源。
 
 ## 目录职责
 
@@ -172,7 +171,7 @@ internal/
   server/                HTTP、gRPC、MCP 和中间件
   sse/                   SSE 流注册、传输和发布
 
-application.go           对外 ProviderSet 和应用生命周期装配
+bootstrap.go             对外 ProviderSet 和应用生命周期装配
 wire.go                  Core 内部 Wire 组合根
 wire_gen.go              Wire 生成产物
 Makefile                 生成、格式化、测试和静态检查命令
@@ -188,6 +187,35 @@ make test      # go test ./...
 make vet       # go vet ./...
 make lint      # 当前等同于 make vet
 ```
+
+## 发布版本 tag
+
+`scripts/tag_release.py` 参照 `kratos-kit` 按 Go module 独立发布版本。执行前先提交并推送代码，脚本只检查远程默认分支上的提交，不会提交工作区改动：
+
+```bash
+git add -A
+git commit -m "提交说明"
+git push origin main
+
+make tag
+```
+
+默认扫描根模块、`api` 和 `client`，只有模块自上一个 tag 后存在已推送的代码更新时才创建并推送下一个 patch tag：
+
+| 模块 | tag 格式 |
+| --- | --- |
+| 根模块 | `vX.Y.Z` |
+| `api` | `api/vX.Y.Z` |
+| `client` | `client/vX.Y.Z` |
+
+也可以只处理指定模块：
+
+```bash
+MODULE=api make tag              # 从 api 目录开始递归扫描
+MODULE=api EXACT=1 make tag      # 只处理 api 模块
+```
+
+脚本会自动跳过没有代码更新或 tag 已存在的模块；根模块的变更检测会排除 `api` 和 `client` 子模块，避免子模块改动重复触发根模块 tag。
 
 项目要求 Go `1.26.5`。`api` 和 `client` 是独立 Go 模块，修改它们时还应分别执行 `cd api && go test ./...`、`cd client && go test ./...`。修改公共模块契约后，应额外编译依赖 Core 的宿主项目。
 

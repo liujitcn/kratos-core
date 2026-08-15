@@ -4,7 +4,7 @@
 
 `kratos-core` 是 Kratos 服務的通用執行時。宿主專案負責業務 Case、Service、API 和程序入口；Core 負責基礎設施、傳輸層、資源註冊以及應用程式生命週期。
 
-Core 不是完整的業務範本。宿主透過一個 `module.Module` 將業務服務和建置期資源交給 Core，再由 `NewApplication` 統一組裝和啟動。
+Core 不是完整的業務範本。宿主透過一個 `module.Module` 將業務服務和建置期資源交給 Core，再由 `NewApp` 統一組裝和啟動。
 
 ## Core 負責什麼
 
@@ -18,7 +18,7 @@ Core 不是完整的業務範本。宿主透過一個 `module.Module` 將業務�
 
 跨專案可以依賴的 Go 程式碼分為四個入口：
 
-- 根套件提供 `ProviderSet`、`NewApplication`、`NewApplicationWithModule` 和 `Module` 別名。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 圖。
+- 根套件提供 `ProviderSet` 和 `NewApp`。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 圖。
 - `pkg` 提供 `biz`、`config`、`const`、`dto`、`errorsx` 和 `module` 公開套件。
 - `api` 是獨立 Go 模組，`api/proto` 保存 Core 的 protobuf 定義，`api/gen/go` 保存產生的 Go 類型。
 - `client` 是獨立 Go 模組，提供基於 `kratos-kit` 設定的 gRPC 連線和行程內 gRPC 連線。
@@ -51,7 +51,7 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 }
 ```
 
-Core 的 `ProviderSet` 已包含設定解析、資料存取、認證中介軟體、資源註冊表、傳輸服務、任務排程和 `biz.ProviderSet`，宿主不需要重複引入這些 Provider。`wire_gen.go` 只能透過 `make wire` 或宿主專案自己的 Wire 指令產生，不能手工維護。
+Core 的 `ProviderSet` 只負責將 `NewApp` 接入宿主的 Wire 圖；它不會將 `BaseCase`、`Job`、`Docs`、`OpenAPI` 或 `SSE` 作為宿主 Wire 輸出。宿主自己的業務 Case 仍應按需加入公開的 `pkg/biz.ProviderSet`、`pkg/config.ProviderSet` 和業務 Provider，但不應直接依賴 Core 的 `internal` 套件。`wire_gen.go` 只能透過 `make wire` 或宿主專案自己的 Wire 指令產生，不能手工維護。
 
 ## 模組契約
 
@@ -79,7 +79,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `RegisterSSE` | 註冊業務 SSE 流，通常呼叫 `server.RegisterStream`。回傳錯誤會中止組裝。 |
 | `Resources` | 回傳模型、遷移、OpenAPI、專案文件和 I18n 等靜態資源。 |
 
-多個業務模組可以作為 `NewApplication` 的多個參數傳入。Core 會依傳入順序收集資源並轉發協議註冊；重複文件路徑、衝突的 OpenAPI 文件、內容不同的 I18n 訊息鍵或重複 SSE 流標識會在組裝時被拒絕。
+多個業務模組可以作為 `NewApp` 的多個參數傳入。Core 會依傳入順序收集資源並轉發協議註冊；重複文件路徑、衝突的 OpenAPI 文件、內容不同的 I18n 訊息鍵或重複 SSE 流標識會在組裝時被拒絕。
 
 ## 建置期資源
 
@@ -134,13 +134,12 @@ HTTP 和 gRPC 服務會按設定掛載 request ID、I18n、日誌、認證授權
 
 ## 啟動順序
 
-`NewApplication` 的主要組裝順序如下：
+`NewApp` 的主要組裝順序如下：
 
-1. 解析啟動設定、JWT 和資料庫，根據模組模型建立資料源。
-2. 收集模組資源，建立文件、I18n、OpenAPI 和遷移註冊表。
-3. 建立認證授權、HTTP/gRPC/MCP/SSE、佇列和 Cron 執行時，並呼叫模組註冊方法。
-4. 執行資料庫遷移，接著重建 OpenAPI 介面、租戶角色選單和 Casbin 策略。
-5. 回傳 Kratos App 和清理函式。清理時依反向順序停止服務、遷移、資料庫、快取、佇列和其他基礎設施。
+1. 解析啟動設定並收集模組資源，根據模組模型建立資料源和遷移註冊表。
+2. 執行資料庫遷移，接著在同一事務中同步 OpenAPI 介面、租戶角色選單和 Casbin 資料庫規則；事務提交後刷新記憶體策略。
+3. 建立共用基礎服務、認證授權、HTTP/gRPC/MCP/SSE、佇列和 Cron 執行時，並呼叫模組註冊方法。
+4. 組裝 Kratos App；由應用程式統一啟動和停止傳輸服務，回傳的清理函式負責釋放其餘基礎設施。
 
 ## 目錄職責
 
@@ -170,7 +169,7 @@ internal/
   server/                HTTP、gRPC、MCP 和中介軟體
   sse/                   SSE 流註冊、傳輸和發布
 
-application.go           公開 ProviderSet 和應用程式生命週期組裝
+bootstrap.go             公開 ProviderSet 和應用程式生命週期組裝
 wire.go                  Core Wire 組合根
 wire_gen.go              Wire 產生產物
 Makefile                 產生、格式化、測試和靜態檢查命令

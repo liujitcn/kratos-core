@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"strings"
 
 	"github.com/liujitcn/kratos-core/internal/data/models"
 )
@@ -47,12 +48,20 @@ func (r *BaseAPIRepository) Create(ctx context.Context, item *models.BaseAPI) er
 	return r.data.DB(ctx).Create(item).Error
 }
 
-// ReplaceAll 使用当前数据源重建全部接口记录，并通过 TRUNCATE 重置自增 ID。
+// ReplaceAll 使用当前数据源重建全部接口记录，并保留已有 API 的运行时配置。
 func (r *BaseAPIRepository) ReplaceAll(ctx context.Context, items []*models.BaseAPI) error {
 	return r.data.Transaction(ctx, func(ctx context.Context) error {
 		db := r.data.DB(ctx)
 		var err error
-		err = db.Exec("TRUNCATE TABLE `base_api`").Error //nolint:forbidigo // 重建接口快照并重置自增 ID，GORM 无法表达 TRUNCATE
+		if len(items) > 0 {
+			var existing []*models.BaseAPI
+			err = db.Find(&existing).Error
+			if err != nil {
+				return err
+			}
+			preserveBaseAPISettings(items, existing)
+		}
+		err = db.Exec("DELETE FROM `base_api`").Error //nolint:forbidigo // 事务内重建接口快照，避免 TRUNCATE 的隐式提交
 		if err != nil {
 			return err
 		}
@@ -61,4 +70,45 @@ func (r *BaseAPIRepository) ReplaceAll(ctx context.Context, items []*models.Base
 		}
 		return db.Create(&items).Error
 	})
+}
+
+// preserveBaseAPISettings 将已有 API 的稳定标识和运行时配置复制到新的快照。
+func preserveBaseAPISettings(items, existing []*models.BaseAPI) {
+	existingByKey := make(map[string]*models.BaseAPI, len(existing))
+	for _, item := range existing {
+		if item == nil {
+			continue
+		}
+		key := baseAPIIdentity(item)
+		if key == "" {
+			continue
+		}
+		if _, exists := existingByKey[key]; !exists {
+			existingByKey[key] = item
+		}
+	}
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		existingItem, exists := existingByKey[baseAPIIdentity(item)]
+		if !exists {
+			continue
+		}
+		item.ID = existingItem.ID
+		item.McpStatus = existingItem.McpStatus
+		item.AgentStatus = existingItem.AgentStatus
+		item.ToolPrompts = existingItem.ToolPrompts
+	}
+}
+
+// baseAPIIdentity 根据 HTTP 方法和路径生成 API 快照的稳定关联键。
+func baseAPIIdentity(item *models.BaseAPI) string {
+	if item == nil {
+		return ""
+	}
+	if item.Method != "" && item.Path != "" {
+		return strings.ToUpper(item.Method) + "\x00" + item.Path
+	}
+	return item.Operation
 }
