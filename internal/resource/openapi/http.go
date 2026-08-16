@@ -34,28 +34,39 @@ func RegisterHTTP(server *kratosHTTP.Server, registry *Registry, opts HTTPOption
 	}
 
 	var err error
-	for _, document := range registry.Documents() {
-		rawPath := documentPath + "/" + document.Key
-		err = swaggerUI.RegisterOpenAPIServerWithOption(
-			server,
-			swaggerUI.WithOpenAPIPath(rawPath),
-			swaggerUI.WithMemoryData(document.Data, "yaml"),
-			swaggerUI.WithOpenAPIAuthorizer(authorizer),
-		)
-		if err != nil {
-			return fmt.Errorf("注册 OpenAPI 文档: %w", err)
-		}
-		err = swaggerUI.RegisterSwaggerUIServerWithOption(
-			server,
-			swaggerUI.WithTitle(document.Name),
-			swaggerUI.WithBasePath(swaggerPath+"/"+document.Key+"/"),
-			swaggerUI.WithRemoteFileURL(rawPath),
-		)
-		if err != nil {
-			return fmt.Errorf("注册 Swagger UI: %w", err)
+	locales := append([]string{""}, registry.Locales()...)
+	for _, locale := range locales {
+		for _, document := range registry.DocumentsByLocale(locale) {
+			rawPath := documentPath + "/" + document.Key + documentLocalePath(locale)
+			err = swaggerUI.RegisterOpenAPIServerWithOption(
+				server,
+				swaggerUI.WithOpenAPIPath(rawPath),
+				swaggerUI.WithMemoryData(document.Data, "yaml"),
+				swaggerUI.WithOpenAPIAuthorizer(authorizer),
+			)
+			if err != nil {
+				return fmt.Errorf("注册 OpenAPI 文档: %w", err)
+			}
+			err = swaggerUI.RegisterSwaggerUIServerWithOption(
+				server,
+				swaggerUI.WithTitle(document.Name),
+				swaggerUI.WithBasePath(swaggerPath+"/"+document.Key+documentLocalePath(locale)+"/"),
+				swaggerUI.WithRemoteFileURL(rawPath),
+			)
+			if err != nil {
+				return fmt.Errorf("注册 Swagger UI: %w", err)
+			}
 		}
 	}
 	return nil
+}
+
+// documentLocalePath 返回语言文档在 HTTP 路由中的可选路径段。
+func documentLocalePath(locale string) string {
+	if locale == "" {
+		return ""
+	}
+	return "/" + locale
 }
 
 // normalizePath 将自定义 HTTP 路径规范化为带前导斜杠的路由前缀。

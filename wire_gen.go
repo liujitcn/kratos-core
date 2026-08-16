@@ -105,7 +105,8 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 	}
 	baseCase, cleanup4 := biz.NewBaseCase(ctx, pprofPprof, cacheCache, queueQueue, ossOSS, translatorTranslator, v3)
 	baseAPIRepository := data.NewBaseAPIRepository(dataData)
-	baseAPICase := biz2.NewBaseAPICase(baseCase, baseAPIRepository)
+	baseAPII18nRepository := data.NewBaseAPII18nRepository(dataData)
+	baseAPICase := biz2.NewBaseAPICase(baseCase, baseAPIRepository, baseAPII18nRepository)
 	baseRoleRepository := data.NewBaseRoleRepository(dataData)
 	baseTenantRepository := data.NewBaseTenantRepository(dataData)
 	baseTenantCase := biz2.NewBaseTenantCase(baseCase, dataData, baseRoleRepository, baseTenantRepository)

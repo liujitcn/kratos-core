@@ -14,7 +14,7 @@ type Resources struct {
 	Docs fs.FS
 	// I18n 是宿主项目语言 JSON 文件系统，文件名应使用 locale 标识。
 	I18n fs.FS
-	// OpenAPI 是宿主项目生成的 Swagger/OpenAPI 文件系统集合，通常包含 openapi.yaml。
+	// OpenAPI 是宿主项目生成的 Swagger/OpenAPI 文件系统集合，包含默认 openapi.yaml 和可选的 openapi.<locale>.yaml。
 	OpenAPI fs.FS
 	// Migrations 是宿主提供的数据库迁移资源。
 	Migrations Migrations

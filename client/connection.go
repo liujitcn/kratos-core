@@ -6,11 +6,13 @@ import (
 	"sync"
 
 	"github.com/go-kratos/kratos/v3/log"
+	"github.com/go-kratos/kratos/v3/middleware"
 	kratosRegistry "github.com/go-kratos/kratos/v3/registry"
+	kratosTransport "github.com/go-kratos/kratos/v3/transport"
 	"github.com/liujitcn/kratos-core/client/localgrpc"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
-	kitRPC "github.com/liujitcn/kratos-kit/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 var _ grpc.ClientConnInterface = (*Connection)(nil)
@@ -30,6 +32,7 @@ type LocalServiceRegistrar func(grpc.ServiceRegistrar)
 type connectionOptions struct {
 	discovery     kratosRegistry.Discovery
 	localServices []LocalServiceRegistrar
+	middlewares   []middleware.Middleware
 }
 
 // WithDiscovery 为使用 discovery:/// 地址的客户端连接注入服务发现器。
@@ -43,6 +46,13 @@ func WithDiscovery(discovery kratosRegistry.Discovery) Option {
 func WithLocalServices(registrars ...LocalServiceRegistrar) Option {
 	return func(options *connectionOptions) {
 		options.localServices = append(options.localServices, registrars...)
+	}
+}
+
+// WithMiddleware 为 gRPC 客户端连接追加 Kratos 客户端中间件。
+func WithMiddleware(middlewares ...middleware.Middleware) Option {
+	return func(options *connectionOptions) {
+		options.middlewares = append(options.middlewares, middlewares...)
 	}
 }
 
@@ -60,7 +70,18 @@ func NewConnection(ctx context.Context, clientConfig *configv1.Client, options .
 		}
 	}
 	if clientConfig == nil || clientConfig.GetGrpc() == nil || clientConfig.GetGrpc().GetEndpoint() == "" {
-		conn := localgrpc.NewConn()
+		localMiddlewares := connectionOpts.middlewares
+		var err error
+		if clientConfig != nil && clientConfig.GetGrpc() != nil {
+			localMiddlewares, err = appendClientMiddlewares(clientConfig.GetGrpc().GetMiddleware(), localMiddlewares)
+			if err != nil {
+				return nil, nil, fmt.Errorf("创建本地客户端中间件: %w", err)
+			}
+		}
+		localOptions := []localgrpc.Option{
+			localgrpc.WithUnaryInterceptor(newLocalUnaryInterceptor(localMiddlewares)),
+		}
+		conn := localgrpc.NewConn(localOptions...)
 		for _, register := range connectionOpts.localServices {
 			if register != nil {
 				register(conn)
@@ -73,7 +94,7 @@ func NewConnection(ctx context.Context, clientConfig *configv1.Client, options .
 	rpcConfig := &configv1.Bootstrap{Client: clientConfig}
 	var conn grpc.ClientConnInterface
 	var err error
-	conn, err = kitRPC.CreateGrpcClient(ctx, connectionOpts.discovery, "", rpcConfig)
+	conn, err = CreateGrpcClient(ctx, connectionOpts.discovery, "", rpcConfig, connectionOpts.middlewares...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("创建客户端 gRPC 连接: %w", err)
 	}
@@ -133,4 +154,42 @@ func closeConnection(conn grpc.ClientConnInterface) {
 	if err != nil {
 		log.Error("关闭客户端 gRPC 连接失败", "error", err)
 	}
+}
+
+// newLocalUnaryInterceptor 将 Kratos middleware 适配为进程内 unary 拦截器。
+func newLocalUnaryInterceptor(middlewares []middleware.Middleware) grpc.UnaryServerInterceptor {
+	chain := middleware.Chain(middlewares...)
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		requestHeader := make(metadata.MD)
+		if outgoing, ok := metadata.FromOutgoingContext(ctx); ok {
+			requestHeader = outgoing.Copy()
+		}
+		operation := ""
+		if info != nil {
+			operation = info.FullMethod
+		}
+		localTransport := newLocalTransport(operation, requestHeader)
+		ctx = kratosTransport.NewClientContext(ctx, localTransport)
+		return chain(func(ctx context.Context, req any) (any, error) {
+			serverContext := kratosTransport.NewServerContext(ctx, localTransport)
+			serverContext = metadata.NewIncomingContext(serverContext, localIncomingMetadata(ctx, localTransport))
+			return handler(serverContext, req)
+		})(ctx, req)
+	}
+}
+
+// localIncomingMetadata 合并 middleware 链结束后的 outgoing metadata 与 transport 请求头。
+func localIncomingMetadata(ctx context.Context, localTransport *localTransport) metadata.MD {
+	requestHeader := metadata.MD(localTransport.requestHeader).Copy()
+	outgoing, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		return requestHeader
+	}
+	for key := range localTransport.initialRequestHeader {
+		delete(requestHeader, key)
+	}
+	for key, values := range outgoing {
+		requestHeader[key] = append([]string(nil), values...)
+	}
+	return requestHeader
 }

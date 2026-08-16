@@ -40,7 +40,7 @@ func NewSyncResult(
 	if migrations == nil {
 		return nil, fmt.Errorf("数据库迁移资源未初始化")
 	}
-	if transaction == nil || baseAPICase == nil || baseTenantCase == nil || casbinRuleCase == nil {
+	if transaction == nil || baseAPICase == nil || baseAPICase.BaseAPIRepository == nil || baseAPICase.BaseAPII18nRepository == nil || baseTenantCase == nil || casbinRuleCase == nil {
 		return nil, fmt.Errorf("资源同步依赖未初始化")
 	}
 	s := &synchronizer{
@@ -50,10 +50,24 @@ func NewSyncResult(
 		transaction:    transaction,
 	}
 	var documents []openapi.Document
+	var translations []*models.BaseAPII18n
+	var err error
 	if registry != nil {
-		documents = registry.Documents()
+		documents = registry.DocumentsByLocale("")
+		locales := append([]string{""}, registry.Locales()...)
+		for _, locale := range locales {
+			for _, document := range registry.DocumentsByLocale(locale) {
+				var items []*models.BaseAPII18n
+				items, err = baseAPICase.OpenAPIDataToBaseAPII18n(document.Data, locale)
+				if err != nil {
+					return nil, fmt.Errorf("解析 OpenAPI 国际化文档 %q/%q: %w", document.Key, locale, err)
+				}
+				translations = append(translations, items...)
+			}
+		}
 	}
-	apiCount, err := s.sync(ctx.Context(), documents)
+	var apiCount int
+	apiCount, err = s.sync(ctx.Context(), documents, translations)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +77,7 @@ func NewSyncResult(
 // sync 按 API、租户角色菜单和 Casbin 规则的依赖顺序同步资源。
 //
 // API 快照先清空并重建，再同步租户角色菜单，最后重建数据库规则和内存策略。
-func (s *synchronizer) sync(ctx context.Context, documents []openapi.Document) (int, error) {
+func (s *synchronizer) sync(ctx context.Context, documents []openapi.Document, translations []*models.BaseAPII18n) (int, error) {
 	baseAPIList := make([]*models.BaseAPI, 0)
 	var err error
 	for _, document := range documents {
@@ -75,9 +89,13 @@ func (s *synchronizer) sync(ctx context.Context, documents []openapi.Document) (
 		baseAPIList = append(baseAPIList, items...)
 	}
 	err = s.transaction.Transaction(ctx, func(transactionContext context.Context) error {
-		err = s.baseAPICase.ReplaceAll(transactionContext, baseAPIList)
+		err = s.baseAPICase.BaseAPIRepository.ReplaceAll(transactionContext, baseAPIList)
 		if err != nil {
 			return fmt.Errorf("同步 OpenAPI 接口: %w", err)
+		}
+		err = s.baseAPICase.BaseAPII18nRepository.ReplaceAll(transactionContext, translations)
+		if err != nil {
+			return fmt.Errorf("同步 OpenAPI 国际化接口: %w", err)
 		}
 		err = s.baseTenantCase.SyncTenantRoleMenus(transactionContext)
 		if err != nil {

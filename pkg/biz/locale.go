@@ -1,6 +1,9 @@
 package biz
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 type localeContextKey struct{}
 
@@ -15,5 +18,5 @@ func LocaleFromContext(ctx context.Context) string {
 	if !ok {
 		return ""
 	}
-	return value
+	return strings.TrimSpace(value)
 }

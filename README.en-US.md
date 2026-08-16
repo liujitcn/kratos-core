@@ -91,8 +91,8 @@ Multiple business modules can be passed as separate arguments to `NewApp`. Core 
 | `ProjectName` | Display name for the project; falls back to `ProjectKey`. |
 | `Models` | GORM models grouped by data-source name. Every data source containing models must be configured, and the default data source is required. |
 | `Migrations` | Versioned migrations. Each `module.Migration` declares `Name`, `FS`, `Path`, and `Dependencies`; Core runs them in dependency order. |
-| `OpenAPI` | An `fs.FS` containing `openapi.yaml`, `openapi.yml`, or `openapi.json`. When Swagger is enabled, Core mounts the raw document and Swagger UI for each project. |
-| `Docs` | An `fs.FS` normally containing `docs.json`, used to build the project documentation tree and queried through `biz.Docs`. |
+| `OpenAPI` | An `fs.FS` containing `openapi.yaml`, `openapi.yml`, or `openapi.json`, plus optional `openapi.<locale>.yaml` language files. When Swagger is enabled, Core mounts raw documents and Swagger UI by project and locale. |
+| `Docs` | An `fs.FS` normally containing `docs.json`; the generator writes translations into `locale`, which are selected by request locale and fall back to the default body. |
 | `I18n` | An `fs.FS` containing locale files such as `zh-CN.json`, `zh-TW.json`, `en-US.json`, and `ja-JP.json`; Core merges them with its built-in messages. |
 
 Hosts commonly provide these resources through `embed.FS`, a code generator, or `fstest.MapFS`:
@@ -122,8 +122,8 @@ func NewModuleResources() module.Resources {
 Core also exposes these capability interfaces:
 
 - `biz.Job`: start, stop, or immediately run persistent database jobs.
-- `biz.Docs`: query the merged project documentation tree and document bodies.
-- `biz.OpenAPI`: query OpenAPI information by service or HTTP operation.
+- `biz.Docs`: query the merged project documentation tree and document bodies selected by request locale.
+- `biz.OpenAPI`: query OpenAPI information by request locale, service, or HTTP operation.
 - `biz.SSE`: create SSE subscriptions and publish JSON events.
 
 ### Services and Middleware
@@ -137,7 +137,7 @@ The queue runtime consumes Core log and job-log messages and forwards host consu
 The main `NewApp` assembly sequence is:
 
 1. Parse startup settings and collect module resources, then create data sources and the migration registry from module models.
-2. Run database migrations, then synchronize OpenAPI APIs, tenant role menus, and Casbin database rules in one transaction; refresh in-memory policies after commit.
+2. Run database migrations, then synchronize OpenAPI APIs, the `base_api_i18n` locale snapshot, tenant role menus, and Casbin database rules in one transaction; locale rows use the `operation + locale` key and do not reference the mutable `base_api.id`; refresh in-memory policies after commit.
 3. Create shared infrastructure, authentication/authorization, HTTP/gRPC/MCP/SSE, queue, and Cron runtimes, invoking module registration methods.
 4. Assemble the Kratos App. Kratos owns transport startup and shutdown; the returned cleanup function releases the remaining infrastructure.
 

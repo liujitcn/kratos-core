@@ -12,6 +12,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	resourceLocale "github.com/liujitcn/kratos-core/internal/resource/locale"
 	"github.com/liujitcn/kratos-core/pkg/dto"
 )
 
@@ -131,6 +132,7 @@ func (r *Registry) Register(documents ...dto.Document) error {
 		if err := validateDocument(document); err != nil {
 			return err
 		}
+		document.Locale = cloneLocalizedContents(document.Locale)
 		if name, exists := projectNames[document.ProjectKey]; exists && name != document.ProjectName {
 			return fmt.Errorf("项目文档标识 %q 对应多个项目名称", document.ProjectKey)
 		}
@@ -159,7 +161,12 @@ func (r *Registry) Documents() []dto.Document {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	// 复制底层切片，避免调用方修改注册表内部顺序或文档值。
-	return append([]dto.Document(nil), r.documents...)
+	result := make([]dto.Document, 0, len(r.documents))
+	for _, document := range r.documents {
+		document.Locale = cloneLocalizedContents(document.Locale)
+		result = append(result, document)
+	}
+	return result
 }
 
 // Projects 将文档摘要组织为按项目和路径排序的目录树。
@@ -207,14 +214,19 @@ func (r *Registry) Projects() []dto.Project {
 	return result
 }
 
-// Get 按文档 ID 查询文档内容，并返回文档是否存在。
-func (r *Registry) Get(id string) (dto.Document, bool) {
+// Get 按语言和文档 ID 查询文档内容，缺少翻译时回退默认正文。
+func (r *Registry) Get(locale, id string) (dto.Document, bool) {
 	if r == nil {
 		return dto.Document{}, false
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	document, exists := r.documentsByID[id]
+	if !exists {
+		return dto.Document{}, false
+	}
+	document.Locale = cloneLocalizedContents(document.Locale)
+	document.Content = localizedContent(document.Locale, locale, document.Content)
 	return document, exists
 }
 
@@ -243,7 +255,51 @@ func validateDocument(document dto.Document) error {
 	if len(document.Content) > maxDocumentContentBytes {
 		return fmt.Errorf("项目文档超过 2 MiB: %s", document.Path)
 	}
+	locales := make(map[string]struct{}, len(document.Locale))
+	for locale, content := range document.Locale {
+		normalizedLocale := resourceLocale.Normalize(locale)
+		if normalizedLocale == "" {
+			return fmt.Errorf("项目文档语言标识不能为空: %s", document.Path)
+		}
+		if _, exists := locales[normalizedLocale]; exists {
+			return fmt.Errorf("项目文档语言版本重复: %s (%s)", document.Path, locale)
+		}
+		locales[normalizedLocale] = struct{}{}
+		if !utf8.ValidString(content) {
+			return fmt.Errorf("项目文档翻译不是有效 UTF-8: %s (%s)", document.Path, locale)
+		}
+		if len(content) > maxDocumentContentBytes {
+			return fmt.Errorf("项目文档翻译超过 2 MiB: %s (%s)", document.Path, locale)
+		}
+	}
 	return nil
+}
+
+// localizedContent 按精确语言、基础语言和默认正文顺序选择文档内容。
+func localizedContent(contents map[string]string, locale, fallback string) string {
+	if locale == "" || len(contents) == 0 {
+		return fallback
+	}
+	for _, candidate := range resourceLocale.Candidates(locale) {
+		for currentLocale, content := range contents {
+			if resourceLocale.Normalize(currentLocale) == candidate {
+				return content
+			}
+		}
+	}
+	return fallback
+}
+
+// cloneLocalizedContents 复制文档语言内容，避免调用方修改注册表内部状态。
+func cloneLocalizedContents(contents map[string]string) map[string]string {
+	if len(contents) == 0 {
+		return nil
+	}
+	result := make(map[string]string, len(contents))
+	for locale, content := range contents {
+		result[locale] = content
+	}
+	return result
 }
 
 // appendDirectoryDocuments 按声明顺序深度优先展开目录中的全部文档。

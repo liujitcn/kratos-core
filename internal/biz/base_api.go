@@ -19,11 +19,12 @@ import (
 type BaseAPICase struct {
 	*biz.BaseCase
 	*data.BaseAPIRepository
+	*data.BaseAPII18nRepository
 }
 
 // NewBaseAPICase 创建接口业务实例。
-func NewBaseAPICase(baseCase *biz.BaseCase, baseAPIRepo *data.BaseAPIRepository) *BaseAPICase {
-	return &BaseAPICase{BaseCase: baseCase, BaseAPIRepository: baseAPIRepo}
+func NewBaseAPICase(baseCase *biz.BaseCase, baseAPIRepo *data.BaseAPIRepository, baseAPII18nRepo *data.BaseAPII18nRepository) *BaseAPICase {
+	return &BaseAPICase{BaseCase: baseCase, BaseAPIRepository: baseAPIRepo, BaseAPII18nRepository: baseAPII18nRepo}
 }
 
 // OpenAPIDataToBaseAPI 将 OpenAPI 文档转换为待持久化的接口模型。
@@ -61,6 +62,28 @@ func (c *BaseAPICase) OpenAPIDataToBaseAPI(openAPIData []byte) ([]*models.BaseAP
 		return baseAPIList[i].Operation < baseAPIList[j].Operation
 	})
 	return baseAPIList, nil
+}
+
+// OpenAPIDataToBaseAPII18n 将指定语言的 OpenAPI 文档转换为 API 国际化记录。
+func (c *BaseAPICase) OpenAPIDataToBaseAPII18n(openAPIData []byte, locale string) ([]*models.BaseAPII18n, error) {
+	items, err := c.OpenAPIDataToBaseAPI(openAPIData)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*models.BaseAPII18n, 0, len(items))
+	for _, item := range items {
+		if item == nil || item.Operation == "" {
+			continue
+		}
+		result = append(result, &models.BaseAPII18n{
+			Operation:   item.Operation,
+			Locale:      locale,
+			ToolPrompts: item.ToolPrompts,
+			ServiceDesc: item.ServiceDesc,
+			Desc:        item.Desc,
+		})
+	}
+	return result, nil
 }
 
 // ParseOpenAPI 解析 OpenAPI YAML 文档。

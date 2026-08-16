@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"strings"
 
 	"github.com/liujitcn/kratos-core/internal/data/models"
 )
@@ -102,13 +101,10 @@ func preserveBaseAPISettings(items, existing []*models.BaseAPI) {
 	}
 }
 
-// baseAPIIdentity 根据 HTTP 方法和路径生成 API 快照的稳定关联键。
+// baseAPIIdentity 使用 OpenAPI operation 作为 API 快照的稳定关联键。
 func baseAPIIdentity(item *models.BaseAPI) string {
 	if item == nil {
 		return ""
-	}
-	if item.Method != "" && item.Path != "" {
-		return strings.ToUpper(item.Method) + "\x00" + item.Path
 	}
 	return item.Operation
 }

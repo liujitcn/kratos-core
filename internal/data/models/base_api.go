@@ -13,7 +13,7 @@ type BaseAPI struct {
 	ServiceName string                `gorm:"column:service_name;type:varchar(50);not null;comment:服务名" json:"service_name"`
 	ServiceDesc string                `gorm:"column:service_desc;type:varchar(50);not null;comment:服务描述" json:"service_desc"`
 	Desc        string                `gorm:"column:desc;type:varchar(500);not null;comment:描述" json:"desc"`
-	Operation   string                `gorm:"column:operation;type:varchar(255);not null;comment:操作方法" json:"operation"`
+	Operation   string                `gorm:"column:operation;type:varchar(255);not null;uniqueIndex:uk_base_api_operation;comment:操作方法" json:"operation"`
 	Method      string                `gorm:"column:method;type:varchar(10);not null;comment:请求方式" json:"method"`
 	Path        string                `gorm:"column:path;type:varchar(512);not null;comment:请求地址" json:"path"`
 	McpStatus   int32                 `gorm:"column:mcp_status;type:tinyint;not null;index:idx_base_api_mcp_status,priority:1;comment:MCP工具状态：枚举【Status】" json:"mcp_status"`

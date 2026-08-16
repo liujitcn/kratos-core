@@ -1,6 +1,8 @@
 package docs
 
 import (
+	"context"
+
 	"github.com/liujitcn/kratos-core/pkg/biz"
 	"github.com/liujitcn/kratos-core/pkg/dto"
 )
@@ -18,11 +20,11 @@ func NewDocs(registry *Registry) *Docs {
 }
 
 // Projects 查询 Core 保存的项目文档树。
-func (d *Docs) Projects() []dto.Project {
+func (d *Docs) Projects(_ context.Context) []dto.Project {
 	return d.registry.Projects()
 }
 
 // Get 按稳定 ID 查询 Core 保存的项目文档。
-func (d *Docs) Get(id string) (dto.Document, bool) {
-	return d.registry.Get(id)
+func (d *Docs) Get(ctx context.Context, id string) (dto.Document, bool) {
+	return d.registry.Get(biz.LocaleFromContext(ctx), id)
 }

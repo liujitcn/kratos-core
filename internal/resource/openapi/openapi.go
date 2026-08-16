@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -24,8 +25,8 @@ func NewOpenAPI(registry *Registry) *OpenAPI {
 }
 
 // Services 查询 Core 保存的 OpenAPI 服务。
-func (o *OpenAPI) Services(serviceCode string) ([]dto.OpenAPIService, error) {
-	documents := o.registry.Documents()
+func (o *OpenAPI) Services(ctx context.Context, serviceCode string) ([]dto.OpenAPIService, error) {
+	documents := o.registry.DocumentsForLocale(biz.LocaleFromContext(ctx))
 	services := make([]dto.OpenAPIService, 0, len(documents))
 	var err error
 	for _, document := range documents {
@@ -47,8 +48,8 @@ func (o *OpenAPI) Services(serviceCode string) ([]dto.OpenAPIService, error) {
 }
 
 // Service 按 HTTP 操作查询所属 OpenAPI 服务。
-func (o *OpenAPI) Service(path, method string) (dto.OpenAPIService, bool) {
-	document, found := o.registry.DocumentByOperation(path, method)
+func (o *OpenAPI) Service(ctx context.Context, path, method string) (dto.OpenAPIService, bool) {
+	document, found := o.registry.DocumentByOperationForLocale(biz.LocaleFromContext(ctx), path, method)
 	if !found {
 		return dto.OpenAPIService{}, false
 	}
@@ -56,11 +57,11 @@ func (o *OpenAPI) Service(path, method string) (dto.OpenAPIService, bool) {
 }
 
 // GetOperation 按 HTTP 操作查询 OpenAPI 接口文档。
-func (o *OpenAPI) GetOperation(path, method string) (*dto.OpenAPIOperationDocument, error) {
-	if len(o.registry.Documents()) == 0 {
+func (o *OpenAPI) GetOperation(ctx context.Context, path, method string) (*dto.OpenAPIOperationDocument, error) {
+	if len(o.registry.DocumentsForLocale(biz.LocaleFromContext(ctx))) == 0 {
 		return nil, errorsx.ResourceNotFound("OpenAPI文档不存在")
 	}
-	document, found := o.registry.DocumentByOperation(path, method)
+	document, found := o.registry.DocumentByOperationForLocale(biz.LocaleFromContext(ctx), path, method)
 	if !found {
 		return nil, errorsx.ResourceNotFound("OpenAPI文档不存在").WithCause(fmt.Errorf("%s %s", method, path))
 	}

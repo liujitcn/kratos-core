@@ -93,8 +93,8 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `ProjectName` | 项目展示名称；为空时回退到 `ProjectKey`。 |
 | `Models` | 按数据源名称分组的 GORM 模型。含模型的数据源必须在配置中存在，默认数据源必须配置。 |
 | `Migrations` | 版本化迁移列表。每项 `module.Migration` 声明 `Name`、`FS`、`Path` 和 `Dependencies`，Core 按依赖顺序执行。 |
-| `OpenAPI` | 包含 `openapi.yaml`、`openapi.yml` 或 `openapi.json` 的 `fs.FS`。启用 Swagger 后，Core 会为每个项目挂载原文和 Swagger UI。 |
-| `Docs` | 通常包含 `docs.json` 的 `fs.FS`，用于构建项目文档树并通过 `biz.Docs` 查询。 |
+| `OpenAPI` | 包含 `openapi.yaml`、`openapi.yml` 或 `openapi.json`，以及可选的 `openapi.<locale>.yaml` 等语言文件的 `fs.FS`。启用 Swagger 后，Core 会按项目和语言挂载原文与 Swagger UI。 |
+| `Docs` | 通常包含 `docs.json` 的 `fs.FS`；文档翻译由生成器写入 `locale`，通过请求语言查询并回退默认正文。 |
 | `I18n` | 包含 `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` 等语言文件的 `fs.FS`。Core 会与内置文案合并。 |
 
 资源通常由宿主通过 `embed.FS`、代码生成器或 `fstest.MapFS` 提供：
@@ -124,8 +124,8 @@ func NewModuleResources() module.Resources {
 Core 还向宿主暴露以下能力接口：
 
 - `biz.Job`：启动、停止或立即运行数据库中的持久化任务。
-- `biz.Docs`：查询合并后的项目文档树和文档正文。
-- `biz.OpenAPI`：按服务、HTTP 操作查询 OpenAPI 信息。
+- `biz.Docs`：查询合并后的项目文档树和按请求语言选择的文档正文。
+- `biz.OpenAPI`：按请求语言、服务或 HTTP 操作查询 OpenAPI 信息。
 - `biz.SSE`：建立 SSE 订阅并发布 JSON 事件。
 
 ### 服务与中间件
@@ -139,7 +139,7 @@ HTTP 和 gRPC 服务会按配置挂载 request ID、I18n、日志、认证授权
 `NewApp` 的主要装配顺序如下：
 
 1. 解析启动配置并收集模块资源，根据模块模型创建数据源和迁移注册表。
-2. 执行数据库迁移，随后在同一事务中同步 OpenAPI 接口、租户角色菜单和 Casbin 数据库规则；事务提交后刷新内存策略。
+2. 执行数据库迁移，随后在同一事务中同步 OpenAPI 接口、`base_api_i18n` 语言快照、租户角色菜单和 Casbin 数据库规则；接口语言记录使用 `operation + locale` 唯一键，不关联会变化的 `base_api.id`；事务提交后刷新内存策略。
 3. 创建共享基础服务、认证授权、HTTP/gRPC/MCP/SSE、队列和 Cron 运行时，并调用模块注册方法。
 4. 组装 Kratos App；应用运行时统一启动和停止传输服务，返回的清理函数负责释放其余基础资源。
 

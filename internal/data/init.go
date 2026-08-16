@@ -6,6 +6,7 @@ import "github.com/google/wire"
 var ProviderSet = wire.NewSet(
 	NewData,
 	NewBaseAPIRepository,
+	NewBaseAPII18nRepository,
 	NewBaseJobRepository,
 	NewBaseJobLogRepository,
 	NewBaseLogRepository,
