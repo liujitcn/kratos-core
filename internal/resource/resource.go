@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/liujitcn/kratos-core/internal/biz"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/data/models"
+	biz2 "github.com/liujitcn/kratos-core/internal/resource/biz"
 	"github.com/liujitcn/kratos-core/internal/resource/migration"
 	"github.com/liujitcn/kratos-core/internal/resource/openapi"
 	"github.com/liujitcn/kratos-kit/bootstrap"
@@ -21,9 +21,9 @@ type SyncResult struct {
 }
 
 type synchronizer struct {
-	baseAPICase    *biz.BaseAPICase
-	baseTenantCase *biz.BaseTenantCase
-	casbinRuleCase *biz.CasbinRuleCase
+	baseAPICase    *biz2.BaseAPICase
+	baseTenantCase *biz2.BaseTenantCase
+	casbinRuleCase *biz2.CasbinRuleCase
 	transaction    data.Transaction
 }
 
@@ -33,9 +33,9 @@ func NewSyncResult(
 	migrations *migration.Migration,
 	registry *openapi.Registry,
 	transaction data.Transaction,
-	baseAPICase *biz.BaseAPICase,
-	baseTenantCase *biz.BaseTenantCase,
-	casbinRuleCase *biz.CasbinRuleCase,
+	baseAPICase *biz2.BaseAPICase,
+	baseTenantCase *biz2.BaseTenantCase,
+	casbinRuleCase *biz2.CasbinRuleCase,
 ) (*SyncResult, error) {
 	if migrations == nil {
 		return nil, fmt.Errorf("数据库迁移资源未初始化")

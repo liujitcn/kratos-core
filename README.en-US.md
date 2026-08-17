@@ -38,7 +38,7 @@ import (
 	"github.com/go-kratos/kratos/v3"
 	"github.com/google/wire"
 	core "github.com/liujitcn/kratos-core"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 )
 
@@ -51,11 +51,11 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 }
 ```
 
-Core's `ProviderSet` only adds `NewApp` to the host's Wire graph; it does not expose `BaseCase`, `Job`, `Docs`, `OpenAPI`, or `SSE` as host Wire outputs. Host business cases should still add the public `pkg/biz.ProviderSet`, `pkg/config.ProviderSet`, and their own providers as needed, without importing Core's `internal` packages. `wire_gen.go` must be generated with `make wire` or the host project's Wire command; it is not hand-maintained.
+Core's `ProviderSet` only adds `NewApp` to the host's Wire graph; it does not expose `BaseCase`, `Job`, `Docs`, `OpenAPI`, or `SSE` as host Wire outputs. Host business cases should still add the public `biz.ProviderSet`, `config.ProviderSet`, and their own providers as needed. `wire_gen.go` must be generated with `make wire` or the host project's Wire command; it is not hand-maintained.
 
 ## Module Contract
 
-The business module implements `pkg/module.Module`. It owns its business services and registers them in the protocol methods:
+The business module implements `module.Module`. It owns its business services and registers them in the protocol methods:
 
 ```go
 type hostModule struct{}
@@ -117,14 +117,14 @@ func NewModuleResources() module.Resources {
 
 ### Shared Context
 
-`pkg/biz.BaseCase` is the shared host business context. It contains `bootstrap.Context`, cache, queue, OSS, translator, and multi-database GORM clients, and provides `GetAuthInfo` for reading the authenticated user.
+`biz.BaseCase` is the shared host business context. It contains `bootstrap.Context`, cache, queue, OSS, translator, and multi-database GORM clients, and provides `GetAuthInfo` for reading the authenticated user.
 
-Core also exposes these capability interfaces:
+Core also provides these concrete runtime services:
 
-- `biz.Job`: start, stop, or immediately run persistent database jobs.
-- `biz.Docs`: query the merged project documentation tree and document bodies selected by request locale.
-- `biz.OpenAPI`: query OpenAPI information by request locale, service, or HTTP operation.
-- `biz.SSE`: create SSE subscriptions and publish JSON events.
+- `job.Job`: start, stop, or immediately run persistent database jobs.
+- `resource/docs.Docs`: query the merged project documentation tree and document bodies selected by request locale.
+- `resource/openapi.OpenAPI`: query OpenAPI information by request locale, service, or HTTP operation.
+- `sse.SSE`: create SSE subscriptions and publish JSON events.
 
 ### Services and Middleware
 
@@ -152,22 +152,21 @@ client/
   connection.go         Remote or in-process gRPC connection adapter
   localgrpc/             In-process gRPC registration and invocation
 
-pkg/
-  biz/                   BaseCase and Core capability interfaces
-  config/                Startup configuration parsing
-  const/                 Public constants
-  dto/                   Documentation and OpenAPI query DTOs
-  errorsx/               Unified error constructors
-  module/                Host module, resource, and protocol contracts
-
-internal/
-  biz/                   Core built-in business cases
-  data/                  Core models, transactions, and repositories
-  job/                   Cron registration, persistent jobs, and runtime
-  queue/                 Queue consumers and lifecycle adapter
-  resource/              Documentation, i18n, migration, OpenAPI, and startup sync
-  server/                HTTP, gRPC, MCP, and middleware
-  sse/                   SSE stream registration, transport, and publishing
+biz/                     Shared context and Core built-in business cases
+biz/dto/                 OpenAPI parsing DTOs
+config/                  Startup configuration parsing
+const/                   Public constants
+internal/data/           Core models, transactions, and repositories (Core-internal)
+docs/dto/                Project documentation query DTOs
+errorsx/                 Unified error constructors
+job/                     Cron registration, persistent jobs, and runtime
+mcp/                     MCP service and lifecycle adapter
+module/                  Host module, resource, and protocol contracts
+openapi/dto/             OpenAPI query DTOs
+queue/                   Queue consumers and lifecycle adapter
+resource/                Documentation, i18n, migration, OpenAPI, and startup sync
+server/                  HTTP, gRPC, MCP, and middleware
+sse/                     SSE stream registration, transport, and publishing
 
 bootstrap.go             Public ProviderSet and application lifecycle assembly
 wire.go                  Core Wire composition root

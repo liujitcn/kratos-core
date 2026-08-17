@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	kratosTransport "github.com/go-kratos/kratos/v3/transport"
+	_const "github.com/liujitcn/kratos-core/const"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/data/models"
-	_const "github.com/liujitcn/kratos-core/pkg/const"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
+	queue2 "github.com/liujitcn/kratos-core/queue"
 	kitQueue "github.com/liujitcn/kratos-kit/queue"
 	queueData "github.com/liujitcn/kratos-kit/queue/data"
 	queueTransport "github.com/liujitcn/kratos-kit/transport/queue"
@@ -31,14 +32,16 @@ func NewServer(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogReposi
 		return nil, err
 	}
 	server.Register(_const.JOB_LOG, func(message queueData.Message) error {
-		entity, err := Decode[models.BaseJobLog](message)
+		var entity *models.BaseJobLog
+		entity, err = queue2.Decode[models.BaseJobLog](message)
 		if err != nil {
 			return err
 		}
 		return baseJobLogRepository.Create(context.Background(), entity)
 	})
 	server.Register(_const.LOG, func(message queueData.Message) error {
-		entity, err := Decode[models.BaseLog](message)
+		var entity *models.BaseLog
+		entity, err = queue2.Decode[models.BaseLog](message)
 		if err != nil {
 			return err
 		}

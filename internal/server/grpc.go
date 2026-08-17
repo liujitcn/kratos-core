@@ -5,9 +5,9 @@ import (
 	"github.com/go-kratos/kratos/v3/transport/grpc"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/resource/i18n"
-	_middleware "github.com/liujitcn/kratos-core/internal/server/middleware"
+	middleware2 "github.com/liujitcn/kratos-core/internal/server/middleware"
 	"github.com/liujitcn/kratos-core/internal/server/middleware/logging"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	bootstrapConfigv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
@@ -37,7 +37,7 @@ func NewGRPCMiddleware(
 	// 先补齐请求标识，再进入访问日志中间件，确保日志能读取到统一 request_id。
 	grpcMiddlewares = append(grpcMiddlewares, requestid.NewRequestIDMiddleware())
 	// i18n国际化
-	if i18nMiddleware := _middleware.NewI18nCatalogMiddleware(catalog, cache); i18nMiddleware != nil {
+	if i18nMiddleware := middleware2.NewI18nCatalogMiddleware(catalog, cache); i18nMiddleware != nil {
 		grpcMiddlewares = append(grpcMiddlewares, i18nMiddleware)
 	}
 	// 开启日志中间件时，统一挂载请求日志与操作者解析逻辑。
@@ -45,9 +45,9 @@ func NewGRPCMiddleware(
 		grpcMiddlewares = append(grpcMiddlewares, logging.Server(ctx.GetLogger(), baseUserRepo, authenticator))
 	}
 	if authenticator != nil && authorizer != nil && userToken != nil && jwtCfg != nil {
-		grpcMiddlewares = append(grpcMiddlewares, _middleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
+		grpcMiddlewares = append(grpcMiddlewares, middleware2.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
 	}
-	grpcMiddlewares = append(grpcMiddlewares, _middleware.NewValidateMiddleware())
+	grpcMiddlewares = append(grpcMiddlewares, middleware2.NewValidateMiddleware())
 	return grpcMiddlewares
 }
 

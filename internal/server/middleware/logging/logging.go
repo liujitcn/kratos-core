@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	_const "github.com/liujitcn/kratos-core/const"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/data/models"
-	"github.com/liujitcn/kratos-core/pkg/biz"
-	_const "github.com/liujitcn/kratos-core/pkg/const"
+	"github.com/liujitcn/kratos-core/queue"
 
 	"github.com/go-kratos/kratos/v3/errors"
 	"github.com/go-kratos/kratos/v3/log"
@@ -170,7 +170,7 @@ func Server(_ *slog.Logger,
 				baseLog.Reason = fmt.Sprintf("[%s]%s", baseLog.Reason, stack)
 			}
 			// 写入日志
-			biz.AddQueue(_const.LOG, &baseLog)
+			queue.AddQueue(_const.LOG, &baseLog)
 			logLine := fmt.Sprintf(
 				"operation=%s method=%s path=%s args=%s code=%d latency=%s",
 				normalizeLogField(baseLog.Operation),

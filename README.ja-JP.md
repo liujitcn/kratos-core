@@ -38,7 +38,7 @@ import (
 	"github.com/go-kratos/kratos/v3"
 	"github.com/google/wire"
 	core "github.com/liujitcn/kratos-core"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 )
 
@@ -51,11 +51,11 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 }
 ```
 
-Core の `ProviderSet` はホストの Wire グラフへ `NewApp` を追加するだけです。`BaseCase`、`Job`、`Docs`、`OpenAPI`、`SSE` をホストの Wire 出力として公開することはありません。ホストの業務 Case は必要に応じて公開パッケージの `pkg/biz.ProviderSet`、`pkg/config.ProviderSet`、業務固有の Provider を追加し、Core の `internal` パッケージを直接インポートしないでください。`wire_gen.go` は `make wire` またはホストプロジェクトの Wire コマンドで生成し、手動で管理しないでください。
+Core の `ProviderSet` はホストの Wire グラフへ `NewApp` を追加するだけです。`BaseCase`、`Job`、`Docs`、`OpenAPI`、`SSE` をホストの Wire 出力として公開することはありません。ホストの業務 Case は必要に応じて公開パッケージの `biz.ProviderSet`、`config.ProviderSet`、業務固有の Provider を追加してください。`wire_gen.go` は `make wire` またはホストプロジェクトの Wire コマンドで生成し、手動で管理しないでください。
 
 ## モジュール契約
 
-業務モジュールは `pkg/module.Module` を実装します。モジュール自身が業務 Service を保持し、プロトコル登録メソッドで登録します。
+業務モジュールは `module.Module` を実装します。モジュール自身が業務 Service を保持し、プロトコル登録メソッドで登録します。
 
 ```go
 type hostModule struct{}
@@ -92,7 +92,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `Models` | データソース名ごとにグループ化された GORM モデルです。モデルを含むすべてのデータソースは設定に存在し、デフォルトデータソースは必須です。 |
 | `Migrations` | バージョン管理されたマイグレーションです。各 `module.Migration` は `Name`、`FS`、`Path`、`Dependencies` を宣言し、Core は依存関係の順に実行します。 |
 | `OpenAPI` | `openapi.yaml`、`openapi.yml`、`openapi.json` のいずれかを含む `fs.FS` です。Swagger が有効な場合、Core は各プロジェクトに原文と Swagger UI をマウントします。 |
-| `Docs` | 通常 `docs.json` を含む `fs.FS` です。プロジェクトのドキュメントツリーを構築し、`biz.Docs` から検索できます。 |
+| `Docs` | 通常 `docs.json` を含む `fs.FS` です。プロジェクトのドキュメントツリーを構築し、`resource/docs.Docs` から検索できます。 |
 | `I18n` | `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` などの言語ファイルを含む `fs.FS` です。Core は組み込みメッセージとマージします。 |
 
 ホストは通常、`embed.FS`、コードジェネレーター、`fstest.MapFS` を使って次のリソースを提供します。
@@ -117,14 +117,14 @@ func NewModuleResources() module.Resources {
 
 ### 共有コンテキスト
 
-`pkg/biz.BaseCase` はホストの業務で共有する基本コンテキストです。`bootstrap.Context`、キャッシュ、キュー、OSS、翻訳器、複数データベースの GORM クライアントを保持し、現在認証されているユーザーを取得する `GetAuthInfo` を提供します。
+`biz.BaseCase` はホストの業務で共有する基本コンテキストです。`bootstrap.Context`、キャッシュ、キュー、OSS、翻訳器、複数データベースの GORM クライアントを保持し、現在認証されているユーザーを取得する `GetAuthInfo` を提供します。
 
-Core は次の機能インターフェースもホストへ公開します。
+Core は次の具体的なランタイムサービスもホストへ提供します。
 
-- `biz.Job`: データベースの永続タスクを開始、停止、即時実行します。
-- `biz.Docs`: マージ済みのプロジェクトドキュメントツリーと本文を検索します。
-- `biz.OpenAPI`: Service または HTTP 操作ごとに OpenAPI 情報を検索します。
-- `biz.SSE`: SSE サブスクリプションを作成し、JSON イベントを発行します。
+- `job.Job`: データベースの永続タスクを開始、停止、即時実行します。
+- `resource/docs.Docs`: マージ済みのプロジェクトドキュメントツリーと本文を検索します。
+- `resource/openapi.OpenAPI`: Service または HTTP 操作ごとに OpenAPI 情報を検索します。
+- `sse.SSE`: SSE サブスクリプションを作成し、JSON イベントを発行します。
 
 ### サービスとミドルウェア
 
@@ -152,22 +152,21 @@ client/
   connection.go         リモートまたはプロセス内 gRPC 接続アダプター
   localgrpc/             プロセス内 gRPC サービスの登録と呼び出し
 
-pkg/
-  biz/                   BaseCase と Core 機能インターフェース
-  config/                起動設定の解析
-  const/                 公開定数
-  dto/                   ドキュメントと OpenAPI の検索 DTO
-  errorsx/               統一エラー生成
-  module/                ホストモジュール、リソース、プロトコル契約
-
-internal/
-  biz/                   Core 組み込み業務 Case
-  data/                  Core のモデル、トランザクション、リポジトリ
-  job/                   Cron 登録、永続ジョブ、ランタイム
-  queue/                 キューコンシューマーとライフサイクルアダプター
-  resource/              ドキュメント、i18n、マイグレーション、OpenAPI、起動同期
-  server/                HTTP、gRPC、MCP、ミドルウェア
-  sse/                   SSE ストリームの登録、トランスポート、発行
+biz/                     共有コンテキストと Core 組み込み業務 Case
+biz/dto/                 OpenAPI 解析 DTO
+config/                  起動設定の解析
+const/                   公開定数
+internal/data/           Core のモデル、トランザクション、リポジトリ（Core 内部専用）
+docs/dto/                プロジェクトドキュメント検索 DTO
+errorsx/                 統一エラー生成
+job/                     Cron 登録、永続ジョブ、ランタイム
+mcp/                     MCP サービスとライフサイクルアダプター
+module/                  ホストモジュール、リソース、プロトコル契約
+openapi/dto/             OpenAPI 検索 DTO
+queue/                   キューコンシューマーとライフサイクルアダプター
+resource/                ドキュメント、i18n、マイグレーション、OpenAPI、起動同期
+server/                  HTTP、gRPC、MCP、ミドルウェア
+sse/                     SSE ストリームの登録、トランスポート、発行
 
 bootstrap.go             公開 ProviderSet とアプリケーションのライフサイクル組み立て
 wire.go                  Core の Wire 組み立てルート

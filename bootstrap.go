@@ -6,17 +6,18 @@ import (
 	kratosTransport "github.com/go-kratos/kratos/v3/transport"
 	kratosGRPC "github.com/go-kratos/kratos/v3/transport/grpc"
 	"github.com/google/wire"
+	"github.com/liujitcn/kratos-core/biz"
+	"github.com/liujitcn/kratos-core/config"
 	"github.com/liujitcn/kratos-core/internal/job"
 	"github.com/liujitcn/kratos-core/internal/mcp"
 	"github.com/liujitcn/kratos-core/internal/queue"
 	"github.com/liujitcn/kratos-core/internal/resource"
 	"github.com/liujitcn/kratos-core/internal/sse"
-	"github.com/liujitcn/kratos-core/pkg/biz"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 )
 
 // ProviderSet 是 Core 对外唯一的 Wire 注入入口。
-var ProviderSet = wire.NewSet(NewApp)
+var ProviderSet = wire.NewSet(config.ProviderSet, biz.ProviderSet, NewApp)
 
 // newApp 组装应用实例并挂载定时任务、GRPC 与 HTTP 服务。
 func newApp(
@@ -28,10 +29,6 @@ func newApp(
 	sseServer *sse.Server,
 	queueServer *queue.Server,
 	jobServer *job.Server,
-	_ biz.Job,
-	_ biz.Docs,
-	_ biz.OpenAPI,
-	_ biz.SSE,
 ) *kratos.App {
 	// 同步资源结果
 	if syncResult != nil {

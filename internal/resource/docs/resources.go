@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 )
 
 // NewRegistry 根据模块项目文档资源创建注册表。

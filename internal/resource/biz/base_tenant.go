@@ -4,33 +4,29 @@ import (
 	"context"
 	"errors"
 
+	_const "github.com/liujitcn/kratos-core/const"
+	"github.com/liujitcn/kratos-core/errorsx"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/data/models"
-	"github.com/liujitcn/kratos-core/pkg/biz"
-	_const "github.com/liujitcn/kratos-core/pkg/const"
-	"github.com/liujitcn/kratos-core/pkg/errorsx"
 	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
 	"gorm.io/gorm"
 )
 
 // BaseTenantCase 提供启动期租户基础数据同步能力。
 type BaseTenantCase struct {
-	tx data.Transaction
-	*biz.BaseCase
+	tx             data.Transaction
 	baseRoleRepo   *data.BaseRoleRepository
 	baseTenantRepo *data.BaseTenantRepository
 }
 
 // NewBaseTenantCase 创建启动期租户基础数据同步实例。
 func NewBaseTenantCase(
-	baseCase *biz.BaseCase,
 	tx data.Transaction,
 	baseRoleRepo *data.BaseRoleRepository,
 	baseTenantRepo *data.BaseTenantRepository,
 ) *BaseTenantCase {
 	return &BaseTenantCase{
 		tx:             tx,
-		BaseCase:       baseCase,
 		baseRoleRepo:   baseRoleRepo,
 		baseTenantRepo: baseTenantRepo,
 	}

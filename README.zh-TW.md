@@ -38,7 +38,7 @@ import (
 	"github.com/go-kratos/kratos/v3"
 	"github.com/google/wire"
 	core "github.com/liujitcn/kratos-core"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 )
 
@@ -51,11 +51,11 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 }
 ```
 
-Core 的 `ProviderSet` 只負責將 `NewApp` 接入宿主的 Wire 圖；它不會將 `BaseCase`、`Job`、`Docs`、`OpenAPI` 或 `SSE` 作為宿主 Wire 輸出。宿主自己的業務 Case 仍應按需加入公開的 `pkg/biz.ProviderSet`、`pkg/config.ProviderSet` 和業務 Provider，但不應直接依賴 Core 的 `internal` 套件。`wire_gen.go` 只能透過 `make wire` 或宿主專案自己的 Wire 指令產生，不能手工維護。
+Core 的 `ProviderSet` 只負責將 `NewApp` 接入宿主的 Wire 圖；它不會將 `BaseCase`、`Job`、`Docs`、`OpenAPI` 或 `SSE` 作為宿主 Wire 輸出。宿主自己的業務 Case 仍應按需加入公開的 `biz.ProviderSet`、`config.ProviderSet` 和業務 Provider。`wire_gen.go` 只能透過 `make wire` 或宿主專案自己的 Wire 指令產生，不能手工維護。
 
 ## 模組契約
 
-業務模組實作 `pkg/module.Module`。模組自己持有業務 Service，並在協議註冊方法中完成註冊：
+業務模組實作 `module.Module`。模組自己持有業務 Service，並在協議註冊方法中完成註冊：
 
 ```go
 type hostModule struct{}
@@ -92,7 +92,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `Models` | 按資料源名稱分組的 GORM 模型。含模型的資料源必須在設定中存在，預設資料源必須配置。 |
 | `Migrations` | 版本化遷移列表。每個 `module.Migration` 宣告 `Name`、`FS`、`Path` 和 `Dependencies`，Core 依賴關係順序執行。 |
 | `OpenAPI` | 包含 `openapi.yaml`、`openapi.yml` 或 `openapi.json` 的 `fs.FS`。啟用 Swagger 後，Core 會為每個專案掛載原文和 Swagger UI。 |
-| `Docs` | 通常包含 `docs.json` 的 `fs.FS`，用於建立專案文件樹並透過 `biz.Docs` 查詢。 |
+| `Docs` | 通常包含 `docs.json` 的 `fs.FS`，用於建立專案文件樹並透過 `resource/docs.Docs` 查詢。 |
 | `I18n` | 包含 `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` 等語言檔案的 `fs.FS`。Core 會與內建文案合併。 |
 
 宿主通常透過 `embed.FS`、程式碼產生器或 `fstest.MapFS` 提供這些資源：
@@ -117,14 +117,14 @@ func NewModuleResources() module.Resources {
 
 ### 共用上下文
 
-`pkg/biz.BaseCase` 是宿主業務共用的基礎上下文，包含 `bootstrap.Context`、快取、佇列、OSS、翻譯器和多資料源 GORM 用戶端，並提供 `GetAuthInfo` 讀取目前認證使用者。
+`biz.BaseCase` 是宿主業務共用的基礎上下文，包含 `bootstrap.Context`、快取、佇列、OSS、翻譯器和多資料源 GORM 用戶端，並提供 `GetAuthInfo` 讀取目前認證使用者。
 
-Core 還向宿主公開以下能力介面：
+Core 還向宿主提供以下具體業務服務：
 
-- `biz.Job`：啟動、停止或立即執行資料庫中的持久化任務。
-- `biz.Docs`：查詢合併後的專案文件樹和文件正文。
-- `biz.OpenAPI`：按服務或 HTTP 操作查詢 OpenAPI 資訊。
-- `biz.SSE`：建立 SSE 訂閱並發布 JSON 事件。
+- `job.Job`：啟動、停止或立即執行資料庫中的持久化任務。
+- `resource/docs.Docs`：查詢合併後的專案文件樹和文件正文。
+- `resource/openapi.OpenAPI`：按服務或 HTTP 操作查詢 OpenAPI 資訊。
+- `sse.SSE`：建立 SSE 訂閱並發布 JSON 事件。
 
 ### 服務與中介軟體
 
@@ -152,22 +152,21 @@ client/
   connection.go         遠端或行程內 gRPC 連線適配
   localgrpc/             行程內 gRPC 服務註冊與呼叫
 
-pkg/
-  biz/                   BaseCase 和 Core 能力介面
-  config/                啟動設定解析
-  const/                 公共常數
-  dto/                   文件和 OpenAPI 查詢 DTO
-  errorsx/               統一錯誤建構
-  module/                宿主模組、資源和協議註冊契約
-
-internal/
-  biz/                   Core 內建業務用例
-  data/                  Core 模型、事務和儲存庫
-  job/                   Cron 註冊、持久化任務和執行時
-  queue/                 佇列消費者與生命週期適配
-  resource/              文件、I18n、遷移、OpenAPI 和啟動同步
-  server/                HTTP、gRPC、MCP 和中介軟體
-  sse/                   SSE 流註冊、傳輸和發布
+biz/                     基礎上下文和 Core 內建業務用例
+biz/dto/                 OpenAPI 解析 DTO
+config/                  啟動設定解析
+const/                   公共常數
+internal/data/           Core 模型、事務和儲存庫（僅 Core 內部使用）
+docs/dto/                專案文件查詢 DTO
+errorsx/                 統一錯誤建構
+job/                     Cron 註冊、持久化任務和執行時
+mcp/                     MCP 服務與生命週期適配
+module/                  宿主模組、資源和協議註冊契約
+openapi/dto/             OpenAPI 查詢 DTO
+queue/                   佇列消費者與生命週期適配
+resource/                文件、I18n、遷移、OpenAPI 和啟動同步
+server/                  HTTP、gRPC、MCP 和中介軟體
+sse/                     SSE 流註冊、傳輸和發布
 
 bootstrap.go             公開 ProviderSet 和應用程式生命週期組裝
 wire.go                  Core Wire 組合根

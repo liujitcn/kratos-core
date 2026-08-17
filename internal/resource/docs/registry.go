@@ -12,8 +12,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"github.com/liujitcn/kratos-core/internal/resource/docs/dto"
 	resourceLocale "github.com/liujitcn/kratos-core/internal/resource/locale"
-	"github.com/liujitcn/kratos-core/pkg/dto"
 )
 
 // maxDocumentContentBytes 限制单篇文档内容的最大字节数，避免异常资源占用过多内存。

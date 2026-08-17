@@ -6,25 +6,23 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/liujitcn/kratos-core/internal/biz/dto"
+	_const "github.com/liujitcn/kratos-core/const"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/data/models"
-	"github.com/liujitcn/kratos-core/pkg/biz"
-	_const "github.com/liujitcn/kratos-core/pkg/const"
+	"github.com/liujitcn/kratos-core/internal/resource/biz/dto"
 	kitutils "github.com/liujitcn/kratos-kit/utils"
 	"gopkg.in/yaml.v3"
 )
 
 // BaseAPICase 接口业务实例。
 type BaseAPICase struct {
-	*biz.BaseCase
 	*data.BaseAPIRepository
 	*data.BaseAPII18nRepository
 }
 
 // NewBaseAPICase 创建接口业务实例。
-func NewBaseAPICase(baseCase *biz.BaseCase, baseAPIRepo *data.BaseAPIRepository, baseAPII18nRepo *data.BaseAPII18nRepository) *BaseAPICase {
-	return &BaseAPICase{BaseCase: baseCase, BaseAPIRepository: baseAPIRepo, BaseAPII18nRepository: baseAPII18nRepo}
+func NewBaseAPICase(baseAPIRepo *data.BaseAPIRepository, baseAPII18nRepo *data.BaseAPII18nRepository) *BaseAPICase {
+	return &BaseAPICase{BaseAPIRepository: baseAPIRepo, BaseAPII18nRepository: baseAPII18nRepo}
 }
 
 // OpenAPIDataToBaseAPI 将 OpenAPI 文档转换为待持久化的接口模型。

@@ -38,7 +38,7 @@ import (
 	"github.com/go-kratos/kratos/v3"
 	"github.com/google/wire"
 	core "github.com/liujitcn/kratos-core"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 )
 
@@ -51,11 +51,11 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 }
 ```
 
-Core 的 `ProviderSet` 只负责把 `NewApp` 接入宿主的 Wire 图；它不会把 `BaseCase`、`Job`、`Docs`、`OpenAPI` 或 `SSE` 作为宿主 Wire 输出。宿主自己的业务 Case 仍应按需引入 `pkg/biz.ProviderSet`、`pkg/config.ProviderSet` 和业务 Provider，但不应直接依赖 Core 的 `internal` 包。`wire_gen.go` 只能通过 `make wire` 或项目自己的 Wire 命令生成，不能手工维护。
+Core 的 `ProviderSet` 只负责把 `NewApp` 接入宿主的 Wire 图；它不会把 `BaseCase`、`Job`、`Docs`、`OpenAPI` 或 `SSE` 作为宿主 Wire 输出。宿主自己的业务 Case 仍应按需引入 `biz.ProviderSet`、`config.ProviderSet` 和业务 Provider。`wire_gen.go` 只能通过 `make wire` 或项目自己的 Wire 命令生成，不能手工维护。
 
 ## 模块契约
 
-业务模块实现 `pkg/module.Module`。模块自己持有业务 Service，并在协议注册方法中完成注册：
+业务模块实现 `module.Module`。模块自己持有业务 Service，并在协议注册方法中完成注册：
 
 ```go
 type hostModule struct{}
@@ -119,14 +119,14 @@ func NewModuleResources() module.Resources {
 
 ### 基础上下文
 
-`pkg/biz.BaseCase` 是宿主业务共用的基础上下文，包含 `bootstrap.Context`、缓存、队列、OSS、翻译器和多数据源 GORM 客户端，并提供 `GetAuthInfo` 读取当前认证用户。
+`biz.BaseCase` 是宿主业务共用的基础上下文，包含 `bootstrap.Context`、缓存、队列、OSS、翻译器和多数据源 GORM 客户端，并提供 `GetAuthInfo` 读取当前认证用户。
 
-Core 还向宿主暴露以下能力接口：
+Core 还向宿主提供以下具体业务服务：
 
-- `biz.Job`：启动、停止或立即运行数据库中的持久化任务。
-- `biz.Docs`：查询合并后的项目文档树和按请求语言选择的文档正文。
-- `biz.OpenAPI`：按请求语言、服务或 HTTP 操作查询 OpenAPI 信息。
-- `biz.SSE`：建立 SSE 订阅并发布 JSON 事件。
+- `job.Job`：启动、停止或立即运行数据库中的持久化任务。
+- `resource/docs.Docs`：查询合并后的项目文档树和按请求语言选择的文档正文。
+- `resource/openapi.OpenAPI`：按请求语言、服务或 HTTP 操作查询 OpenAPI 信息。
+- `sse.SSE`：建立 SSE 订阅并发布 JSON 事件。
 
 ### 服务与中间件
 
@@ -154,22 +154,21 @@ client/
   connection.go         远程或进程内 gRPC 连接适配
   localgrpc/             进程内 gRPC 服务注册与调用
 
-pkg/
-  biz/                   BaseCase 和 Core 能力接口
-  config/                启动配置解析
-  const/                 公共常量
-  dto/                   文档和 OpenAPI 查询 DTO
-  errorsx/               统一错误构造
-  module/                宿主模块、资源和协议注册契约
-
-internal/
-  biz/                   Core 内置业务用例
-  data/                  Core 模型、事务和仓储
-  job/                   Cron 注册、持久化任务和运行时
-  queue/                 队列消费者与生命周期适配
-  resource/              文档、I18n、迁移、OpenAPI 和启动资源同步
-  server/                HTTP、gRPC、MCP 和中间件
-  sse/                   SSE 流注册、传输和发布
+biz/                     基础上下文和 Core 内置业务用例
+biz/dto/                 OpenAPI 解析 DTO
+config/                  启动配置解析
+const/                   公共常量
+internal/data/           Core 模型、事务和仓储（仅 Core 内部使用）
+docs/dto/                项目文档查询 DTO
+errorsx/                 统一错误构造
+job/                     Cron 注册、持久化任务和运行时
+mcp/                     MCP 服务与生命周期适配
+module/                  宿主模块、资源和协议注册契约
+openapi/dto/             OpenAPI 查询 DTO
+queue/                   队列消费者与生命周期适配
+resource/                文档、I18n、迁移、OpenAPI 和启动资源同步
+server/                  HTTP、gRPC、MCP 和中间件
+sse/                     SSE 流注册、传输和发布
 
 bootstrap.go             对外 ProviderSet 和应用生命周期装配
 wire.go                  Core 内部 Wire 组合根

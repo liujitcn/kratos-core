@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-kratos/kratos/v3/log"
 	kratosTransport "github.com/go-kratos/kratos/v3/transport"
-	_const "github.com/liujitcn/kratos-core/pkg/const"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	_const "github.com/liujitcn/kratos-core/const"
+	"github.com/liujitcn/kratos-core/module"
 	bootstrapConfigv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authData "github.com/liujitcn/kratos-kit/auth/data"

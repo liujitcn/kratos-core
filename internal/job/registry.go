@@ -1,7 +1,7 @@
 package job
 
 import (
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	cronTransport "github.com/liujitcn/kratos-kit/transport/cron"
 )
 

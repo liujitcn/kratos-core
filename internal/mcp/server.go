@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-kratos/kratos/v3/log"
 	kratosTransport "github.com/go-kratos/kratos/v3/transport"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	bootstrapConfigv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/rpc"

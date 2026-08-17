@@ -8,9 +8,9 @@ import (
 
 	_string "github.com/liujitcn/go-utils/string"
 	commonv1 "github.com/liujitcn/kratos-core/api/gen/go/common/v1"
+	_const "github.com/liujitcn/kratos-core/const"
 	"github.com/liujitcn/kratos-core/internal/data/models"
-	"github.com/liujitcn/kratos-core/pkg/biz"
-	_const "github.com/liujitcn/kratos-core/pkg/const"
+	"github.com/liujitcn/kratos-core/queue"
 	cronTransport "github.com/liujitcn/kratos-kit/transport/cron"
 )
 
@@ -44,7 +44,7 @@ func LogFailureWithInput(jobID int64, input string, err error) {
 	baseJobLog.Status = _const.BASE_JOB_LOG_STATUS_FAIL
 	baseJobLog.Error = err.Error()
 	baseJobLog.ProcessTime = int32(time.Since(baseJobLog.ExecuteTime).Milliseconds())
-	biz.AddQueue(_const.JOB_LOG, baseJobLog)
+	queue.AddQueue(_const.JOB_LOG, baseJobLog)
 }
 
 // Execute 执行任务并写入任务日志。
@@ -72,7 +72,7 @@ func (e *Execution) Execute() (err error) {
 		baseJobLog.Status = int32(e.Status)
 		baseJobLog.Error = e.ErrMsg
 		baseJobLog.ProcessTime = int32(time.Since(baseJobLog.ExecuteTime).Milliseconds())
-		biz.AddQueue(_const.JOB_LOG, baseJobLog)
+		queue.AddQueue(_const.JOB_LOG, baseJobLog)
 	}()
 
 	runContext := e.Context

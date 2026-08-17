@@ -4,7 +4,7 @@ import (
 	"context"
 
 	utilsTranslator "github.com/liujitcn/go-utils/translator"
-	"github.com/liujitcn/kratos-core/pkg/errorsx"
+	"github.com/liujitcn/kratos-core/errorsx"
 	"github.com/liujitcn/kratos-kit/auth"
 	authData "github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
@@ -19,8 +19,6 @@ import (
 // BaseCase 承载所有业务模块共用的启动上下文、基础对象和请求认证信息读取能力。
 type BaseCase struct {
 	*bootstrap.Context
-	// pprof Go 官方提供的性能分析组件
-	pprof pprof.Pprof
 	// Cache 是 Core 创建的缓存实例。
 	Cache cache.Cache
 	// Queue 是 Core 创建的队列实例。

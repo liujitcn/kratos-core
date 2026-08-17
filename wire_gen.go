@@ -8,28 +8,23 @@ package kratoscore
 
 import (
 	"github.com/go-kratos/kratos/v3"
-	biz2 "github.com/liujitcn/kratos-core/internal/biz"
+	"github.com/liujitcn/kratos-core/biz"
+	"github.com/liujitcn/kratos-core/config"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/job"
 	"github.com/liujitcn/kratos-core/internal/mcp"
 	queue2 "github.com/liujitcn/kratos-core/internal/queue"
 	"github.com/liujitcn/kratos-core/internal/resource"
-	"github.com/liujitcn/kratos-core/internal/resource/docs"
+	biz2 "github.com/liujitcn/kratos-core/internal/resource/biz"
 	"github.com/liujitcn/kratos-core/internal/resource/i18n"
 	"github.com/liujitcn/kratos-core/internal/resource/migration"
 	"github.com/liujitcn/kratos-core/internal/resource/openapi"
 	"github.com/liujitcn/kratos-core/internal/server"
-	"github.com/liujitcn/kratos-core/internal/server/middleware"
 	"github.com/liujitcn/kratos-core/internal/sse"
-	"github.com/liujitcn/kratos-core/pkg/biz"
-	"github.com/liujitcn/kratos-core/pkg/config"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/cache"
-	"github.com/liujitcn/kratos-kit/oss"
-	"github.com/liujitcn/kratos-kit/pprof"
 	"github.com/liujitcn/kratos-kit/queue"
-	"github.com/liujitcn/kratos-kit/translator"
 )
 
 // Injectors from wire.go:
@@ -68,117 +63,66 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 		cleanup()
 		return nil, nil, err
 	}
-	configv1Pprof := config.ParsePprof(configv1Bootstrap)
-	pprofPprof, err := pprof.NewPprof(configv1Pprof)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	data_Redis := config.ParseRedis(configv1Bootstrap)
-	cacheCache, cleanup2, err := cache.NewCache(data_Redis)
-	if err != nil {
-		cleanup()
-		return nil, nil, err
-	}
-	data_Queue := config.ParseQueue(configv1Bootstrap)
-	queueQueue, cleanup3, err := queue.NewQueue(data_Redis, data_Queue)
-	if err != nil {
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	configv1Oss := config.ParseOSS(configv1Bootstrap)
-	ossOSS, err := oss.NewOSS(configv1Oss)
-	if err != nil {
-		cleanup3()
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	configv1Translator := config.ParseTranslator(configv1Bootstrap)
-	translatorTranslator, err := translator.NewTranslator(configv1Translator)
-	if err != nil {
-		cleanup3()
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	baseCase, cleanup4 := biz.NewBaseCase(ctx, pprofPprof, cacheCache, queueQueue, ossOSS, translatorTranslator, v3)
 	baseAPIRepository := data.NewBaseAPIRepository(dataData)
 	baseAPII18nRepository := data.NewBaseAPII18nRepository(dataData)
-	baseAPICase := biz2.NewBaseAPICase(baseCase, baseAPIRepository, baseAPII18nRepository)
+	baseAPICase := biz2.NewBaseAPICase(baseAPIRepository, baseAPII18nRepository)
 	baseRoleRepository := data.NewBaseRoleRepository(dataData)
 	baseTenantRepository := data.NewBaseTenantRepository(dataData)
-	baseTenantCase := biz2.NewBaseTenantCase(baseCase, dataData, baseRoleRepository, baseTenantRepository)
+	baseTenantCase := biz2.NewBaseTenantCase(dataData, baseRoleRepository, baseTenantRepository)
 	casbinRuleRepository := data.NewCasbinRuleRepository(dataData)
 	baseMenuRepository := data.NewBaseMenuRepository(dataData)
-	engine, err := middleware.NewAuthzEngine()
+	engine, err := biz.NewAuthzEngine()
 	if err != nil {
-		cleanup4()
-		cleanup3()
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	casbinRuleCase, err := biz2.NewCasbinRuleCase(baseCase, casbinRuleRepository, baseMenuRepository, baseRoleRepository, baseTenantRepository, baseAPICase, engine)
+	casbinRuleCase, err := biz2.NewCasbinRuleCase(casbinRuleRepository, baseMenuRepository, baseRoleRepository, baseTenantRepository, baseAPICase, engine)
 	if err != nil {
-		cleanup4()
-		cleanup3()
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	syncResult, err := resource.NewSyncResult(ctx, migrationMigration, registry, dataData, baseAPICase, baseTenantCase, casbinRuleCase)
 	if err != nil {
-		cleanup4()
-		cleanup3()
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	appInfo := config.ParseAppInfo(ctx)
 	authentication_Jwt, err := config.ParseAuthnJWT(configv1Bootstrap)
 	if err != nil {
-		cleanup4()
-		cleanup3()
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
-	authenticator, err := middleware.NewAuthenticator(authentication_Jwt)
+	authenticator, err := biz.NewAuthenticator(authentication_Jwt)
 	if err != nil {
-		cleanup4()
-		cleanup3()
-		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	baseUserRepository := data.NewBaseUserRepository(dataData)
-	userToken := middleware.NewUserToken(authentication_Jwt, cacheCache, authenticator)
+	data_Redis := config.ParseRedis(configv1Bootstrap)
+	cacheCache, cleanup2, err := cache.NewCache(data_Redis)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	userToken := biz.NewUserToken(authentication_Jwt, cacheCache, authenticator)
 	moduleI18n := module.NewI18nFromResources(v2)
 	i18nI18n, err := i18n.NewCatalog(moduleI18n)
 	if err != nil {
-		cleanup4()
-		cleanup3()
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	httpMiddlewares := server.NewHTTPMiddleware(ctx, authenticator, baseUserRepository, engine, userToken, authentication_Jwt, cacheCache, i18nI18n)
-	mcpServer, cleanup5, err := mcp.NewServer(ctx, moduleModules)
+	mcpServer, cleanup3, err := mcp.NewServer(ctx, moduleModules)
 	if err != nil {
-		cleanup4()
-		cleanup3()
 		cleanup2()
 		cleanup()
 		return nil, nil, err
 	}
 	sseRegistry := sse.NewRegistry()
 	streamIDResolver := sse.NewStreamResolver(sseRegistry, authenticator, userToken)
-	sseServer, cleanup6, err := sse.NewServer(ctx, streamIDResolver, moduleModules, sseRegistry)
+	sseServer, cleanup4, err := sse.NewServer(ctx, streamIDResolver, moduleModules, sseRegistry)
 	if err != nil {
-		cleanup5()
-		cleanup4()
 		cleanup3()
 		cleanup2()
 		cleanup()
@@ -186,8 +130,6 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 	}
 	transportServer, err := server.NewHTTPServer(ctx, appInfo, httpMiddlewares, moduleModules, authenticator, userToken, registry, mcpServer, sseServer)
 	if err != nil {
-		cleanup6()
-		cleanup5()
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -197,8 +139,15 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 	grpcMiddlewares := server.NewGRPCMiddleware(ctx, authenticator, baseUserRepository, engine, userToken, authentication_Jwt, cacheCache, i18nI18n)
 	grpcServer, err := server.NewGRPCServer(ctx, grpcMiddlewares, moduleModules)
 	if err != nil {
-		cleanup6()
-		cleanup5()
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	data_Queue := config.ParseQueue(configv1Bootstrap)
+	queueQueue, cleanup5, err := queue.NewQueue(data_Redis, data_Queue)
+	if err != nil {
 		cleanup4()
 		cleanup3()
 		cleanup2()
@@ -209,7 +158,6 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 	baseLogRepository := data.NewBaseLogRepository(dataData)
 	queueServer, err := queue2.NewServer(queueQueue, baseJobLogRepository, baseLogRepository, moduleModules)
 	if err != nil {
-		cleanup6()
 		cleanup5()
 		cleanup4()
 		cleanup3()
@@ -220,7 +168,6 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 	baseJobRepository := data.NewBaseJobRepository(dataData)
 	jobRegistry, err := job.NewRegistry(moduleModules)
 	if err != nil {
-		cleanup6()
 		cleanup5()
 		cleanup4()
 		cleanup3()
@@ -230,25 +177,8 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 	}
 	scheduler := job.NewScheduler(baseJobRepository, jobRegistry)
 	jobServer := job.NewServer(scheduler)
-	jobJob := job.NewJob(scheduler)
-	moduleDocs := module.NewDocsFromResources(v2)
-	docsRegistry, err := docs.NewRegistry(moduleDocs)
-	if err != nil {
-		cleanup6()
-		cleanup5()
-		cleanup4()
-		cleanup3()
-		cleanup2()
-		cleanup()
-		return nil, nil, err
-	}
-	docsDocs := docs.NewDocs(docsRegistry)
-	openapiOpenAPI := openapi.NewOpenAPI(registry)
-	sseSSE, cleanup7 := sse.NewSSE(authenticator, userToken, sseRegistry, sseServer)
-	app := newApp(ctx, syncResult, transportServer, grpcServer, mcpServer, sseServer, queueServer, jobServer, jobJob, docsDocs, openapiOpenAPI, sseSSE)
+	app := newApp(ctx, syncResult, transportServer, grpcServer, mcpServer, sseServer, queueServer, jobServer)
 	return app, func() {
-		cleanup7()
-		cleanup6()
 		cleanup5()
 		cleanup4()
 		cleanup3()

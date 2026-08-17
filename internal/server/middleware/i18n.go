@@ -5,14 +5,14 @@ import (
 
 	kratosMiddleware "github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
-	"github.com/liujitcn/kratos-core/internal/resource/i18n"
-	"github.com/liujitcn/kratos-core/pkg/biz"
-	_const "github.com/liujitcn/kratos-core/pkg/const"
+	"github.com/liujitcn/kratos-core/biz"
+	_const "github.com/liujitcn/kratos-core/const"
+	i18n2 "github.com/liujitcn/kratos-core/internal/resource/i18n"
 	"github.com/liujitcn/kratos-kit/cache"
 )
 
 // NewI18nCatalogMiddleware 使用 Core 已装载的国际化目录创建本地化拦截器。
-func NewI18nCatalogMiddleware(catalog *i18n.I18n, cache cache.Cache) kratosMiddleware.Middleware {
+func NewI18nCatalogMiddleware(catalog *i18n2.I18n, cache cache.Cache) kratosMiddleware.Middleware {
 	if catalog.Empty() {
 		return nil
 	}
@@ -32,7 +32,7 @@ func NewI18nCatalogMiddleware(catalog *i18n.I18n, cache cache.Cache) kratosMiddl
 			var reply any
 			reply, err = handler(ctx, req)
 			if err != nil {
-				return nil, i18n.LocalizeError(catalog, localeValue, fallbackLocale, err)
+				return nil, i18n2.LocalizeError(catalog, localeValue, fallbackLocale, err)
 			}
 			return reply, nil
 		}

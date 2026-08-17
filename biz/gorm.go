@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/liujitcn/go-utils/set"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
 )

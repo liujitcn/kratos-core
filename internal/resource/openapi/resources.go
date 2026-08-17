@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	resourceLocale "github.com/liujitcn/kratos-core/internal/resource/locale"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 )
 
 var resourceFilePattern = regexp.MustCompile(`^openapi(?:\.([A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{1,8})*))?\.(yaml|yml|json)$`)

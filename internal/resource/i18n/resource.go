@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"testing/fstest"
 
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 )
 
 // NewCatalog 根据 Core 和模块国际化资源创建目录。

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	kratosErrors "github.com/go-kratos/kratos/v3/errors"
-	"github.com/liujitcn/kratos-core/pkg/errorsx"
+	"github.com/liujitcn/kratos-core/errorsx"
 )
 
 // LocalizeError 本地化结构化错误，同时保留错误码、原因和原始错误。

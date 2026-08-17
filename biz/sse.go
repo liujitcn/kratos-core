@@ -1,4 +1,4 @@
-package sse
+package biz
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
-	"github.com/liujitcn/kratos-core/pkg/biz"
-	_const "github.com/liujitcn/kratos-core/pkg/const"
-	"github.com/liujitcn/kratos-core/pkg/errorsx"
+	_const "github.com/liujitcn/kratos-core/const"
+	"github.com/liujitcn/kratos-core/errorsx"
+	"github.com/liujitcn/kratos-core/internal/sse"
 	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authData "github.com/liujitcn/kratos-kit/auth/data"
 	sseServer "github.com/liujitcn/kratos-kit/transport/sse"
@@ -21,14 +21,12 @@ type SSE struct {
 	authenticator authnEngine.Authenticator
 	userToken     *authData.UserToken
 	server        *sseServer.Server
-	registry      *Registry
-	publisher     *Publisher
+	registry      *sse.Registry
+	publisher     *sse.Publisher
 }
 
-var _ biz.SSE = (*SSE)(nil)
-
 // NewSSE 创建 SSE 服务运行时并绑定底层服务。
-func NewSSE(authenticator authnEngine.Authenticator, userToken *authData.UserToken, registry *Registry, server *Server) (*SSE, func()) {
+func NewSSE(authenticator authnEngine.Authenticator, userToken *authData.UserToken, registry *sse.Registry, server *sse.Server) (*SSE, func()) {
 	runtime := &SSE{authenticator: authenticator, userToken: userToken, registry: registry}
 	if server != nil {
 		runtime.BindServer(server.Server)
@@ -68,7 +66,7 @@ func (r *SSE) Serve(ctx context.Context, streamID, channelID string) error {
 	if err != nil {
 		return err
 	}
-	streamRequest, cleanup := DetachRequestContext(request)
+	streamRequest, cleanup := sse.DetachRequestContext(request)
 	defer cleanup()
 	server.ServeStreamHTTP(w, streamRequest, sseServer.StreamID(transportID))
 	return nil
@@ -92,7 +90,7 @@ func (r *SSE) PublishJSON(ctx context.Context, streamID, eventID string, payload
 func (r *SSE) BindServer(server *sseServer.Server) {
 	r.mu.Lock()
 	r.server = server
-	r.publisher = NewPublisher(server)
+	r.publisher = sse.NewPublisher(server)
 	r.mu.Unlock()
 }
 
@@ -131,7 +129,7 @@ func (r *SSE) authenticate(request *http.Request) (*authData.UserTokenPayload, e
 }
 
 // snapshot 获取当前 SSE 传输实现的并发安全快照。
-func (r *SSE) snapshot() (*sseServer.Server, *Registry, *Publisher) {
+func (r *SSE) snapshot() (*sseServer.Server, *sse.Registry, *sse.Publisher) {
 	r.mu.RLock()
 	server := r.server
 	registry := r.registry

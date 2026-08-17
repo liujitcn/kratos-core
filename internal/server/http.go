@@ -16,11 +16,11 @@ import (
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/mcp"
 	"github.com/liujitcn/kratos-core/internal/resource/i18n"
-	"github.com/liujitcn/kratos-core/internal/resource/openapi"
-	_middleware "github.com/liujitcn/kratos-core/internal/server/middleware"
+	openapi2 "github.com/liujitcn/kratos-core/internal/resource/openapi"
+	"github.com/liujitcn/kratos-core/internal/server/middleware"
 	"github.com/liujitcn/kratos-core/internal/server/middleware/logging"
-	"github.com/liujitcn/kratos-core/internal/sse"
-	"github.com/liujitcn/kratos-core/pkg/module"
+	sse2 "github.com/liujitcn/kratos-core/internal/sse"
+	"github.com/liujitcn/kratos-core/module"
 	bootstrapConfigv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
@@ -52,7 +52,7 @@ func NewHTTPMiddleware(
 	// 先补齐请求标识，再进入访问日志中间件，确保日志能读取到统一 request_id。
 	httpMiddlewares = append(httpMiddlewares, requestid.NewRequestIDMiddleware())
 	// i18n国际化
-	if i18nMiddleware := _middleware.NewI18nCatalogMiddleware(catalog, cache); i18nMiddleware != nil {
+	if i18nMiddleware := middleware.NewI18nCatalogMiddleware(catalog, cache); i18nMiddleware != nil {
 		httpMiddlewares = append(httpMiddlewares, i18nMiddleware)
 	}
 	// 开启日志中间件时，统一挂载请求日志与操作者解析逻辑。
@@ -60,9 +60,9 @@ func NewHTTPMiddleware(
 		httpMiddlewares = append(httpMiddlewares, logging.Server(ctx.GetLogger(), baseUserRepo, authenticator))
 	}
 	if authenticator != nil && authorizer != nil && userToken != nil && jwtCfg != nil {
-		httpMiddlewares = append(httpMiddlewares, _middleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
+		httpMiddlewares = append(httpMiddlewares, middleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
 	}
-	httpMiddlewares = append(httpMiddlewares, _middleware.NewValidateMiddleware())
+	httpMiddlewares = append(httpMiddlewares, middleware.NewValidateMiddleware())
 	return httpMiddlewares
 }
 
@@ -74,9 +74,9 @@ func NewHTTPServer(
 	modules module.Modules,
 	authenticator authnEngine.Authenticator,
 	userToken *authData.UserToken,
-	openAPIRegistry *openapi.Registry,
+	openAPIRegistry *openapi2.Registry,
 	mcpServer *mcp.Server,
-	sseServer *sse.Server,
+	sseServer *sse2.Server,
 ) (kratosTransport.Server, error) {
 	cfg := ctx.GetConfig()
 	httpConfigured := cfg != nil && cfg.Server != nil && cfg.Server.Http != nil
@@ -143,7 +143,7 @@ func NewHTTPServer(
 	}
 	// 显式启用 Swagger 时，使用同一个注册表挂载 Core 和模块文档。
 	if cfg.GetServer().GetHttp().GetEnableSwagger() {
-		err = openapi.RegisterHTTP(srv, openAPIRegistry, openapi.HTTPOptions{
+		err = openapi2.RegisterHTTP(srv, openAPIRegistry, openapi2.HTTPOptions{
 			DocumentPath: "/api/docs/openapi",
 			SwaggerPath:  "/api/docs/swagger",
 			Authorizer:   newOpenAPIAuthorizer(authenticator, userToken),
@@ -158,7 +158,7 @@ func NewHTTPServer(
 }
 
 // validateInProcessHTTPHost 校验进程内传输是否具备 HTTP 宿主。
-func validateInProcessHTTPHost(httpConfigured bool, mcpServer *mcp.Server, sseServer *sse.Server) error {
+func validateInProcessHTTPHost(httpConfigured bool, mcpServer *mcp.Server, sseServer *sse2.Server) error {
 	if httpConfigured {
 		return nil
 	}
@@ -198,7 +198,7 @@ func NewSSEHTTPHandler(server *sseServer.Server, resolver sseServer.StreamIDReso
 
 // serveSSEHTTP 为 SSE 请求移除服务级 deadline，同时保留客户端断开带来的取消信号。
 func serveSSEHTTP(request *stdhttp.Request, handler func(*stdhttp.Request)) {
-	streamRequest, cleanup := sse.DetachRequestContext(request)
+	streamRequest, cleanup := sse2.DetachRequestContext(request)
 	defer cleanup()
 	handler(streamRequest)
 }

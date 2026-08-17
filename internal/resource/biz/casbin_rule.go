@@ -4,21 +4,17 @@ import (
 	"context"
 
 	_string "github.com/liujitcn/go-utils/string"
+	_const "github.com/liujitcn/kratos-core/const"
+	"github.com/liujitcn/kratos-core/errorsx"
 	"github.com/liujitcn/kratos-core/internal/data"
 	"github.com/liujitcn/kratos-core/internal/data/models"
-	"github.com/liujitcn/kratos-core/pkg/biz"
-	_const "github.com/liujitcn/kratos-core/pkg/const"
-	"github.com/liujitcn/kratos-core/pkg/errorsx"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
 	"github.com/liujitcn/kratos-kit/auth/authz/engine/casbin"
 	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
 )
 
-var _ biz.Casbin = (*CasbinRuleCase)(nil)
-
 // CasbinRuleCase 提供 Casbin 权限规则重建能力。
 type CasbinRuleCase struct {
-	*biz.BaseCase
 	*data.CasbinRuleRepository
 	baseMenuRepo   *data.BaseMenuRepository
 	baseRoleRepo   *data.BaseRoleRepository
@@ -29,7 +25,6 @@ type CasbinRuleCase struct {
 
 // NewCasbinRuleCase 创建权限规则业务实例。
 func NewCasbinRuleCase(
-	baseCase *biz.BaseCase,
 	casbinRuleRepo *data.CasbinRuleRepository,
 	baseMenuRepo *data.BaseMenuRepository,
 	baseRoleRepo *data.BaseRoleRepository,
@@ -38,7 +33,6 @@ func NewCasbinRuleCase(
 	authzEngine authzEngine.Engine,
 ) (*CasbinRuleCase, error) {
 	return &CasbinRuleCase{
-		BaseCase:             baseCase,
 		CasbinRuleRepository: casbinRuleRepo,
 		baseMenuRepo:         baseMenuRepo,
 		baseRoleRepo:         baseRoleRepo,
@@ -46,18 +40,6 @@ func NewCasbinRuleCase(
 		baseAPICase:          baseAPICase,
 		authzEngine:          authzEngine,
 	}, nil
-}
-
-// RebuildPolicy 按角色、菜单和 API 全量重建 Casbin 规则与内存策略。
-//
-// 该方法必须在 OpenAPI 接口和租户角色菜单同步完成后调用，以当前数据库数据覆盖 casbin_rule
-// 表，并在规则写入成功后刷新 Casbin 内存策略。
-func (c *CasbinRuleCase) RebuildPolicy(ctx context.Context) error {
-	err := c.RebuildPolicyData(ctx)
-	if err != nil {
-		return err
-	}
-	return c.RefreshPolicy(ctx)
 }
 
 // RebuildPolicyData 按角色、菜单和 API 重建数据库中的 Casbin 规则快照。

@@ -1,21 +1,19 @@
-package job
+package biz
 
 import (
 	"context"
 
 	"github.com/liujitcn/kratos-core/internal/data/models"
-	"github.com/liujitcn/kratos-core/pkg/biz"
+	"github.com/liujitcn/kratos-core/internal/job"
 )
 
 // Job 实现 Core 的持久化任务能力。
 type Job struct {
-	server *Scheduler
+	server *job.Scheduler
 }
 
-var _ biz.Job = (*Job)(nil)
-
 // NewJob 创建持久化任务服务。
-func NewJob(server *Scheduler) *Job {
+func NewJob(server *job.Scheduler) *Job {
 	return &Job{
 		server: server,
 	}

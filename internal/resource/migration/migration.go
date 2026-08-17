@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/liujitcn/kratos-core/pkg/module"
+	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
 	gormmigration "github.com/liujitcn/kratos-kit/database/gorm/migration"
