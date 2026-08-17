@@ -21,7 +21,7 @@ var ProviderSet = wire.NewSet(
 	NewAuthenticator,
 	NewAuthzEngine,
 	NewUserToken,
-	NewCasbinRuleCase,
+	NewCasbin,
 	NewJob,
 	NewOpenAPI,
 	NewDocs,

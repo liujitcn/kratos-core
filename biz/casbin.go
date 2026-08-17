@@ -11,8 +11,8 @@ type Casbin struct {
 	*biz.CasbinRuleCase
 }
 
-// NewCasbinRuleCase 创建权限规则业务实例。
-func NewCasbinRuleCase(
+// NewCasbin 创建权限规则业务实例。
+func NewCasbin(
 	casbinRuleCase *biz.CasbinRuleCase,
 ) (*Casbin, error) {
 	return &Casbin{
