@@ -25,9 +25,16 @@ func (r *BaseAPII18nRepository) ReplaceAll(ctx context.Context, items []*models.
 		if err != nil {
 			return err
 		}
-		if len(items) == 0 {
+		translatedItems := make([]*models.BaseAPII18n, 0, len(items))
+		for _, item := range items {
+			if item == nil || item.Locale == "" {
+				continue
+			}
+			translatedItems = append(translatedItems, item)
+		}
+		if len(translatedItems) == 0 {
 			return nil
 		}
-		return db.Create(&items).Error
+		return db.Create(&translatedItems).Error
 	})
 }

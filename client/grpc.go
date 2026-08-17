@@ -15,6 +15,7 @@ import (
 	selectorRandom "github.com/go-kratos/kratos/v3/selector/random"
 	selectorWrr "github.com/go-kratos/kratos/v3/selector/wrr"
 	kratosGrpc "github.com/go-kratos/kratos/v3/transport/grpc"
+
 	// HTTP transport initializes the shared selector before gRPC registers its balancer.
 	_ "github.com/go-kratos/kratos/v3/transport/http"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"

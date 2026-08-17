@@ -66,6 +66,9 @@ func (c *BaseAPICase) OpenAPIDataToBaseAPI(openAPIData []byte) ([]*models.BaseAP
 
 // OpenAPIDataToBaseAPII18n 将指定语言的 OpenAPI 文档转换为 API 国际化记录。
 func (c *BaseAPICase) OpenAPIDataToBaseAPII18n(openAPIData []byte, locale string) ([]*models.BaseAPII18n, error) {
+	if locale == "" {
+		return nil, nil
+	}
 	items, err := c.OpenAPIDataToBaseAPI(openAPIData)
 	if err != nil {
 		return nil, err

@@ -54,7 +54,7 @@ func NewSyncResult(
 	var err error
 	if registry != nil {
 		documents = registry.DocumentsByLocale("")
-		locales := append([]string{""}, registry.Locales()...)
+		locales := registry.Locales()
 		for _, locale := range locales {
 			for _, document := range registry.DocumentsByLocale(locale) {
 				var items []*models.BaseAPII18n
