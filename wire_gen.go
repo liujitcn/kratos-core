@@ -86,7 +86,11 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 		cleanup()
 		return nil, nil, err
 	}
-	appInfo := config.ParseAppInfo(ctx)
+	appInfo, err := config.ParseAppInfo(ctx)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
 	authentication_Jwt, err := config.ParseAuthnJWT(configv1Bootstrap)
 	if err != nil {
 		cleanup()
@@ -98,7 +102,11 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 		return nil, nil, err
 	}
 	baseUserRepository := data.NewBaseUserRepository(dataData)
-	data_Redis := config.ParseRedis(configv1Bootstrap)
+	data_Redis, err := config.ParseRedis(configv1Bootstrap)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
 	cacheCache, cleanup2, err := cache.NewCache(data_Redis)
 	if err != nil {
 		cleanup()
@@ -145,7 +153,14 @@ func NewApp(ctx *bootstrap.Context, modules ...module.Module) (*kratos.App, func
 		cleanup()
 		return nil, nil, err
 	}
-	data_Queue := config.ParseQueue(configv1Bootstrap)
+	data_Queue, err := config.ParseQueue(configv1Bootstrap)
+	if err != nil {
+		cleanup4()
+		cleanup3()
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
 	queueQueue, cleanup5, err := queue.NewQueue(data_Redis, data_Queue)
 	if err != nil {
 		cleanup4()
