@@ -102,7 +102,7 @@ func (r *Registry) DocumentsByLocale(locale string) []Document {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	locale = locale.Normalize(locale)
+	locale = resourceLocale.Normalize(locale)
 	documents := make([]Document, 0, len(r.documents))
 	for _, document := range r.documents {
 		if document.Locale != locale {
@@ -119,7 +119,7 @@ func (r *Registry) DocumentsForLocale(locale string) []Document {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	locales := append(locale.Candidates(locale), "")
+	locales := append(resourceLocale.Candidates(locale), "")
 	selected := make(map[string]Document)
 	for _, currentLocale := range locales {
 		for _, document := range r.documents {
@@ -172,7 +172,7 @@ func (r *Registry) DocumentByOperationForLocale(locale, path, method string) (Do
 	defer r.mu.RUnlock()
 
 	apiKey := newAPIKey(path, method)
-	locales := append(locale.Candidates(locale), "")
+	locales := append(resourceLocale.Candidates(locale), "")
 	for _, currentLocale := range locales {
 		documentKey, exists := r.documentKeysByAPI[newLocaleAPIKey(currentLocale, apiKey)]
 		if !exists {
