@@ -90,11 +90,11 @@ func NewServer(ctx *bootstrap.Context, resolver sseServer.StreamIDResolver, modu
 	}
 	runtime := &Server{Server: server, InProcess: inProcess, resolver: transportResolver}
 	cleanup := func() {
-		if !runtime.InProcess || runtime.Server == nil {
+		if runtime.Server == nil {
 			return
 		}
 		if stopErr := runtime.Stop(context.Background()); stopErr != nil {
-			log.Error("停止进程内 SSE 服务失败", "error", stopErr)
+			log.Error("停止 SSE 服务失败", "error", stopErr)
 		}
 	}
 	if err = modules.RegisterSSE(server); err != nil {

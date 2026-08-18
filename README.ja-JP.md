@@ -19,7 +19,7 @@ Core は完全な業務テンプレートではありません。ホストは業
 プロジェクト間で依存できる Go コードは、次の 4 つの入口から提供されます。
 
 - ルートパッケージは `ProviderSet` と `NewApp` を提供します。ホストは通常、自身の Wire グラフに `ProviderSet` を追加するだけです。
-- `pkg` は公開パッケージ `biz`、`config`、`const`、`dto`、`errorsx`、`module` を提供します。
+- ルートの `biz`、`config`、`const`、`errorsx`、`module` ディレクトリがプロジェクト間の公開パッケージを提供します。
 - `api` は独立した Go モジュールです。`api/proto` に Core の protobuf 定義、`api/gen/go` に生成済みの Go 型を保存します。
 - `client` は独立した Go モジュールで、`kratos-kit` の設定に基づく gRPC 接続とプロセス内 gRPC 接続を提供します。
 
@@ -46,12 +46,16 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 	panic(wire.Build(
 		core.ProviderSet,
 		newHostModule,
-		wire.Bind(new(module.Module), new(*hostModule)),
+		newHostModules,
 	))
+}
+
+func newHostModules(host *hostModule) []module.Module {
+	return []module.Module{host}
 }
 ```
 
-Core の `ProviderSet` はホストの Wire グラフへ `NewApp` を追加するだけです。`BaseCase`、`Job`、`Docs`、`OpenAPI`、`SSE` をホストの Wire 出力として公開することはありません。ホストの業務 Case は必要に応じて公開パッケージの `biz.ProviderSet`、`config.ProviderSet`、業務固有の Provider を追加してください。`wire_gen.go` は `make wire` またはホストプロジェクトの Wire コマンドで生成し、手動で管理しないでください。
+Core の `ProviderSet` には `config.ProviderSet`、`biz.ProviderSet`、`NewApp` が含まれるため、前二者を重複して追加しないでください。ホスト固有の Provider を追加し、`[]module.Module` を提供してください。`wire_gen.go` は `make wire` またはホストプロジェクトの Wire コマンドで生成し、手動で管理しないでください。
 
 ## モジュール契約
 
@@ -92,7 +96,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `Models` | データソース名ごとにグループ化された GORM モデルです。モデルを含むすべてのデータソースは設定に存在し、デフォルトデータソースは必須です。 |
 | `Migrations` | バージョン管理されたマイグレーションです。各 `module.Migration` は `Name`、`FS`、`Path`、`Dependencies` を宣言し、Core は依存関係の順に実行します。 |
 | `OpenAPI` | `openapi.yaml`、`openapi.yml`、`openapi.json` のいずれかを含む `fs.FS` です。Swagger が有効な場合、Core は各プロジェクトに原文と Swagger UI をマウントします。 |
-| `Docs` | 通常 `docs.json` を含む `fs.FS` です。プロジェクトのドキュメントツリーを構築し、`resource/docs.Docs` から検索できます。 |
+| `Docs` | 通常 `docs.json` を含む `fs.FS` です。プロジェクトのドキュメントツリーを構築し、`biz.Docs` から検索できます。 |
 | `I18n` | `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` などの言語ファイルを含む `fs.FS` です。Core は組み込みメッセージとマージします。 |
 
 ホストは通常、`embed.FS`、コードジェネレーター、`fstest.MapFS` を使って次のリソースを提供します。
@@ -121,10 +125,10 @@ func NewModuleResources() module.Resources {
 
 Core は次の具体的なランタイムサービスもホストへ提供します。
 
-- `job.Job`: データベースの永続タスクを開始、停止、即時実行します。
-- `resource/docs.Docs`: マージ済みのプロジェクトドキュメントツリーと本文を検索します。
-- `resource/openapi.OpenAPI`: Service または HTTP 操作ごとに OpenAPI 情報を検索します。
-- `sse.SSE`: SSE サブスクリプションを作成し、JSON イベントを発行します。
+- `biz.Job`: データベースの永続タスクを開始、停止、即時実行します。
+- `biz.Docs`: マージ済みのプロジェクトドキュメントツリーと本文を検索します。
+- `biz.OpenAPI`: Service または HTTP 操作ごとに OpenAPI 情報を検索します。
+- `biz.SSE`: SSE サブスクリプションを作成し、JSON イベントを発行します。
 
 ### サービスとミドルウェア
 
@@ -153,20 +157,18 @@ client/
   localgrpc/             プロセス内 gRPC サービスの登録と呼び出し
 
 biz/                     共有コンテキストと Core 組み込み業務 Case
-biz/dto/                 OpenAPI 解析 DTO
 config/                  起動設定の解析
 const/                   公開定数
-internal/data/           Core のモデル、トランザクション、リポジトリ（Core 内部専用）
-docs/dto/                プロジェクトドキュメント検索 DTO
 errorsx/                 統一エラー生成
-job/                     Cron 登録、永続ジョブ、ランタイム
-mcp/                     MCP サービスとライフサイクルアダプター
 module/                  ホストモジュール、リソース、プロトコル契約
-openapi/dto/             OpenAPI 検索 DTO
-queue/                   キューコンシューマーとライフサイクルアダプター
-resource/                ドキュメント、i18n、マイグレーション、OpenAPI、起動同期
-server/                  HTTP、gRPC、MCP、ミドルウェア
-sse/                     SSE ストリームの登録、トランスポート、発行
+queue/                   キューメッセージヘルパー
+internal/data/           Core のモデル、トランザクション、リポジトリ
+internal/job/            Cron 登録、永続ジョブ、ランタイム
+internal/mcp/            MCP サービスとライフサイクルアダプター
+internal/queue/          キューコンシューマーとライフサイクルアダプター
+internal/resource/       ドキュメント、i18n、マイグレーション、OpenAPI、起動同期
+internal/server/         HTTP、gRPC、MCP、ミドルウェア
+internal/sse/            SSE ストリームの登録、トランスポート、発行
 
 bootstrap.go             公開 ProviderSet とアプリケーションのライフサイクル組み立て
 wire.go                  Core の Wire 組み立てルート
@@ -177,11 +179,12 @@ Makefile                 生成、フォーマット、テスト、静的チェ�
 ## 開発コマンド
 
 ```bash
+make tools     # 固定バージョンのコード生成・フォーマットツールをインストール
 make api       # api/gen/go を生成
 make wire      # wire_gen.go を生成
 make fmt       # goimports で Go ソースをフォーマット
-make test      # go test ./...
-make vet       # go vet ./...
+make test      # ルート、api、client の 3 つの Go モジュールを検証
+make vet       # ルート、api、client の 3 つの Go モジュールを静的検査
 make lint      # 現在は make vet と同じ
 ```
 

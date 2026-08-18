@@ -19,7 +19,7 @@ Core 不是完整的业务模板。宿主通过一个 `module.Module` 把业务�
 跨项目可以依赖的 Go 代码分为四个入口：
 
 - 根包提供 `ProviderSet` 和 `NewApp`。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 图。
-- `pkg` 提供 `biz`、`config`、`const`、`dto`、`errorsx` 和 `module` 公共包。
+- 根目录的 `biz`、`config`、`const`、`errorsx` 和 `module` 提供跨项目公共包。
 - `api` 是独立 Go 模块，`api/proto` 保存 Core 的 protobuf 定义，`api/gen/go` 保存生成的 Go 类型。
 - `client` 是独立 Go 模块，提供基于 `kratos-kit` 配置的 gRPC 连接和进程内 gRPC 连接。
 
@@ -46,12 +46,16 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 	panic(wire.Build(
 		core.ProviderSet,
 		newHostModule,
-		wire.Bind(new(module.Module), new(*hostModule)),
+		newHostModules,
 	))
+}
+
+func newHostModules(host *hostModule) []module.Module {
+	return []module.Module{host}
 }
 ```
 
-Core 的 `ProviderSet` 只负责把 `NewApp` 接入宿主的 Wire 图；它不会把 `BaseCase`、`Job`、`Docs`、`OpenAPI` 或 `SSE` 作为宿主 Wire 输出。宿主自己的业务 Case 仍应按需引入 `biz.ProviderSet`、`config.ProviderSet` 和业务 Provider。`wire_gen.go` 只能通过 `make wire` 或项目自己的 Wire 命令生成，不能手工维护。
+Core 的 `ProviderSet` 包含 `config.ProviderSet`、`biz.ProviderSet` 和 `NewApp`，宿主不应重复加入前两个 ProviderSet。宿主只需补充自己的业务 Provider，并提供 `[]module.Module`。`wire_gen.go` 只能通过 `make wire` 或项目自己的 Wire 命令生成，不能手工维护。
 
 ## 模块契约
 
@@ -123,10 +127,10 @@ func NewModuleResources() module.Resources {
 
 Core 还向宿主提供以下具体业务服务：
 
-- `job.Job`：启动、停止或立即运行数据库中的持久化任务。
-- `resource/docs.Docs`：查询合并后的项目文档树和按请求语言选择的文档正文。
-- `resource/openapi.OpenAPI`：按请求语言、服务或 HTTP 操作查询 OpenAPI 信息。
-- `sse.SSE`：建立 SSE 订阅并发布 JSON 事件。
+- `biz.Job`：启动、停止或立即运行数据库中的持久化任务。
+- `biz.Docs`：查询合并后的项目文档树和按请求语言选择的文档正文。
+- `biz.OpenAPI`：按请求语言、服务或 HTTP 操作查询 OpenAPI 信息。
+- `biz.SSE`：建立 SSE 订阅并发布 JSON 事件。
 
 ### 服务与中间件
 
@@ -155,20 +159,18 @@ client/
   localgrpc/             进程内 gRPC 服务注册与调用
 
 biz/                     基础上下文和 Core 内置业务用例
-biz/dto/                 OpenAPI 解析 DTO
 config/                  启动配置解析
 const/                   公共常量
-internal/data/           Core 模型、事务和仓储（仅 Core 内部使用）
-docs/dto/                项目文档查询 DTO
 errorsx/                 统一错误构造
-job/                     Cron 注册、持久化任务和运行时
-mcp/                     MCP 服务与生命周期适配
 module/                  宿主模块、资源和协议注册契约
-openapi/dto/             OpenAPI 查询 DTO
-queue/                   队列消费者与生命周期适配
-resource/                文档、I18n、迁移、OpenAPI 和启动资源同步
-server/                  HTTP、gRPC、MCP 和中间件
-sse/                     SSE 流注册、传输和发布
+queue/                   队列消息辅助能力
+internal/data/           Core 模型、事务和仓储
+internal/job/            Cron 注册、持久化任务和运行时
+internal/mcp/            MCP 服务与生命周期适配
+internal/queue/          队列消费者与生命周期适配
+internal/resource/       文档、I18n、迁移、OpenAPI 和启动资源同步
+internal/server/         HTTP、gRPC、MCP 和中间件
+internal/sse/            SSE 流注册、传输和发布
 
 bootstrap.go             对外 ProviderSet 和应用生命周期装配
 wire.go                  Core 内部 Wire 组合根
@@ -179,11 +181,12 @@ Makefile                 生成、格式化、测试和静态检查命令
 ## 开发命令
 
 ```bash
+make tools     # 安装并锁定代码生成与格式化工具
 make api       # 生成 api/gen/go
 make wire      # 生成 wire_gen.go
 make fmt       # goimports 格式化 Go 代码
-make test      # go test ./...
-make vet       # go vet ./...
+make test      # 检查根、api、client 三个 Go 模块
+make vet       # 检查根、api、client 三个 Go 模块
 make lint      # 当前等同于 make vet
 ```
 

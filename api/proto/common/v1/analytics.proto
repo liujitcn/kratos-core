@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package common.v1;
 
-option go_package = "github.com/liujitcn/kratos-core/api/gen/go/common/v1;commonv1";
-
 import "gnostic/openapi/v3/annotations.proto";
+
+option go_package = "github.com/liujitcn/kratos-core/api/gen/go/common/v1;commonv1";
 
 // 分析时间类型。
 enum AnalyticsTimeType {

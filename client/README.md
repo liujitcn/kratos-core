@@ -1,6 +1,6 @@
 # Admin Client
 
-`backend/client` 只负责根据 `kratos-kit/api` 的客户端配置初始化 gRPC 连接，不封装具体业务客户端。
+`client` 只负责根据 `kratos-kit/api` 的客户端配置初始化 gRPC 连接，不封装具体业务客户端。
 
 ```go
 connection, cleanup, err := client.NewConnection(ctx, clientConfig)
@@ -22,7 +22,7 @@ client:
     endpoint: 127.0.0.1:6001
 ```
 
-普通地址用于本机或远程直连。使用 `discovery:///服务名` 时，通过 `client.WithDiscovery(discovery)` 注入注册中心发现器。`timeout`、`tls`、`metadata`、JWT、熔断、链路追踪和负载均衡等配置由当前 `client` 模块统一处理；额外的 Kratos 客户端中间件通过 `client.WithMiddleware` 传入。
+普通地址用于本机或远程直连。使用 `discovery:///服务名` 时，通过 `client.WithDiscovery(discovery)` 注入注册中心发现器。`timeout`、`tls`、`metadata`、JWT、熔断、链路追踪和负载均衡等配置由当前 `client` 模块统一处理；额外的 Kratos 客户端中间件通过 `client.WithMiddleware` 传入。负载均衡器是进程级配置，同一进程中的连接必须使用同一种策略。
 
 ```go
 connection, cleanup, err := client.NewConnection(

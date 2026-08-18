@@ -80,6 +80,7 @@ func NewConnection(ctx context.Context, clientConfig *configv1.Client, options .
 		}
 		localOptions := []localgrpc.Option{
 			localgrpc.WithUnaryInterceptor(newLocalUnaryInterceptor(localMiddlewares)),
+			localgrpc.WithStreamInterceptor(newLocalStreamInterceptor(localMiddlewares)),
 		}
 		conn := localgrpc.NewConn(localOptions...)
 		for _, register := range connectionOpts.localServices {
@@ -170,11 +171,44 @@ func newLocalUnaryInterceptor(middlewares []middleware.Middleware) grpc.UnarySer
 		}
 		localTransport := newLocalTransport(operation, requestHeader)
 		ctx = kratosTransport.NewClientContext(ctx, localTransport)
-		return chain(func(ctx context.Context, req any) (any, error) {
+		response, err := chain(func(ctx context.Context, req any) (any, error) {
 			serverContext := kratosTransport.NewServerContext(ctx, localTransport)
 			serverContext = metadata.NewIncomingContext(serverContext, localIncomingMetadata(ctx, localTransport))
+			serverContext = grpc.NewContextWithServerTransportStream(serverContext, localTransport)
 			return handler(serverContext, req)
 		})(ctx, req)
+		if responseMetadata := localgrpc.ResponseMetadataFromContext(ctx); responseMetadata != nil {
+			responseMetadata.Header = metadata.MD(localTransport.replyHeader).Copy()
+			responseMetadata.Trailer = localTransport.replyTrailer.Copy()
+		}
+		return response, err
+	}
+}
+
+// newLocalStreamInterceptor 将 Kratos middleware 适配为进程内 stream 拦截器。
+func newLocalStreamInterceptor(middlewares []middleware.Middleware) grpc.StreamServerInterceptor {
+	chain := middleware.Chain(middlewares...)
+	return func(server any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		requestHeader := make(metadata.MD)
+		if outgoing, ok := metadata.FromOutgoingContext(stream.Context()); ok {
+			requestHeader = outgoing.Copy()
+		}
+		operation := ""
+		if info != nil {
+			operation = info.FullMethod
+		}
+		localTransport := newLocalTransport(operation, requestHeader)
+		ctx := kratosTransport.NewClientContext(stream.Context(), localTransport)
+		_, err := chain(func(ctx context.Context, _ any) (any, error) {
+			serverContext := kratosTransport.NewServerContext(ctx, localTransport)
+			serverContext = metadata.NewIncomingContext(serverContext, localIncomingMetadata(ctx, localTransport))
+			serverContext = grpc.NewContextWithServerTransportStream(serverContext, localStreamTransport{stream: stream, operation: operation})
+			if setter, ok := stream.(interface{ SetContext(context.Context) }); ok {
+				setter.SetContext(serverContext)
+			}
+			return nil, handler(server, stream)
+		})(ctx, nil)
+		return err
 	}
 }
 

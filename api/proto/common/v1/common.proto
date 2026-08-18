@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package common.v1;
 
-option go_package = "github.com/liujitcn/kratos-core/api/gen/go/common/v1;commonv1";
-
 import "gnostic/openapi/v3/annotations.proto";
+
+option go_package = "github.com/liujitcn/kratos-core/api/gen/go/common/v1;commonv1";
 
 // 状态设置请求参数
 message SetStatusRequest {

@@ -44,11 +44,11 @@ func NewServer(ctx *bootstrap.Context, modules module.Modules) (*Server, func(),
 	}
 	runtime := &Server{Server: server, InProcess: inProcess}
 	cleanup := func() {
-		if !runtime.InProcess || runtime.Server == nil {
+		if runtime.Server == nil {
 			return
 		}
 		if stopErr := runtime.Stop(context.Background()); stopErr != nil {
-			log.Error("停止进程内 MCP 服务失败", "error", stopErr)
+			log.Error("停止 MCP 服务失败", "error", stopErr)
 		}
 	}
 	if server != nil {

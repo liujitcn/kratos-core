@@ -26,12 +26,37 @@ type streamMethod struct {
 	service     any
 }
 
+// ResponseMetadata 保存进程内 unary gRPC 调用返回的响应元数据。
+type ResponseMetadata struct {
+	// Header 是服务端响应头。
+	Header metadata.MD
+	// Trailer 是服务端响应尾部元数据。
+	Trailer metadata.MD
+}
+
+type responseMetadataContextKey struct{}
+
+// WithResponseMetadata 将响应元数据载体写入进程内调用上下文。
+func WithResponseMetadata(ctx context.Context, response *ResponseMetadata) context.Context {
+	return context.WithValue(ctx, responseMetadataContextKey{}, response)
+}
+
+// ResponseMetadataFromContext 从进程内调用上下文读取响应元数据载体。
+func ResponseMetadataFromContext(ctx context.Context) *ResponseMetadata {
+	if ctx == nil {
+		return nil
+	}
+	response, _ := ctx.Value(responseMetadataContextKey{}).(*ResponseMetadata)
+	return response
+}
+
 // Conn 将注册的 gRPC 服务作为进程内生成客户端连接使用。
 type Conn struct {
-	mu          sync.RWMutex
-	methods     map[string]unaryMethod
-	streams     map[string]streamMethod
-	interceptor grpc.UnaryServerInterceptor
+	mu                sync.RWMutex
+	methods           map[string]unaryMethod
+	streams           map[string]streamMethod
+	interceptor       grpc.UnaryServerInterceptor
+	streamInterceptor grpc.StreamServerInterceptor
 }
 
 // Option 配置进程内 gRPC 连接。
@@ -40,6 +65,11 @@ type Option func(*Conn)
 // WithUnaryInterceptor 设置进程内调用使用的 unary 拦截器。
 func WithUnaryInterceptor(interceptor grpc.UnaryServerInterceptor) Option {
 	return func(conn *Conn) { conn.interceptor = interceptor }
+}
+
+// WithStreamInterceptor 设置进程内调用使用的 stream 拦截器。
+func WithStreamInterceptor(interceptor grpc.StreamServerInterceptor) Option {
+	return func(conn *Conn) { conn.streamInterceptor = interceptor }
 }
 
 // NewConn 创建进程内 gRPC 连接。
@@ -81,7 +111,16 @@ func (c *Conn) RegisterService(description *grpc.ServiceDesc, service any) {
 }
 
 // Invoke 调用已注册的进程内 unary gRPC 方法。
-func (c *Conn) Invoke(ctx context.Context, method string, args, reply any, _ ...grpc.CallOption) error {
+func (c *Conn) Invoke(ctx context.Context, method string, args, reply any, options ...grpc.CallOption) error {
+	responseMetadata := new(ResponseMetadata)
+	ctx = WithResponseMetadata(ctx, responseMetadata)
+	err := c.invoke(ctx, method, args, reply)
+	applyCallOptions(options, responseMetadata)
+	return err
+}
+
+// invoke 执行 unary 调用并由 Connection 层负责应用 CallOption。
+func (c *Conn) invoke(ctx context.Context, method string, args, reply any) error {
 	c.mu.RLock()
 	registered, exists := c.methods[method]
 	interceptor := c.interceptor
@@ -108,14 +147,22 @@ func (c *Conn) Invoke(ctx context.Context, method string, args, reply any, _ ...
 }
 
 // NewStream 创建可直接调用本地服务处理器的进程内 streaming RPC。
-func (c *Conn) NewStream(ctx context.Context, _ *grpc.StreamDesc, method string, _ ...grpc.CallOption) (grpc.ClientStream, error) {
+func (c *Conn) NewStream(ctx context.Context, _ *grpc.StreamDesc, method string, options ...grpc.CallOption) (grpc.ClientStream, error) {
+	return c.newStream(ctx, method, options...)
+}
+
+// newStream 创建并启动本地 stream 调用。
+func (c *Conn) newStream(ctx context.Context, method string, options ...grpc.CallOption) (grpc.ClientStream, error) {
 	c.mu.RLock()
 	registered, exists := c.streams[method]
 	c.mu.RUnlock()
 	if !exists {
 		return nil, status.Errorf(codes.Unimplemented, "进程内 gRPC 流式方法未注册: %s", method)
 	}
-	stream := newLocalStream(ctx, registered.description)
+	stream := newLocalStream(ctx, registered.description, method)
+	interceptor := c.streamInterceptor
+	clientStream := &localClientStream{localStream: stream}
+	clientStream.configureCallOptions(options)
 	go func() {
 		var err error
 		func() {
@@ -124,11 +171,22 @@ func (c *Conn) NewStream(ctx context.Context, _ *grpc.StreamDesc, method string,
 					err = fmt.Errorf("进程内 gRPC 流式处理器异常: %v", panicValue)
 				}
 			}()
-			err = registered.description.Handler(registered.service, stream)
+			if interceptor == nil {
+				err = registered.description.Handler(registered.service, stream)
+				return
+			}
+			info := &grpc.StreamServerInfo{
+				FullMethod:     method,
+				IsClientStream: registered.description.ClientStreams,
+				IsServerStream: registered.description.ServerStreams,
+			}
+			err = interceptor(registered.service, stream, info, func(service any, serverStream grpc.ServerStream) error {
+				return registered.description.Handler(service, serverStream)
+			})
 		}()
 		stream.finish(err)
 	}()
-	return &localClientStream{localStream: stream}, nil
+	return clientStream, nil
 }
 
 type localStream struct {
@@ -147,9 +205,21 @@ type localStream struct {
 	header          metadata.MD
 	trailer         metadata.MD
 	headerSent      bool
+	operation       string
 }
 
-type localClientStream struct{ *localStream }
+type localClientStream struct {
+	*localStream
+	headerOptions  []*metadata.MD
+	trailerOptions []*metadata.MD
+}
+
+// SetContext 更新进程内 stream 的服务端上下文。
+func (s *localStream) SetContext(ctx context.Context) {
+	s.mu.Lock()
+	s.ctx = ctx
+	s.mu.Unlock()
+}
 
 // SetHeader 累积服务端流响应头。
 func (s *localStream) SetHeader(md metadata.MD) error {
@@ -186,7 +256,14 @@ func (s *localStream) SetTrailer(md metadata.MD) {
 }
 
 // Context 返回本地流上下文。
-func (s *localStream) Context() context.Context { return s.ctx }
+func (s *localStream) Context() context.Context {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ctx
+}
+
+// Method 返回本地 stream 的完整 gRPC 方法名。
+func (s *localStream) Method() string { return s.operation }
 
 // SendMsg 发送服务端流消息。
 func (s *localStream) SendMsg(message any) error {
@@ -209,8 +286,8 @@ func (s *localStream) SendMsg(message any) error {
 	select {
 	case s.serverMessages <- proto.Clone(protobufMessage):
 		return nil
-	case <-s.ctx.Done():
-		return s.ctx.Err()
+	case <-s.Context().Done():
+		return s.Context().Err()
 	case <-s.done:
 		return streamResult(s.result())
 	}
@@ -251,8 +328,10 @@ func (s *localClientStream) SendMsg(message any) error {
 func (s *localClientStream) RecvMsg(message any) error {
 	received, err := s.receiveServerMessage()
 	if err != nil {
+		s.updateTrailerOptions()
 		return err
 	}
+	s.updateTrailerOptions()
 	return copyMessage(message, received)
 }
 
@@ -278,14 +357,56 @@ func (s *localClientStream) Header() (metadata.MD, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return metadata.Join(s.header), nil
+	header := metadata.Join(s.header)
+	for _, target := range s.headerOptions {
+		*target = metadata.Join(header)
+	}
+	return header, nil
 }
 
 // Trailer 返回服务端流尾部元数据。
 func (s *localClientStream) Trailer() metadata.MD {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return metadata.Join(s.trailer)
+	trailer := metadata.Join(s.trailer)
+	for _, target := range s.trailerOptions {
+		*target = metadata.Join(trailer)
+	}
+	return trailer
+}
+
+// updateTrailerOptions 将当前 stream 尾部元数据回填到 CallOption 指针。
+func (s *localClientStream) updateTrailerOptions() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	trailer := metadata.Join(s.trailer)
+	for _, target := range s.trailerOptions {
+		*target = metadata.Join(trailer)
+	}
+}
+
+// configureCallOptions 保存本地 stream 调用需要回填的响应元数据目标。
+func (s *localClientStream) configureCallOptions(options []grpc.CallOption) {
+	for _, option := range options {
+		switch value := option.(type) {
+		case grpc.HeaderCallOption:
+			if value.HeaderAddr != nil {
+				s.headerOptions = append(s.headerOptions, value.HeaderAddr)
+			}
+		case grpc.TrailerCallOption:
+			if value.TrailerAddr != nil {
+				s.trailerOptions = append(s.trailerOptions, value.TrailerAddr)
+			}
+		case *grpc.HeaderCallOption:
+			if value != nil && value.HeaderAddr != nil {
+				s.headerOptions = append(s.headerOptions, value.HeaderAddr)
+			}
+		case *grpc.TrailerCallOption:
+			if value != nil && value.TrailerAddr != nil {
+				s.trailerOptions = append(s.trailerOptions, value.TrailerAddr)
+			}
+		}
+	}
 }
 
 func (s *localStream) finish(err error) {
@@ -307,6 +428,33 @@ func (s *localStream) markHeaderReady() {
 	s.headerOnce.Do(func() { close(s.headerReady) })
 }
 
+// applyCallOptions 将本地 unary 响应元数据回填到 gRPC CallOption 指针。
+func applyCallOptions(options []grpc.CallOption, response *ResponseMetadata) {
+	if response == nil {
+		return
+	}
+	for _, option := range options {
+		switch value := option.(type) {
+		case grpc.HeaderCallOption:
+			if value.HeaderAddr != nil {
+				*value.HeaderAddr = metadata.Join(response.Header)
+			}
+		case grpc.TrailerCallOption:
+			if value.TrailerAddr != nil {
+				*value.TrailerAddr = metadata.Join(response.Trailer)
+			}
+		case *grpc.HeaderCallOption:
+			if value != nil && value.HeaderAddr != nil {
+				*value.HeaderAddr = metadata.Join(response.Header)
+			}
+		case *grpc.TrailerCallOption:
+			if value != nil && value.TrailerAddr != nil {
+				*value.TrailerAddr = metadata.Join(response.Trailer)
+			}
+		}
+	}
+}
+
 func (s *localStream) receiveClientMessage() (proto.Message, error) {
 	var err error
 	select {
@@ -324,8 +472,8 @@ func (s *localStream) receiveClientMessage() (proto.Message, error) {
 		default:
 			return nil, io.EOF
 		}
-	case <-s.ctx.Done():
-		return nil, s.ctx.Err()
+	case <-s.Context().Done():
+		return nil, s.Context().Err()
 	case <-s.done:
 		err = s.result()
 		if err != nil {
@@ -350,8 +498,8 @@ func (s *localStream) receiveServerMessage() (proto.Message, error) {
 	select {
 	case message := <-s.serverMessages:
 		return message, nil
-	case <-s.ctx.Done():
-		return nil, s.ctx.Err()
+	case <-s.Context().Done():
+		return nil, s.Context().Err()
 	case <-s.done:
 		err = s.result()
 		if err != nil {
@@ -387,9 +535,9 @@ func copyMessage(target, source any) error {
 	return nil
 }
 
-func newLocalStream(ctx context.Context, description *grpc.StreamDesc) *localStream {
+func newLocalStream(ctx context.Context, description *grpc.StreamDesc, operation string) *localStream {
 	return &localStream{
-		ctx: ctx, description: description, clientMessages: make(chan proto.Message, 1), serverMessages: make(chan proto.Message, 1),
+		ctx: ctx, description: description, operation: operation, clientMessages: make(chan proto.Message, 1), serverMessages: make(chan proto.Message, 1),
 		clientSendDone: make(chan struct{}), done: make(chan struct{}), headerReady: make(chan struct{}),
 	}
 }

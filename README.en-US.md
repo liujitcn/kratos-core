@@ -19,7 +19,7 @@ Core is not a complete business template. A host supplies one `module.Module` co
 Cross-project Go code is exposed through four entry points:
 
 - The root package provides `ProviderSet` and `NewApp`. A host normally only adds `ProviderSet` to its own Wire graph.
-- `pkg` provides the public `biz`, `config`, `const`, `dto`, `errorsx`, and `module` packages.
+- The root `biz`, `config`, `const`, `errorsx`, and `module` directories provide the cross-project public packages.
 - `api` is an independent Go module. `api/proto` contains Core protobuf definitions and `api/gen/go` contains generated Go types.
 - `client` is an independent Go module that provides gRPC connections based on `kratos-kit` configuration, including in-process gRPC connections.
 
@@ -46,12 +46,16 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 	panic(wire.Build(
 		core.ProviderSet,
 		newHostModule,
-		wire.Bind(new(module.Module), new(*hostModule)),
+		newHostModules,
 	))
+}
+
+func newHostModules(host *hostModule) []module.Module {
+	return []module.Module{host}
 }
 ```
 
-Core's `ProviderSet` only adds `NewApp` to the host's Wire graph; it does not expose `BaseCase`, `Job`, `Docs`, `OpenAPI`, or `SSE` as host Wire outputs. Host business cases should still add the public `biz.ProviderSet`, `config.ProviderSet`, and their own providers as needed. `wire_gen.go` must be generated with `make wire` or the host project's Wire command; it is not hand-maintained.
+Core's `ProviderSet` already includes `config.ProviderSet`, `biz.ProviderSet`, and `NewApp`; do not add the first two sets again. Add the host's own providers and provide a `[]module.Module`. `wire_gen.go` must be generated with `make wire` or the host project's Wire command; it is not hand-maintained.
 
 ## Module Contract
 
@@ -121,10 +125,10 @@ func NewModuleResources() module.Resources {
 
 Core also provides these concrete runtime services:
 
-- `job.Job`: start, stop, or immediately run persistent database jobs.
-- `resource/docs.Docs`: query the merged project documentation tree and document bodies selected by request locale.
-- `resource/openapi.OpenAPI`: query OpenAPI information by request locale, service, or HTTP operation.
-- `sse.SSE`: create SSE subscriptions and publish JSON events.
+- `biz.Job`: start, stop, or immediately run persistent database jobs.
+- `biz.Docs`: query the merged project documentation tree and document bodies selected by request locale.
+- `biz.OpenAPI`: query OpenAPI information by request locale, service, or HTTP operation.
+- `biz.SSE`: create SSE subscriptions and publish JSON events.
 
 ### Services and Middleware
 
@@ -153,20 +157,18 @@ client/
   localgrpc/             In-process gRPC registration and invocation
 
 biz/                     Shared context and Core built-in business cases
-biz/dto/                 OpenAPI parsing DTOs
 config/                  Startup configuration parsing
 const/                   Public constants
-internal/data/           Core models, transactions, and repositories (Core-internal)
-docs/dto/                Project documentation query DTOs
 errorsx/                 Unified error constructors
-job/                     Cron registration, persistent jobs, and runtime
-mcp/                     MCP service and lifecycle adapter
 module/                  Host module, resource, and protocol contracts
-openapi/dto/             OpenAPI query DTOs
-queue/                   Queue consumers and lifecycle adapter
-resource/                Documentation, i18n, migration, OpenAPI, and startup sync
-server/                  HTTP, gRPC, MCP, and middleware
-sse/                     SSE stream registration, transport, and publishing
+queue/                   Queue message helpers
+internal/data/           Core models, transactions, and repositories
+internal/job/            Cron registration, persistent jobs, and runtime
+internal/mcp/            MCP service and lifecycle adapter
+internal/queue/          Queue consumers and lifecycle adapter
+internal/resource/       Documentation, i18n, migration, OpenAPI, and startup sync
+internal/server/         HTTP, gRPC, MCP, and middleware
+internal/sse/            SSE stream registration, transport, and publishing
 
 bootstrap.go             Public ProviderSet and application lifecycle assembly
 wire.go                  Core Wire composition root
@@ -177,11 +179,12 @@ Makefile                 Generation, formatting, testing, and static checks
 ## Development Commands
 
 ```bash
+make tools     # Install pinned code-generation and formatting tools
 make api       # Generate api/gen/go
 make wire      # Generate wire_gen.go
 make fmt       # Format Go code with goimports
-make test      # go test ./...
-make vet       # go vet ./...
+make test      # Check the root, api, and client Go modules
+make vet       # Vet the root, api, and client Go modules
 make lint      # Currently equivalent to make vet
 ```
 

@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-kratos/kratos/v3/middleware"
@@ -79,8 +80,15 @@ func resolveGrpcClientEndpoint(serviceName string, config *configv1.Bootstrap) (
 // initGrpcClientConfig 根据客户端配置组装 gRPC 客户端选项。
 func initGrpcClientConfig(config *configv1.Bootstrap, options []kratosGrpc.ClientOption, middlewares ...middleware.Middleware) ([]kratosGrpc.ClientOption, error) {
 	if config == nil || config.GetClient() == nil || config.GetClient().GetGrpc() == nil {
+		err := configureGlobalSelector("wrr")
+		if err != nil {
+			return nil, err
+		}
 		if len(middlewares) > 0 {
-			options = append(options, kratosGrpc.WithMiddleware(middlewares...))
+			options = append(options,
+				kratosGrpc.WithMiddleware(middlewares...),
+				kratosGrpc.WithStreamMiddleware(middlewares...),
+			)
 		}
 		return options, nil
 	}
@@ -98,6 +106,7 @@ func initGrpcClientConfig(config *configv1.Bootstrap, options []kratosGrpc.Clien
 		return nil, err
 	}
 	middlewareConfig := grpcConfig.GetMiddleware()
+	balancerName := "wrr"
 	if middlewareConfig != nil {
 		selectorFilterConfig := middlewareConfig.GetSelectorFilter()
 		if selectorFilterConfig != nil {
@@ -106,17 +115,24 @@ func initGrpcClientConfig(config *configv1.Bootstrap, options []kratosGrpc.Clien
 			}
 			switch selectorFilterConfig.GetBalancer() {
 			case "p2c":
-				selector.SetGlobalSelector(selectorP2c.NewBuilder())
+				balancerName = "p2c"
 			case "random":
-				selector.SetGlobalSelector(selectorRandom.NewBuilder())
+				balancerName = "random"
 			case "wrr":
-				selector.SetGlobalSelector(selectorWrr.NewBuilder())
+				balancerName = "wrr"
 			default:
-				selector.SetGlobalSelector(selectorWrr.NewBuilder())
+				balancerName = "wrr"
 			}
 		}
 	}
-	options = append(options, kratosGrpc.WithMiddleware(middlewares...))
+	err = configureGlobalSelector(balancerName)
+	if err != nil {
+		return nil, err
+	}
+	options = append(options,
+		kratosGrpc.WithMiddleware(middlewares...),
+		kratosGrpc.WithStreamMiddleware(middlewares...),
+	)
 
 	if grpcConfig.Tls == nil {
 		return options, nil
@@ -130,4 +146,36 @@ func initGrpcClientConfig(config *configv1.Bootstrap, options []kratosGrpc.Clien
 		options = append(options, kratosGrpc.WithTLSConfig(tlsConfig))
 	}
 	return options, nil
+}
+
+var globalSelectorState struct {
+	sync.Mutex
+	configured bool
+	name       string
+}
+
+// configureGlobalSelector 配置进程级 gRPC 负载均衡器，并拒绝运行期间切换策略。
+func configureGlobalSelector(name string) error {
+	globalSelectorState.Lock()
+	defer globalSelectorState.Unlock()
+
+	if globalSelectorState.configured {
+		if globalSelectorState.name != name {
+			return fmt.Errorf("gRPC 客户端负载均衡器已配置为 %q，不能切换为 %q", globalSelectorState.name, name)
+		}
+		return nil
+	}
+
+	switch name {
+	case "p2c":
+		selector.SetGlobalSelector(selectorP2c.NewBuilder())
+	case "random":
+		selector.SetGlobalSelector(selectorRandom.NewBuilder())
+	default:
+		selector.SetGlobalSelector(selectorWrr.NewBuilder())
+		name = "wrr"
+	}
+	globalSelectorState.configured = true
+	globalSelectorState.name = name
+	return nil
 }

@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package common.v1;
 
-option go_package = "github.com/liujitcn/kratos-core/api/gen/go/common/v1;commonv1";
-
 import "errors/errors.proto";
+
+option go_package = "github.com/liujitcn/kratos-core/api/gen/go/common/v1;commonv1";
 
 // 通用错误原因。
 enum ErrorReason {

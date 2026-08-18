@@ -19,7 +19,7 @@ Core 不是完整的業務範本。宿主透過一個 `module.Module` 將業務�
 跨專案可以依賴的 Go 程式碼分為四個入口：
 
 - 根套件提供 `ProviderSet` 和 `NewApp`。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 圖。
-- `pkg` 提供 `biz`、`config`、`const`、`dto`、`errorsx` 和 `module` 公開套件。
+- 根目錄的 `biz`、`config`、`const`、`errorsx` 和 `module` 提供跨專案公開套件。
 - `api` 是獨立 Go 模組，`api/proto` 保存 Core 的 protobuf 定義，`api/gen/go` 保存產生的 Go 類型。
 - `client` 是獨立 Go 模組，提供基於 `kratos-kit` 設定的 gRPC 連線和行程內 gRPC 連線。
 
@@ -46,12 +46,16 @@ func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
 	panic(wire.Build(
 		core.ProviderSet,
 		newHostModule,
-		wire.Bind(new(module.Module), new(*hostModule)),
+		newHostModules,
 	))
+}
+
+func newHostModules(host *hostModule) []module.Module {
+	return []module.Module{host}
 }
 ```
 
-Core 的 `ProviderSet` 只負責將 `NewApp` 接入宿主的 Wire 圖；它不會將 `BaseCase`、`Job`、`Docs`、`OpenAPI` 或 `SSE` 作為宿主 Wire 輸出。宿主自己的業務 Case 仍應按需加入公開的 `biz.ProviderSet`、`config.ProviderSet` 和業務 Provider。`wire_gen.go` 只能透過 `make wire` 或宿主專案自己的 Wire 指令產生，不能手工維護。
+Core 的 `ProviderSet` 已包含 `config.ProviderSet`、`biz.ProviderSet` 和 `NewApp`，不要重複加入前兩個 ProviderSet。宿主只需補充自己的業務 Provider，並提供 `[]module.Module`。`wire_gen.go` 只能透過 `make wire` 或宿主專案自己的 Wire 指令產生，不能手工維護。
 
 ## 模組契約
 
@@ -92,7 +96,7 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `Models` | 按資料源名稱分組的 GORM 模型。含模型的資料源必須在設定中存在，預設資料源必須配置。 |
 | `Migrations` | 版本化遷移列表。每個 `module.Migration` 宣告 `Name`、`FS`、`Path` 和 `Dependencies`，Core 依賴關係順序執行。 |
 | `OpenAPI` | 包含 `openapi.yaml`、`openapi.yml` 或 `openapi.json` 的 `fs.FS`。啟用 Swagger 後，Core 會為每個專案掛載原文和 Swagger UI。 |
-| `Docs` | 通常包含 `docs.json` 的 `fs.FS`，用於建立專案文件樹並透過 `resource/docs.Docs` 查詢。 |
+| `Docs` | 通常包含 `docs.json` 的 `fs.FS`，用於建立專案文件樹並透過 `biz.Docs` 查詢。 |
 | `I18n` | 包含 `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` 等語言檔案的 `fs.FS`。Core 會與內建文案合併。 |
 
 宿主通常透過 `embed.FS`、程式碼產生器或 `fstest.MapFS` 提供這些資源：
@@ -121,10 +125,10 @@ func NewModuleResources() module.Resources {
 
 Core 還向宿主提供以下具體業務服務：
 
-- `job.Job`：啟動、停止或立即執行資料庫中的持久化任務。
-- `resource/docs.Docs`：查詢合併後的專案文件樹和文件正文。
-- `resource/openapi.OpenAPI`：按服務或 HTTP 操作查詢 OpenAPI 資訊。
-- `sse.SSE`：建立 SSE 訂閱並發布 JSON 事件。
+- `biz.Job`：啟動、停止或立即執行資料庫中的持久化任務。
+- `biz.Docs`：查詢合併後的專案文件樹和文件正文。
+- `biz.OpenAPI`：按服務或 HTTP 操作查詢 OpenAPI 資訊。
+- `biz.SSE`：建立 SSE 訂閱並發布 JSON 事件。
 
 ### 服務與中介軟體
 
@@ -153,20 +157,18 @@ client/
   localgrpc/             行程內 gRPC 服務註冊與呼叫
 
 biz/                     基礎上下文和 Core 內建業務用例
-biz/dto/                 OpenAPI 解析 DTO
 config/                  啟動設定解析
 const/                   公共常數
-internal/data/           Core 模型、事務和儲存庫（僅 Core 內部使用）
-docs/dto/                專案文件查詢 DTO
 errorsx/                 統一錯誤建構
-job/                     Cron 註冊、持久化任務和執行時
-mcp/                     MCP 服務與生命週期適配
 module/                  宿主模組、資源和協議註冊契約
-openapi/dto/             OpenAPI 查詢 DTO
-queue/                   佇列消費者與生命週期適配
-resource/                文件、I18n、遷移、OpenAPI 和啟動同步
-server/                  HTTP、gRPC、MCP 和中介軟體
-sse/                     SSE 流註冊、傳輸和發布
+queue/                   佇列訊息輔助能力
+internal/data/           Core 模型、事務和儲存庫
+internal/job/            Cron 註冊、持久化任務和執行時
+internal/mcp/            MCP 服務與生命週期適配
+internal/queue/          佇列消費者與生命週期適配
+internal/resource/       文件、I18n、遷移、OpenAPI 和啟動同步
+internal/server/         HTTP、gRPC、MCP 和中介軟體
+internal/sse/            SSE 流註冊、傳輸和發布
 
 bootstrap.go             公開 ProviderSet 和應用程式生命週期組裝
 wire.go                  Core Wire 組合根
@@ -177,11 +179,12 @@ Makefile                 產生、格式化、測試和靜態檢查命令
 ## 開發指令
 
 ```bash
+make tools     # 安裝並鎖定程式碼產生與格式化工具
 make api       # 產生 api/gen/go
 make wire      # 產生 wire_gen.go
 make fmt       # 使用 goimports 格式化 Go 程式碼
-make test      # go test ./...
-make vet       # go vet ./...
+make test      # 檢查根、api、client 三個 Go 模組
+make vet       # 檢查根、api、client 三個 Go 模組
 make lint      # 目前等同於 make vet
 ```
 

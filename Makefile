@@ -1,4 +1,4 @@
-.PHONY: help fmt lint test vet api wire buf-push tag
+.PHONY: help fmt lint test vet api tools wire buf-push tag
 
 GO_BIN_DIR ?= $(or $(shell go env GOBIN),$(shell go env GOPATH)/bin)
 WIRE_DIR ?= .
@@ -6,9 +6,19 @@ WIRE_DIR ?= .
 # 生成 Core 通用 protobuf Go 代码。
 api:
 	@echo "==> 生成 Core protobuf Go 代码"
+	@PATH="$(GO_BIN_DIR):$$PATH" command -v protoc-gen-go >/dev/null 2>&1 || { echo "未找到 protoc-gen-go，请先执行 make tools"; exit 1; }
+	@PATH="$(GO_BIN_DIR):$$PATH" command -v protoc-gen-go-errors >/dev/null 2>&1 || { echo "未找到 protoc-gen-go-errors，请先执行 make tools"; exit 1; }
+	@PATH="$(GO_BIN_DIR):$$PATH" command -v goimports >/dev/null 2>&1 || { echo "未找到 goimports，请先执行 make tools"; exit 1; }
 	@cd api && PATH="$(GO_BIN_DIR):$$PATH" buf generate --template buf.gen.yaml
 	@PATH="$(GO_BIN_DIR):$$PATH" find api/gen/go -type f -name '*.go' -exec goimports -w {} +
 	@echo "==> Core protobuf Go 代码生成完成"
+
+# 安装并锁定代码生成与格式化工具。
+tools:
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+	@go install github.com/go-kratos/kratos/cmd/protoc-gen-go-errors/v3@v3.0.0-20260626125723-668db92c2c00
+	@go install golang.org/x/tools/cmd/goimports@v0.48.0
+	@go install github.com/google/wire/cmd/wire@v0.7.0
 
 # 格式化 Go 源码。
 fmt:
@@ -23,6 +33,7 @@ wire: fmt
 		echo "==> 未找到 $(WIRE_DIR)/wire.go，跳过 wire 依赖注入代码生成"; \
 	else \
 		echo "==> 生成 wire 依赖注入代码"; \
+		PATH="$(GO_BIN_DIR):$$PATH" command -v wire >/dev/null 2>&1 || { echo "未找到 wire，请先执行 make tools"; exit 1; }; \
 		cd "$(WIRE_DIR)" && PATH="$(GO_BIN_DIR):$$PATH" wire . && \
 		PATH="$(GO_BIN_DIR):$$PATH" goimports -w wire.go wire_gen.go && \
 		echo "==> wire 依赖注入代码生成完成"; \
@@ -31,10 +42,14 @@ wire: fmt
 # 验证核心模块。
 test:
 	@go test ./...
+	@cd api && go test ./...
+	@cd client && go test ./...
 
 # 静态检查核心模块。
 vet:
 	@go vet ./...
+	@cd api && go vet ./...
+	@cd client && go vet ./...
 
 # 推送 Core protobuf 模块到 Buf Schema Registry。
 buf-push: api fmt

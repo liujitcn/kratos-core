@@ -14,9 +14,6 @@ bin/
 !frontend/taro-app/packages/cli/bin/kratos-taro-app.mjs
 dist/
 
-# Go workspace file
-go.work
-
 # Go coverage
 *.cover
 coverage.out
