@@ -17,12 +17,12 @@ import (
 // BaseAPICase 接口业务实例。
 type BaseAPICase struct {
 	*data.BaseAPIRepository
-	*data.BaseAPII18nRepository
+	*data.BaseAPII18NRepository
 }
 
 // NewBaseAPICase 创建接口业务实例。
-func NewBaseAPICase(baseAPIRepo *data.BaseAPIRepository, baseAPII18nRepo *data.BaseAPII18nRepository) *BaseAPICase {
-	return &BaseAPICase{BaseAPIRepository: baseAPIRepo, BaseAPII18nRepository: baseAPII18nRepo}
+func NewBaseAPICase(baseAPIRepo *data.BaseAPIRepository, baseAPII18NRepo *data.BaseAPII18NRepository) *BaseAPICase {
+	return &BaseAPICase{BaseAPIRepository: baseAPIRepo, BaseAPII18NRepository: baseAPII18NRepo}
 }
 
 // OpenAPIDataToBaseAPI 将 OpenAPI 文档转换为待持久化的接口模型。
@@ -62,8 +62,8 @@ func (c *BaseAPICase) OpenAPIDataToBaseAPI(openAPIData []byte) ([]*models.BaseAP
 	return baseAPIList, nil
 }
 
-// OpenAPIDataToBaseAPII18n 将指定语言的 OpenAPI 文档转换为 API 国际化记录。
-func (c *BaseAPICase) OpenAPIDataToBaseAPII18n(openAPIData []byte, locale string) ([]*models.BaseAPII18n, error) {
+// OpenAPIDataToBaseAPII18N 将指定语言的 OpenAPI 文档转换为 API 国际化记录。
+func (c *BaseAPICase) OpenAPIDataToBaseAPII18N(openAPIData []byte, locale string) ([]*models.BaseAPII18N, error) {
 	if locale == "" {
 		return nil, nil
 	}
@@ -71,12 +71,12 @@ func (c *BaseAPICase) OpenAPIDataToBaseAPII18n(openAPIData []byte, locale string
 	if err != nil {
 		return nil, err
 	}
-	result := make([]*models.BaseAPII18n, 0, len(items))
+	result := make([]*models.BaseAPII18N, 0, len(items))
 	for _, item := range items {
 		if item == nil || item.Operation == "" {
 			continue
 		}
-		result = append(result, &models.BaseAPII18n{
+		result = append(result, &models.BaseAPII18N{
 			Operation:   item.Operation,
 			Locale:      locale,
 			ToolPrompts: item.ToolPrompts,

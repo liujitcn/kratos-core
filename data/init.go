@@ -7,7 +7,7 @@ var ProviderSet = wire.NewSet(
 	NewClients,
 	NewData,
 	NewBaseAPIRepository,
-	NewBaseAPII18nRepository,
+	NewBaseAPII18NRepository,
 	NewBaseJobRepository,
 	NewBaseJobLogRepository,
 	NewBaseLogRepository,
