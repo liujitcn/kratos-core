@@ -11,7 +11,6 @@ import (
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/go-kratos/kratos/v3/transport"
 	_const "github.com/liujitcn/kratos-core/const"
-	"github.com/liujitcn/kratos-core/module"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/auth/data"
@@ -32,10 +31,13 @@ type Server struct {
 	resolver  sse.StreamIDResolver
 }
 
+// Streams 聚合宿主提供的 SSE 业务流定义。
+type Streams []sse.SSEStream
+
 var _ transport.Server = (*Server)(nil)
 var _ transport.Endpointer = (*Server)(nil)
 
-// NewStreamResolver 创建根据模块流声明解析实际传输流的请求解析器。
+// NewStreamResolver 创建根据宿主流声明解析实际传输流的请求解析器。
 func NewStreamResolver(registry *Registry, authenticator engine.Authenticator, userToken *data.UserToken) sse.StreamIDResolver {
 	return func(request *http.Request) (string, error) {
 		if request == nil || request.URL == nil {
@@ -63,8 +65,8 @@ func NewStreamResolver(registry *Registry, authenticator engine.Authenticator, u
 	}
 }
 
-// NewServer 按 Server_Sse 配置创建 SSE 服务、注册业务流，并返回进程内服务清理函数。
-func NewServer(ctx *bootstrap.Context, resolver sse.StreamIDResolver, modules module.Modules, registry *Registry) (*Server, func(), error) {
+// NewServer 按 Server_Sse 配置创建 SSE 服务、注册宿主业务流，并返回进程内服务清理函数。
+func NewServer(ctx *bootstrap.Context, resolver sse.StreamIDResolver, streams Streams, registry *Registry) (*Server, func(), error) {
 	cfg := ctx.GetConfig()
 	if cfg == nil || cfg.Server == nil || cfg.Server.Sse == nil {
 		return nil, func() {}, nil
@@ -97,7 +99,7 @@ func NewServer(ctx *bootstrap.Context, resolver sse.StreamIDResolver, modules mo
 			log.Error("停止 SSE 服务失败", "error", stopErr)
 		}
 	}
-	if err = modules.RegisterSSE(server); err != nil {
+	if err = server.RegisterStream(streams...); err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}

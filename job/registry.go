@@ -1,19 +1,21 @@
 package job
 
 import (
-	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/transport/cron"
 )
 
-// Registry 保存模块通过 Cron Server 注册的定时任务执行器。
+// Tasks 聚合宿主提供的定时任务执行器。
+type Tasks []*cron.Task
+
+// Registry 保存宿主通过 Cron Server 注册的定时任务执行器。
 type Registry struct {
 	server *cron.Server
 }
 
-// NewRegistry 创建 Cron Server 并调用模块注册任务执行器。
-func NewRegistry(modules module.Modules) (*Registry, error) {
+// NewRegistry 创建 Cron Server 并注册宿主提供的任务执行器。
+func NewRegistry(tasks Tasks) (*Registry, error) {
 	server := cron.NewServer()
-	if err := modules.RegisterCron(server); err != nil {
+	if err := server.RegisterTask(tasks...); err != nil {
 		return nil, err
 	}
 	return &Registry{server: server}, nil

@@ -8,7 +8,6 @@ import (
 	_const "github.com/liujitcn/kratos-core/const"
 	coreData "github.com/liujitcn/kratos-core/data"
 	"github.com/liujitcn/kratos-core/internal/models"
-	"github.com/liujitcn/kratos-core/module"
 	kitQueue "github.com/liujitcn/kratos-kit/queue"
 	queueData "github.com/liujitcn/kratos-kit/queue/data"
 	queueTransport "github.com/liujitcn/kratos-kit/transport/queue"
@@ -21,10 +20,29 @@ type Server struct {
 	server *queueTransport.Server
 }
 
-// NewServer 创建队列服务，注册 Core 和模块提供的队列消费者。
-func NewServer(queue kitQueue.Queue, baseJobLogRepository *coreData.BaseJobLogRepository, baseLogRepository *coreData.BaseLogRepository, modules module.Modules) (*Server, error) {
+// Consumer 描述宿主提供的一项队列消费者。
+type Consumer struct {
+	// Stream 是消费者监听的队列流名称。
+	Stream queueTransport.Stream
+	// Handler 是收到队列消息后的处理函数。
+	Handler queueData.ConsumerFunc
+}
+
+// Consumers 聚合宿主提供的队列消费者。
+type Consumers []Consumer
+
+// NewServer 创建队列服务，注册 Core 和宿主提供的队列消费者。
+func NewServer(queue kitQueue.Queue, baseJobLogRepository *coreData.BaseJobLogRepository, baseLogRepository *coreData.BaseLogRepository, consumers Consumers) (*Server, error) {
 	if queue == nil {
 		return nil, fmt.Errorf("队列适配器不能为空")
+	}
+	for _, consumer := range consumers {
+		if consumer.Stream == "" {
+			return nil, fmt.Errorf("队列流不能为空")
+		}
+		if consumer.Handler == nil {
+			return nil, fmt.Errorf("队列消费者不能为空: %s", consumer.Stream)
+		}
 	}
 	server, err := queueTransport.NewServer(queueTransport.WithQueue(queue))
 	if err != nil {
@@ -47,7 +65,9 @@ func NewServer(queue kitQueue.Queue, baseJobLogRepository *coreData.BaseJobLogRe
 		return baseLogRepository.Create(context.Background(), entity)
 	})
 
-	modules.RegisterQueue(server)
+	for _, consumer := range consumers {
+		server.Register(consumer.Stream, consumer.Handler)
+	}
 	return &Server{server: server}, nil
 }
 

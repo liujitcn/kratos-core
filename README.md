@@ -10,7 +10,7 @@ Core 不是完整的业务模板。宿主通过一个 `module.Module` 把业务�
 
 - 从 `bootstrap.Context` 解析数据库、Redis、队列、OSS、JWT、翻译器和性能分析配置。
 - 按模块资源创建多数据源 GORM 客户端、缓存、队列、OSS、翻译器和共享 `biz.BaseCase`。
-- 按配置创建 HTTP、gRPC、MCP、SSE、队列和持久化定时任务运行时，并把模块服务注册到对应传输层。
+- 按配置创建 HTTP、gRPC、MCP、SSE、队列和持久化定时任务运行时，并把模块服务注册到对应传输层；任务、SSE 流和队列消费者分别作为独立集合注入。
 - 装配时按顺序执行数据库迁移、OpenAPI 接口同步、租户角色菜单同步和 Casbin 策略重建。
 - 统一装配可选服务并交给 Kratos 管理生命周期；基础资源由 Wire 生成的清理函数释放。
 
@@ -59,7 +59,7 @@ Core 的 `ProviderSet` 汇总配置、基础设施、模块资源、数据访问
 
 ## 模块契约
 
-业务模块实现 `module.Module`。模块自己持有业务 Service，并在协议注册方法中完成注册：
+业务模块实现 `module.Module`。模块自己持有业务 Service，并在协议注册方法中完成 HTTP、gRPC 和 MCP 注册：
 
 ```go
 type hostModule struct{}
@@ -67,10 +67,6 @@ type hostModule struct{}
 func (*hostModule) RegisterGRPC(grpc.ServiceRegistrar) {}
 func (*hostModule) RegisterHTTP(*kratosHTTP.Server)    {}
 func (*hostModule) RegisterMCP(*mcpserver.Server)      {}
-func (*hostModule) RegisterQueue(*queueTransport.Server) {}
-func (*hostModule) RegisterCron(*cronTransport.Server) error { return nil }
-func (*hostModule) RegisterSSE(*sseTransport.Server) error    { return nil }
-func (*hostModule) Resources() module.Resources                { return module.Resources{} }
 ```
 
 各方法的职责如下：
@@ -80,43 +76,34 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `RegisterGRPC` | 注册生成的 gRPC Service。未配置 gRPC 服务时不会创建 Core gRPC Server。 |
 | `RegisterHTTP` | 注册 HTTP Service 和路由。未配置 HTTP 服务时不会创建 Core HTTP Server。 |
 | `RegisterMCP` | 注册 MCP 工具。MCP 可以独立监听，也可以挂载到 HTTP。 |
-| `RegisterQueue` | 注册队列消费者；Core 同时注册内置日志和任务日志消费者。 |
-| `RegisterCron` | 注册数据库持久化任务执行器，通常调用 `server.RegisterTask`。返回错误会中止装配。 |
-| `RegisterSSE` | 注册业务 SSE 流，通常调用 `server.RegisterStream`。返回错误会中止装配。 |
-| `Resources` | 返回模型、迁移、OpenAPI、项目文档和 I18n 等静态资源。 |
 
-多个业务模块可以由宿主 Wire 组合根作为 `module.Module` 提供。Core 会按提供顺序收集资源并转发协议注册；重复文档路径、冲突的 OpenAPI 文档、内容不同的 I18n 消息键或重复 SSE 流标识会在装配时被拒绝。
+多个业务模块可以由宿主 Wire 组合根作为 `module.Module` 提供。任务通过 `job.Tasks` 提供，SSE 流通过 `sse.Streams` 提供，队列消费者通过 `queue.Consumers` 提供；没有对应能力时提供空集合。Core 会按提供顺序转发协议注册，并在装配时校验重复资源和重复 SSE 流标识。
 
 ## 构建期资源
 
-`module.Resources` 是每个模块的一次性资源快照：
+`module.Resource` 是宿主提供的一组资源接口，`module.Resources` 聚合多个资源实现：
 
-| 字段 | 内容与约束 |
+| 方法 | 内容与约束 |
 | --- | --- |
-| `ProjectKey` | 项目稳定标识，用于文档和 OpenAPI 命名；为空时使用 `kratos-core`。 |
-| `ProjectName` | 项目展示名称；为空时回退到 `ProjectKey`。 |
-| `Models` | 按数据源名称分组的 GORM 模型。含模型的数据源必须在配置中存在，默认数据源必须配置。 |
-| `Migrations` | 版本化迁移列表。每项 `module.Migration` 声明 `Name`、`FS`、`Path` 和 `Dependencies`，Core 按依赖顺序执行。 |
-| `OpenAPI` | 包含 `openapi.yaml`、`openapi.yml` 或 `openapi.json`，以及可选的 `openapi.<locale>.yaml` 等语言文件的 `fs.FS`。启用 Swagger 后，Core 会按项目和语言挂载原文与 Swagger UI。 |
-| `Docs` | 通常包含 `docs.json` 的 `fs.FS`；文档翻译由生成器写入 `locale`，通过请求语言查询并回退默认正文。 |
-| `I18n` | 包含 `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` 等语言文件的 `fs.FS`。Core 会与内置文案合并。 |
+| `ProjectKey()` / `ProjectName()` | 项目稳定标识和展示名称；ProjectKey 为空时使用 `kratos-core`，ProjectName 为空时回退到 ProjectKey。 |
+| `Models()` | 按数据源名称分组的 GORM 模型。含模型的数据源必须在配置中存在，默认数据源必须配置。 |
+| `Migrations()` | 版本化迁移列表。每项 `module.Migration` 声明 `Name`、`FS`、`Path` 和 `Dependencies`，Core 按依赖顺序执行。 |
+| `OpenAPI()` / `Docs()` / `I18n()` | 分别返回 OpenAPI、项目文档和语言 JSON 文件系统；未提供的资源返回 nil。 |
 
 资源通常由宿主通过 `embed.FS`、代码生成器或 `fstest.MapFS` 提供：
 
 ```go
-func NewModuleResources() module.Resources {
-	return module.Resources{
-		ProjectKey:  "host",
-		ProjectName: "Host Service",
-		Models:      map[string][]interface{}{defaultDataSource: models.Models()},
-		Docs:        docsFS,
-		OpenAPI:     openAPIFS,
-		I18n:        i18nFS,
-		Migrations: []module.Migration{
-			{Name: "host", FS: migrationFS, Path: "."},
-		},
-	}
-}
+type hostResources struct{}
+
+func (*hostResources) ProjectKey() string                    { return "host" }
+func (*hostResources) ProjectName() string                   { return "Host Service" }
+func (*hostResources) Models() module.Models                 { return map[string][]interface{}{defaultDataSource: models.Models()} }
+func (*hostResources) Docs() fs.FS                            { return docsFS }
+func (*hostResources) OpenAPI() fs.FS                        { return openAPIFS }
+func (*hostResources) I18n() fs.FS                           { return i18nFS }
+func (*hostResources) Migrations() module.Migrations          { return module.Migrations{{Name: "host", FS: migrationFS, Path: "."}} }
+
+func NewModuleResources() module.Resources { return module.Resources{&hostResources{}} }
 ```
 
 ## 运行时能力
@@ -136,7 +123,7 @@ Core 还向宿主提供以下具体业务服务：
 
 HTTP 和 gRPC 服务会按配置挂载 request ID、I18n、日志、认证授权和参数校验中间件。HTTP 还支持本地 OSS 静态文件、SPA 回退和 Swagger；启用进程内 MCP 或 SSE 时，对应端点会挂载到 HTTP 服务，因此必须同时配置 HTTP。
 
-队列运行时负责消费 Core 的日志消息和任务日志消息，并转发宿主注册的消费者。Cron 运行时从数据库重载启用的 `BaseJob`，按模块在 `RegisterCron` 中注册的执行器执行任务。
+队列运行时负责消费 Core 的日志消息和任务日志消息，并转发 `queue.Consumers` 中的消费者。Cron 运行时从数据库重载启用的 `BaseJob`，按 `job.Tasks` 中的执行器执行任务。
 
 ## 装配与启动顺序
 
@@ -144,7 +131,7 @@ HTTP 和 gRPC 服务会按配置挂载 request ID、I18n、日志、认证授权
 
 1. 解析启动配置并收集模块资源，根据模块模型创建数据源和迁移注册表。
 2. 执行数据库迁移，随后在同一事务中同步 OpenAPI 接口、`base_api_i18n` 语言快照、租户角色菜单和 Casbin 数据库规则；接口语言记录使用 `operation + locale` 唯一键，不关联会变化的 `base_api.id`；事务提交后刷新内存策略。
-3. 创建共享基础服务、认证授权、HTTP/gRPC/MCP/SSE、队列和 Cron 运行时，并调用模块注册方法。
+3. 创建共享基础服务、认证授权、HTTP/gRPC/MCP/SSE、队列和 Cron 运行时，并注册独立的任务、SSE 流和队列消费者集合。
 4. 组装 Kratos App；Kratos 统一启动和停止传输服务，Wire 生成的清理函数负责释放其余基础资源。
 
 ## 目录职责

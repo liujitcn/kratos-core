@@ -21,7 +21,7 @@ import (
 )
 
 // ProviderSet 汇总 Core 应用所需的配置、业务、资源与传输层依赖。
-// 宿主只需提供 bootstrap.Context 和业务模块，Wire 会按此集合完成其余运行时组件的装配。
+// 宿主提供 bootstrap.Context、业务模块以及独立的资源和可选能力集合，Wire 会按此集合完成其余运行时组件的装配。
 // Wire 根据类型依赖图解析提供者，以下排列仅用于职责分组，不表示实例创建或服务启动顺序。
 var ProviderSet = wire.NewSet(
 	// 注册配置解析、基础设施客户端、模块资源聚合与数据访问能力。
