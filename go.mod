@@ -27,7 +27,7 @@ require (
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.12
 	github.com/liujitcn/kratos-kit/oss v0.0.16
 	github.com/liujitcn/kratos-kit/pprof v0.0.13
-	github.com/liujitcn/kratos-kit/queue v0.0.23
+	github.com/liujitcn/kratos-kit/queue v0.0.25
 	github.com/liujitcn/kratos-kit/rpc v0.0.23
 	github.com/liujitcn/kratos-kit/swagger-ui v0.0.14
 	github.com/liujitcn/kratos-kit/translator v0.0.4
