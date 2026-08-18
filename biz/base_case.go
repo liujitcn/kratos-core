@@ -3,16 +3,16 @@ package biz
 import (
 	"context"
 
-	utilsTranslator "github.com/liujitcn/go-utils/translator"
+	"github.com/liujitcn/go-utils/translator"
 	"github.com/liujitcn/kratos-core/errorsx"
 	"github.com/liujitcn/kratos-kit/auth"
-	authData "github.com/liujitcn/kratos-kit/auth/data"
+	"github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/cache"
-	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
+	"github.com/liujitcn/kratos-kit/database/gorm"
 	"github.com/liujitcn/kratos-kit/oss"
 	"github.com/liujitcn/kratos-kit/pprof"
-	kitQueue "github.com/liujitcn/kratos-kit/queue"
+	"github.com/liujitcn/kratos-kit/queue"
 	"github.com/liujitcn/kratos-kit/sdk"
 )
 
@@ -22,13 +22,13 @@ type BaseCase struct {
 	// Cache 是 Core 创建的缓存实例。
 	Cache cache.Cache
 	// Queue 是 Core 创建的队列实例。
-	Queue kitQueue.Queue
+	Queue queue.Queue
 	// OSS 是 Core 创建的对象存储实例。
 	OSS oss.OSS
 	// Translator 是 Core 创建的翻译器实例。
-	Translator utilsTranslator.Translator
+	Translator translator.Translator
 	// GormClients Gorm多数据源客户端
-	GormClients map[string]*databaseGorm.Client
+	GormClients map[string]*gorm.Client
 }
 
 // NewBaseCase 创建供业务模块复用的基础业务实例，并同步基础对象到 SDK Runtime。
@@ -36,10 +36,10 @@ func NewBaseCase(
 	ctx *bootstrap.Context,
 	pprof pprof.Pprof,
 	cacheValue cache.Cache,
-	queueValue kitQueue.Queue,
+	queueValue queue.Queue,
 	ossValue oss.OSS,
-	translatorValue utilsTranslator.Translator,
-	gormClients map[string]*databaseGorm.Client,
+	translatorValue translator.Translator,
+	gormClients map[string]*gorm.Client,
 ) (*BaseCase, func()) {
 	sdk.Runtime.SetCache(cacheValue)
 	sdk.Runtime.SetQueue(queueValue)
@@ -65,7 +65,7 @@ func NewBaseCase(
 }
 
 // GetAuthInfo 获取当前登录用户认证信息。
-func (c *BaseCase) GetAuthInfo(ctx context.Context) (*authData.UserTokenPayload, error) {
+func (c *BaseCase) GetAuthInfo(ctx context.Context) (*data.UserTokenPayload, error) {
 	authInfo, err := auth.FromContext(ctx)
 	if err != nil {
 		return nil, errorsx.Unauthenticated("用户认证失败").WithCause(err)

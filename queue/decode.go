@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	queueData "github.com/liujitcn/kratos-kit/queue/data"
+	"github.com/liujitcn/kratos-kit/queue/data"
 )
 
 // Decode 从队列消息的 data 字段解码业务对象。
-func Decode[T any](message queueData.Message) (*T, error) {
+func Decode[T any](message data.Message) (*T, error) {
 	raw, exists := message.Values["data"]
 	if !exists || raw == nil {
 		return nil, fmt.Errorf("队列消息缺少 data 字段")

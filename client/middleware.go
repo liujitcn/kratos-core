@@ -11,7 +11,7 @@ import (
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine/jwt"
 	authnMiddleware "github.com/liujitcn/kratos-kit/auth/authn/middleware"
-	kitTracing "github.com/liujitcn/kratos-kit/tracing"
+	"github.com/liujitcn/kratos-kit/tracing"
 )
 
 // appendClientMiddlewares 按客户端配置追加 Kratos 中间件。
@@ -24,7 +24,7 @@ func appendClientMiddlewares(config *configv1.Client_Middleware, middlewares []m
 		middlewares = append(middlewares, recovery.Recovery())
 	}
 	if config.GetEnableTracing() {
-		middlewares = append(middlewares, kitTracing.Client())
+		middlewares = append(middlewares, tracing.Client())
 	}
 	if config.GetEnableMetadata() {
 		middlewares = append(middlewares, metadata.Client())

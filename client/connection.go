@@ -7,8 +7,8 @@ import (
 
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/go-kratos/kratos/v3/middleware"
-	kratosRegistry "github.com/go-kratos/kratos/v3/registry"
-	kratosTransport "github.com/go-kratos/kratos/v3/transport"
+	"github.com/go-kratos/kratos/v3/registry"
+	"github.com/go-kratos/kratos/v3/transport"
 	"github.com/liujitcn/kratos-core/client/localgrpc"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"google.golang.org/grpc"
@@ -30,13 +30,13 @@ type Option func(*connectionOptions)
 type LocalServiceRegistrar func(grpc.ServiceRegistrar)
 
 type connectionOptions struct {
-	discovery     kratosRegistry.Discovery
+	discovery     registry.Discovery
 	localServices []LocalServiceRegistrar
 	middlewares   []middleware.Middleware
 }
 
 // WithDiscovery 为使用 discovery:/// 地址的客户端连接注入服务发现器。
-func WithDiscovery(discovery kratosRegistry.Discovery) Option {
+func WithDiscovery(discovery registry.Discovery) Option {
 	return func(options *connectionOptions) {
 		options.discovery = discovery
 	}
@@ -170,9 +170,9 @@ func newLocalUnaryInterceptor(middlewares []middleware.Middleware) grpc.UnarySer
 			operation = info.FullMethod
 		}
 		localTransport := newLocalTransport(operation, requestHeader)
-		ctx = kratosTransport.NewClientContext(ctx, localTransport)
+		ctx = transport.NewClientContext(ctx, localTransport)
 		response, err := chain(func(ctx context.Context, req any) (any, error) {
-			serverContext := kratosTransport.NewServerContext(ctx, localTransport)
+			serverContext := transport.NewServerContext(ctx, localTransport)
 			serverContext = metadata.NewIncomingContext(serverContext, localIncomingMetadata(ctx, localTransport))
 			serverContext = grpc.NewContextWithServerTransportStream(serverContext, localTransport)
 			return handler(serverContext, req)
@@ -198,9 +198,9 @@ func newLocalStreamInterceptor(middlewares []middleware.Middleware) grpc.StreamS
 			operation = info.FullMethod
 		}
 		localTransport := newLocalTransport(operation, requestHeader)
-		ctx := kratosTransport.NewClientContext(stream.Context(), localTransport)
+		ctx := transport.NewClientContext(stream.Context(), localTransport)
 		_, err := chain(func(ctx context.Context, _ any) (any, error) {
-			serverContext := kratosTransport.NewServerContext(ctx, localTransport)
+			serverContext := transport.NewServerContext(ctx, localTransport)
 			serverContext = metadata.NewIncomingContext(serverContext, localIncomingMetadata(ctx, localTransport))
 			serverContext = grpc.NewContextWithServerTransportStream(serverContext, localStreamTransport{stream: stream, operation: operation})
 			if setter, ok := stream.(interface{ SetContext(context.Context) }); ok {

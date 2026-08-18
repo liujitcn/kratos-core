@@ -7,11 +7,11 @@ import (
 	"github.com/go-kratos/kratos/v3/log"
 	queueData "github.com/liujitcn/kratos-kit/queue/data"
 	"github.com/liujitcn/kratos-kit/sdk"
-	queueTransport "github.com/liujitcn/kratos-kit/transport/queue"
+	"github.com/liujitcn/kratos-kit/transport/queue"
 )
 
 // AddQueue 向运行时队列追加异步消息。
-func AddQueue(queueName queueTransport.Stream, data any) bool {
+func AddQueue(queueName queue.Stream, data any) bool {
 	queueID := string(queueName)
 	q := sdk.Runtime.GetQueue()
 	if q == nil {

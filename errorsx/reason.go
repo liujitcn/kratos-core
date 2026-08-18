@@ -1,6 +1,6 @@
 package errorsx
 
-import kratosErrors "github.com/go-kratos/kratos/v3/errors"
+import "github.com/go-kratos/kratos/v3/errors"
 
 const (
 	// ReasonInvalidArgument 表示请求参数错误。
@@ -18,38 +18,38 @@ const (
 )
 
 // InvalidArgument 构造请求参数错误。
-func InvalidArgument(message string) *kratosErrors.Error {
+func InvalidArgument(message string) *errors.Error {
 	return newStructuredError(400, ReasonInvalidArgument, message)
 }
 
 // Unauthenticated 构造认证失败错误。
-func Unauthenticated(message string) *kratosErrors.Error {
+func Unauthenticated(message string) *errors.Error {
 	return newStructuredError(401, ReasonUnauthenticated, message)
 }
 
 // PermissionDenied 构造权限不足错误。
-func PermissionDenied(message string) *kratosErrors.Error {
+func PermissionDenied(message string) *errors.Error {
 	return newStructuredError(403, ReasonPermissionDenied, message)
 }
 
 // ResourceNotFound 构造资源不存在错误。
-func ResourceNotFound(message string) *kratosErrors.Error {
+func ResourceNotFound(message string) *errors.Error {
 	return newStructuredError(404, ReasonResourceNotFound, message)
 }
 
 // Conflict 构造状态冲突错误。
-func Conflict(message string) *kratosErrors.Error {
+func Conflict(message string) *errors.Error {
 	return newStructuredError(409, ReasonConflict, message)
 }
 
 // Internal 构造内部错误。
-func Internal(message string) *kratosErrors.Error {
+func Internal(message string) *errors.Error {
 	return newStructuredError(500, ReasonInternalError, message)
 }
 
 // newStructuredError 构造携带兼容消息键的结构化错误。
-func newStructuredError(code int, reason, message string) *kratosErrors.Error {
-	structuredErr := kratosErrors.New(code, reason, message)
+func newStructuredError(code int, reason, message string) *errors.Error {
+	structuredErr := errors.New(code, reason, message)
 	if message == "" {
 		return structuredErr
 	}

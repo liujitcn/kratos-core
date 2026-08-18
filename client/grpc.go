@@ -11,10 +11,10 @@ import (
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/registry"
 	"github.com/go-kratos/kratos/v3/selector"
-	selectorFilter "github.com/go-kratos/kratos/v3/selector/filter"
-	selectorP2c "github.com/go-kratos/kratos/v3/selector/p2c"
-	selectorRandom "github.com/go-kratos/kratos/v3/selector/random"
-	selectorWrr "github.com/go-kratos/kratos/v3/selector/wrr"
+	"github.com/go-kratos/kratos/v3/selector/filter"
+	"github.com/go-kratos/kratos/v3/selector/p2c"
+	"github.com/go-kratos/kratos/v3/selector/random"
+	"github.com/go-kratos/kratos/v3/selector/wrr"
 	kratosGrpc "github.com/go-kratos/kratos/v3/transport/grpc"
 
 	// HTTP transport initializes the shared selector before gRPC registers its balancer.
@@ -111,7 +111,7 @@ func initGrpcClientConfig(config *configv1.Bootstrap, options []kratosGrpc.Clien
 		selectorFilterConfig := middlewareConfig.GetSelectorFilter()
 		if selectorFilterConfig != nil {
 			if selectorFilterConfig.GetFilterVersion() != "" {
-				options = append(options, kratosGrpc.WithNodeFilter(selectorFilter.Version(selectorFilterConfig.GetFilterVersion())))
+				options = append(options, kratosGrpc.WithNodeFilter(filter.Version(selectorFilterConfig.GetFilterVersion())))
 			}
 			switch selectorFilterConfig.GetBalancer() {
 			case "p2c":
@@ -168,11 +168,11 @@ func configureGlobalSelector(name string) error {
 
 	switch name {
 	case "p2c":
-		selector.SetGlobalSelector(selectorP2c.NewBuilder())
+		selector.SetGlobalSelector(p2c.NewBuilder())
 	case "random":
-		selector.SetGlobalSelector(selectorRandom.NewBuilder())
+		selector.SetGlobalSelector(random.NewBuilder())
 	default:
-		selector.SetGlobalSelector(selectorWrr.NewBuilder())
+		selector.SetGlobalSelector(wrr.NewBuilder())
 		name = "wrr"
 	}
 	globalSelectorState.configured = true

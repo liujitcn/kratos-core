@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	kratosErrors "github.com/go-kratos/kratos/v3/errors"
+	"github.com/go-kratos/kratos/v3/errors"
 )
 
 const (
@@ -22,7 +22,7 @@ func MessageKey(message string) string {
 }
 
 // WithMessageKey 为结构化错误补充稳定消息键和命名参数。
-func WithMessageKey(structuredErr *kratosErrors.Error, messageKey string, messageArgs map[string]string) *kratosErrors.Error {
+func WithMessageKey(structuredErr *errors.Error, messageKey string, messageArgs map[string]string) *errors.Error {
 	if structuredErr == nil {
 		return nil
 	}

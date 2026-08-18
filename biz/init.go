@@ -9,21 +9,15 @@ import (
 	"github.com/liujitcn/kratos-kit/translator"
 )
 
-// ProviderSet 提供 Core 业务能力共用的基础对象和业务实例。
+// ProviderSet 提供认证授权、基础设施客户端及 Core 业务共用的 BaseCase。
 var ProviderSet = wire.NewSet(
+	NewAuthenticator,
+	NewAuthzEngine,
+	NewUserToken,
 	pprof.NewPprof,
 	cache.NewCache,
 	queue.NewQueue,
 	oss.NewOSS,
 	translator.NewTranslator,
-	NewClients,
 	NewBaseCase,
-	NewAuthenticator,
-	NewAuthzEngine,
-	NewUserToken,
-	NewCasbin,
-	NewJob,
-	NewOpenAPI,
-	NewDocs,
-	NewSSE,
 )

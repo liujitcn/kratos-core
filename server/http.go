@@ -1,0 +1,264 @@
+package server
+
+import (
+	"context"
+	"errors"
+	"io/fs"
+	stdhttp "net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/go-kratos/kratos/v3/log"
+	kratosMiddleware "github.com/go-kratos/kratos/v3/middleware"
+	"github.com/go-kratos/kratos/v3/transport"
+	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
+	"github.com/liujitcn/kratos-core/data"
+	"github.com/liujitcn/kratos-core/mcp"
+	"github.com/liujitcn/kratos-core/module"
+	"github.com/liujitcn/kratos-core/resource/i18n"
+	"github.com/liujitcn/kratos-core/resource/openapi"
+	coreMiddleware "github.com/liujitcn/kratos-core/server/middleware"
+	"github.com/liujitcn/kratos-core/server/middleware/logging"
+	"github.com/liujitcn/kratos-core/sse"
+	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
+	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
+	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
+	authData "github.com/liujitcn/kratos-kit/auth/data"
+	"github.com/liujitcn/kratos-kit/bootstrap"
+	"github.com/liujitcn/kratos-kit/cache"
+	"github.com/liujitcn/kratos-kit/rpc"
+	"github.com/liujitcn/kratos-kit/rpc/middleware/requestid"
+	mcpserver "github.com/liujitcn/kratos-kit/transport/mcp"
+	sseServer "github.com/liujitcn/kratos-kit/transport/sse"
+)
+
+// HTTPMiddlewares 表示 HTTP 服务中间件链。
+type HTTPMiddlewares []kratosMiddleware.Middleware
+
+// NewHTTPMiddleware 创建 HTTP 服务统一中间件链。
+func NewHTTPMiddleware(
+	ctx *bootstrap.Context,
+	authenticator authnEngine.Authenticator,
+	baseUserRepo *data.BaseUserRepository,
+	authorizer authzEngine.Engine,
+	userToken *authData.UserToken,
+	jwtCfg *configv1.Authentication_Jwt,
+	cache cache.Cache,
+	catalog *i18n.I18n,
+) HTTPMiddlewares {
+	var httpMiddlewares HTTPMiddlewares
+	cfg := ctx.GetConfig()
+	// 先补齐请求标识，再进入访问日志中间件，确保日志能读取到统一 request_id。
+	httpMiddlewares = append(httpMiddlewares, requestid.NewRequestIDMiddleware())
+	// i18n国际化
+	if i18nMiddleware := coreMiddleware.NewI18nCatalogMiddleware(catalog, cache); i18nMiddleware != nil {
+		httpMiddlewares = append(httpMiddlewares, i18nMiddleware)
+	}
+	// 开启日志中间件时，统一挂载请求日志与操作者解析逻辑。
+	if cfg != nil && cfg.Server != nil && cfg.Server.Http != nil && cfg.Server.Http.Middleware != nil && cfg.Server.Http.Middleware.EnableLogging && baseUserRepo != nil && authenticator != nil {
+		httpMiddlewares = append(httpMiddlewares, logging.Server(ctx.GetLogger(), baseUserRepo, authenticator))
+	}
+	if authenticator != nil && authorizer != nil && userToken != nil && jwtCfg != nil {
+		httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
+	}
+	httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewValidateMiddleware())
+	return httpMiddlewares
+}
+
+// NewHTTPServer 创建 HTTP Server 并注册已启用业务模块与前端静态路由。
+func NewHTTPServer(
+	ctx *bootstrap.Context,
+	appInfo *configv1.AppInfo,
+	middlewares HTTPMiddlewares,
+	modules module.Modules,
+	authenticator authnEngine.Authenticator,
+	userToken *authData.UserToken,
+	openAPIRegistry *openapi.Registry,
+	mcpServer *mcp.Server,
+	sseServer *sse.Server,
+) (transport.Server, error) {
+	cfg := ctx.GetConfig()
+	httpConfigured := cfg != nil && cfg.Server != nil && cfg.Server.Http != nil
+	err := validateInProcessHTTPHost(httpConfigured, mcpServer, sseServer)
+	if err != nil {
+		return nil, err
+	}
+	// 未启用 HTTP 配置时，跳过 HTTP 服务创建。
+	if !httpConfigured {
+		return nil, nil
+	}
+
+	var srv *kratosHTTP.Server
+	srv, err = rpc.CreateHttpServer(cfg, middlewares...)
+	if err != nil {
+		return nil, err
+	}
+	serverReturned := false
+	defer func() {
+		if serverReturned {
+			return
+		}
+		if stopErr := srv.Stop(context.Background()); stopErr != nil {
+			log.Error("停止 Core HTTP 服务失败", "error", stopErr)
+		}
+	}()
+
+	modules.RegisterHTTP(srv)
+
+	ossRootDirectory := "./data"
+	// 配置了本地 OSS 根目录时，优先使用配置值覆盖默认目录。
+	if cfg.GetOss() != nil && cfg.GetOss().GetRootDirectory() != "" {
+		ossRootDirectory = cfg.GetOss().GetRootDirectory()
+	}
+	projectName := "app"
+	if appInfo != nil && appInfo.GetProject() != "" {
+		projectName = appInfo.GetProject()
+	}
+	// 先注册可回退到 index.html 的 SPA 路由，避免通用项目静态路由提前截获前端客户端路由。
+	registerLocalSPARoutes(srv, ossRootDirectory)
+	staticPrefix := "/" + projectName + "/"
+	staticDirectory := filepath.Join(ossRootDirectory, projectName)
+	// 将本地 OSS 目录暴露为静态资源目录，默认访问 /shop/* 时映射到 ./data/shop/*。
+	staticHandler := stdhttp.StripPrefix(staticPrefix, stdhttp.FileServer(stdhttp.Dir(staticDirectory)))
+	srv.HandlePrefix(staticPrefix, staticHandler)
+	if mcpServer != nil && mcpServer.Server != nil && mcpServer.InProcess {
+		var mcpHandler stdhttp.Handler
+		mcpHandler, err = mcpServer.Server.HTTPHandler()
+		if err != nil {
+			return nil, err
+		}
+		mcpPath := mcpserver.DefaultMCPHandlerPath
+		if cfg.GetServer().GetMcp().GetPath() != "" {
+			mcpPath = cfg.GetServer().GetMcp().GetPath()
+		}
+		srv.Handle(mcpPath, mcpHandler)
+	}
+	if sseServer != nil && sseServer.Server != nil && sseServer.InProcess {
+		ssePath := "/events"
+		if cfg.GetServer().GetSse().GetPath() != "" {
+			ssePath = cfg.GetServer().GetSse().GetPath()
+		}
+		srv.Handle(ssePath, NewSSEHTTPHandler(sseServer.Server, sseServer.Resolver()))
+	}
+	// 显式启用 Swagger 时，使用同一个注册表挂载 Core 和模块文档。
+	if cfg.GetServer().GetHttp().GetEnableSwagger() {
+		err = openapi.RegisterHTTP(srv, openAPIRegistry, openapi.HTTPOptions{
+			DocumentPath: "/api/docs/openapi",
+			SwaggerPath:  "/api/docs/swagger",
+			Authorizer:   newOpenAPIAuthorizer(authenticator, userToken),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	serverReturned = true
+	return srv, nil
+}
+
+// validateInProcessHTTPHost 校验进程内传输是否具备 HTTP 宿主。
+func validateInProcessHTTPHost(httpConfigured bool, mcpServer *mcp.Server, sseServer *sse.Server) error {
+	if httpConfigured {
+		return nil
+	}
+	if mcpServer != nil && mcpServer.InProcess {
+		return errors.New("进程内 MCP 需要配置 HTTP 服务作为宿主")
+	}
+	if sseServer != nil && sseServer.InProcess {
+		return errors.New("进程内 SSE 需要配置 HTTP 服务作为宿主")
+	}
+	return nil
+}
+
+// NewSSEHTTPHandler 创建带业务流解析的 SSE HTTP 处理器。
+func NewSSEHTTPHandler(server *sseServer.Server, resolver sseServer.StreamIDResolver) stdhttp.Handler {
+	return stdhttp.HandlerFunc(func(writer stdhttp.ResponseWriter, request *stdhttp.Request) {
+		if request.Method == stdhttp.MethodOptions {
+			server.ServeHTTP(writer, request)
+			return
+		}
+		if resolver == nil {
+			serveSSEHTTP(request, func(streamRequest *stdhttp.Request) {
+				server.ServeHTTP(writer, streamRequest)
+			})
+			return
+		}
+		streamID, err := resolver(request)
+		if err != nil {
+			stdhttp.Error(writer, err.Error(), stdhttp.StatusUnauthorized)
+			return
+		}
+		server.CreateStream(sseServer.StreamID(streamID))
+		serveSSEHTTP(request, func(streamRequest *stdhttp.Request) {
+			server.ServeStreamHTTP(writer, streamRequest, sseServer.StreamID(streamID))
+		})
+	})
+}
+
+// serveSSEHTTP 为 SSE 请求移除服务级 deadline，同时保留客户端断开带来的取消信号。
+func serveSSEHTTP(request *stdhttp.Request, handler func(*stdhttp.Request)) {
+	streamRequest, cleanup := sse.DetachRequestContext(request)
+	defer cleanup()
+	handler(streamRequest)
+}
+
+// registerLocalSPARoutes 为本地 OSS 根目录下的前端目录注册单页应用路由。
+func registerLocalSPARoutes(srv *kratosHTTP.Server, rootDirectory string) {
+	entries, err := os.ReadDir(rootDirectory)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		directory := filepath.Join(rootDirectory, entry.Name())
+		if _, err = os.Stat(filepath.Join(directory, "index.html")); err != nil {
+			continue
+		}
+		prefix := "/" + entry.Name()
+		handler := newSPAHandler(os.DirFS(directory), prefix)
+		srv.Handle(prefix, handler)
+		srv.HandlePrefix(prefix+"/", handler)
+	}
+}
+
+// newSPAHandler 为前端路由提供静态文件和 index.html 回退。
+func newSPAHandler(webFS fs.FS, prefix string) stdhttp.Handler {
+	fileHandler := stdhttp.StripPrefix(prefix, stdhttp.FileServer(stdhttp.FS(webFS)))
+	return stdhttp.HandlerFunc(func(writer stdhttp.ResponseWriter, request *stdhttp.Request) {
+		relativePath := strings.TrimPrefix(request.URL.Path, prefix)
+		relativePath = strings.TrimPrefix(relativePath, "/")
+		if relativePath != "" {
+			if _, err := fs.Stat(webFS, relativePath); err == nil {
+				fileHandler.ServeHTTP(writer, request)
+				return
+			}
+		}
+		stdhttp.ServeFileFS(writer, request, webFS, "index.html")
+	})
+}
+
+// newOpenAPIAuthorizer 校验 Swagger 文档请求中的 Bearer Token。
+func newOpenAPIAuthorizer(authenticator authnEngine.Authenticator, userToken *authData.UserToken) func(*stdhttp.Request) bool {
+	return func(request *stdhttp.Request) bool {
+		if authenticator == nil || userToken == nil {
+			return true
+		}
+		parts := strings.Fields(request.Header.Get("Authorization"))
+		if len(parts) != 2 || !strings.EqualFold(parts[0], authnEngine.BearerWord) {
+			return false
+		}
+		claims, err := authenticator.AuthenticateToken(parts[1])
+		if err != nil {
+			return false
+		}
+		var userID int64
+		userID, err = claims.GetInt64(authData.ClaimFieldUserID)
+		if err != nil {
+			return false
+		}
+		return userID == 0 || userToken.IsExistAccessToken(userID)
+	}
+}

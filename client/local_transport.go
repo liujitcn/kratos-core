@@ -3,7 +3,7 @@ package client
 import (
 	"strings"
 
-	kratosTransport "github.com/go-kratos/kratos/v3/transport"
+	"github.com/go-kratos/kratos/v3/transport"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -27,7 +27,7 @@ func newLocalTransport(operation string, requestHeader metadata.MD) *localTransp
 }
 
 // Kind 返回本地 transport 的协议类型。
-func (t *localTransport) Kind() kratosTransport.Kind { return kratosTransport.KindGRPC }
+func (t *localTransport) Kind() transport.Kind { return transport.KindGRPC }
 
 // Endpoint 返回进程内 transport 的空地址。
 func (t *localTransport) Endpoint() string { return "" }
@@ -82,10 +82,10 @@ func (t localStreamTransport) SetTrailer(md metadata.MD) error {
 }
 
 // RequestHeader 返回本地调用请求头。
-func (t *localTransport) RequestHeader() kratosTransport.Header { return t.requestHeader }
+func (t *localTransport) RequestHeader() transport.Header { return t.requestHeader }
 
 // ReplyHeader 返回本地调用响应头。
-func (t *localTransport) ReplyHeader() kratosTransport.Header { return t.replyHeader }
+func (t *localTransport) ReplyHeader() transport.Header { return t.replyHeader }
 
 type localHeader metadata.MD
 

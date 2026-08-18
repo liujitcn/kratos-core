@@ -6,7 +6,7 @@ import (
 
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/bootstrap"
-	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
+	"github.com/liujitcn/kratos-kit/database/gorm"
 )
 
 // ParseBootstrap 解析启动上下文中的完整配置。
@@ -74,7 +74,7 @@ func ParseDatabase(config *configv1.Bootstrap) (map[string]*configv1.Data_Databa
 		}
 	}
 	if database := data.GetDatabase(); database != nil {
-		databases[databaseGorm.DefaultClientName] = database
+		databases[gorm.DefaultClientName] = database
 	}
 	if len(databases) == 0 {
 		return nil, errors.New("config[databases] is empty")

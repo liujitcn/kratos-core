@@ -3,18 +3,18 @@ package biz
 import (
 	"context"
 
-	bootstrapConfigv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
+	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 
 	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine/jwt"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
-	authzEngineCasbin "github.com/liujitcn/kratos-kit/auth/authz/engine/casbin"
-	authData "github.com/liujitcn/kratos-kit/auth/data"
+	"github.com/liujitcn/kratos-kit/auth/authz/engine/casbin"
+	"github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/cache"
 )
 
 // NewAuthenticator 创建认证器。
-func NewAuthenticator(cfg *bootstrapConfigv1.Authentication_Jwt) (authnEngine.Authenticator, error) {
+func NewAuthenticator(cfg *configv1.Authentication_Jwt) (authnEngine.Authenticator, error) {
 	if cfg == nil {
 		return nil, nil
 	}
@@ -26,11 +26,11 @@ func NewAuthenticator(cfg *bootstrapConfigv1.Authentication_Jwt) (authnEngine.Au
 
 // NewAuthzEngine 创建鉴权引擎
 func NewAuthzEngine() (authzEngine.Engine, error) {
-	return authzEngineCasbin.NewEngine(context.Background())
+	return casbin.NewEngine(context.Background())
 }
 
 // NewUserToken 创建用户令牌管理器。
-func NewUserToken(cfg *bootstrapConfigv1.Authentication_Jwt, cache cache.Cache, authenticator authnEngine.Authenticator) *authData.UserToken {
+func NewUserToken(cfg *configv1.Authentication_Jwt, cache cache.Cache, authenticator authnEngine.Authenticator) *data.UserToken {
 	if cfg == nil || cache == nil || authenticator == nil {
 		return nil
 	}
@@ -40,7 +40,7 @@ func NewUserToken(cfg *bootstrapConfigv1.Authentication_Jwt, cache cache.Cache, 
 		// USER_REFRESH_TOKEN_KEY_PREFIX 表示用户刷新令牌缓存前缀。
 		USER_REFRESH_TOKEN_KEY_PREFIX = "urt_"
 	)
-	return authData.NewUserToken(
+	return data.NewUserToken(
 		cache,
 		authenticator,
 		USER_ACCESS_TOKEN_KEY_PREFIX,

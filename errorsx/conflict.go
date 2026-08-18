@@ -1,6 +1,6 @@
 package errorsx
 
-import kratosErrors "github.com/go-kratos/kratos/v3/errors"
+import "github.com/go-kratos/kratos/v3/errors"
 
 const (
 	// METADATA_KEY_CONFLICT_TYPE 标识冲突类型。
@@ -29,7 +29,7 @@ const (
 )
 
 // UniqueConflict 构造唯一约束冲突错误。
-func UniqueConflict(message, resource, field, constraint string) *kratosErrors.Error {
+func UniqueConflict(message, resource, field, constraint string) *errors.Error {
 	metadata := map[string]string{
 		METADATA_KEY_CONFLICT_TYPE: CONFLICT_TYPE_UNIQUE_VIOLATION,
 		METADATA_KEY_RESOURCE:      resource,
@@ -43,7 +43,7 @@ func UniqueConflict(message, resource, field, constraint string) *kratosErrors.E
 }
 
 // HasChildrenConflict 构造存在子资源的冲突错误。
-func HasChildrenConflict(message, resource, childResource string) *kratosErrors.Error {
+func HasChildrenConflict(message, resource, childResource string) *errors.Error {
 	metadata := map[string]string{
 		METADATA_KEY_CONFLICT_TYPE: CONFLICT_TYPE_HAS_CHILDREN,
 		METADATA_KEY_RESOURCE:      resource,
@@ -56,7 +56,7 @@ func HasChildrenConflict(message, resource, childResource string) *kratosErrors.
 }
 
 // StateConflict 构造状态冲突错误。
-func StateConflict(message, resource, currentState, expectedState string) *kratosErrors.Error {
+func StateConflict(message, resource, currentState, expectedState string) *errors.Error {
 	metadata := map[string]string{
 		METADATA_KEY_CONFLICT_TYPE: CONFLICT_TYPE_STATE_CONFLICT,
 		METADATA_KEY_RESOURCE:      resource,
@@ -73,7 +73,7 @@ func StateConflict(message, resource, currentState, expectedState string) *krato
 }
 
 // ProtectedResourceConflict 构造受保护资源冲突错误。
-func ProtectedResourceConflict(message, resource string) *kratosErrors.Error {
+func ProtectedResourceConflict(message, resource string) *errors.Error {
 	metadata := map[string]string{
 		METADATA_KEY_CONFLICT_TYPE: CONFLICT_TYPE_PROTECTED_RESOURCE,
 	}

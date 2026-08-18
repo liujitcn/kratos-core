@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-kratos/kratos/v3/middleware"
-	kratosTransport "github.com/go-kratos/kratos/v3/transport"
+	"github.com/go-kratos/kratos/v3/transport"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// TestNewConnectionWithMiddleware 验证远程 gRPC 连接会执行客户端中间件。
 func TestNewConnectionWithMiddleware(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -62,6 +63,7 @@ func TestNewConnectionWithMiddleware(t *testing.T) {
 	}
 }
 
+// TestNewLocalConnectionWithMiddleware 验证进程内连接会执行客户端中间件。
 func TestNewLocalConnectionWithMiddleware(t *testing.T) {
 	var calls atomic.Int32
 	customMiddleware := func(next middleware.Handler) middleware.Handler {
@@ -96,6 +98,7 @@ func TestNewLocalConnectionWithMiddleware(t *testing.T) {
 	}
 }
 
+// TestNewLocalConnectionWithConfiguredMiddleware 验证进程内连接会读取配置中的中间件选项。
 func TestNewLocalConnectionWithConfiguredMiddleware(t *testing.T) {
 	clientConfig := &configv1.Client{Grpc: &configv1.Client_Grpc{Middleware: &configv1.Client_Middleware{}}}
 	connection, cleanup, err := NewConnection(context.Background(), clientConfig,
@@ -120,6 +123,7 @@ func TestNewLocalConnectionWithConfiguredMiddleware(t *testing.T) {
 	}
 }
 
+// TestNewLocalConnectionPropagatesOutgoingMetadata 验证调用方的 outgoing metadata 能传递到服务端。
 func TestNewLocalConnectionPropagatesOutgoingMetadata(t *testing.T) {
 	connection, cleanup, err := NewConnection(context.Background(), nil,
 		WithLocalServices(func(registrar grpc.ServiceRegistrar) {
@@ -144,6 +148,7 @@ func TestNewLocalConnectionPropagatesOutgoingMetadata(t *testing.T) {
 	}
 }
 
+// TestNewLocalConnectionPropagatesMiddlewareOutgoingMetadata 验证中间件追加的 outgoing metadata 能传递到服务端。
 func TestNewLocalConnectionPropagatesMiddlewareOutgoingMetadata(t *testing.T) {
 	appendMetadata := func(next middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req any) (any, error) {
@@ -174,6 +179,7 @@ func TestNewLocalConnectionPropagatesMiddlewareOutgoingMetadata(t *testing.T) {
 	}
 }
 
+// TestNewLocalConnectionStreamMiddlewareAndHeaders 验证流式调用的中间件、响应头和 trailer 传递。
 func TestNewLocalConnectionStreamMiddlewareAndHeaders(t *testing.T) {
 	var calls atomic.Int32
 	streamMiddleware := func(next middleware.Handler) middleware.Handler {
@@ -224,6 +230,7 @@ func TestNewLocalConnectionStreamMiddlewareAndHeaders(t *testing.T) {
 	}
 }
 
+// TestNewLocalConnectionHeaderCallOption 验证 unary 调用的 Header 和 Trailer CallOption。
 func TestNewLocalConnectionHeaderCallOption(t *testing.T) {
 	connection, cleanup, err := NewConnection(context.Background(), nil,
 		WithLocalServices(func(registrar grpc.ServiceRegistrar) {
@@ -255,6 +262,7 @@ func TestNewLocalConnectionHeaderCallOption(t *testing.T) {
 	}
 }
 
+// TestNewConnectionWithConfiguredMiddleware 验证远程连接会读取配置中的中间件选项。
 func TestNewConnectionWithConfiguredMiddleware(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -294,6 +302,7 @@ func TestNewConnectionWithConfiguredMiddleware(t *testing.T) {
 	}
 }
 
+// TestConfigureGlobalSelectorRejectsRuntimeSwitch 验证全局负载均衡策略不允许运行期间切换。
 func TestConfigureGlobalSelectorRejectsRuntimeSwitch(t *testing.T) {
 	if err := configureGlobalSelector("wrr"); err != nil {
 		t.Fatalf("configureGlobalSelector(wrr) error = %v", err)
@@ -343,7 +352,7 @@ func testHeaderUnaryHandler(service any, ctx context.Context, dec func(any) erro
 		if err := dec(request); err != nil {
 			return nil, err
 		}
-		serverTransport, ok := kratosTransport.FromServerContext(ctx)
+		serverTransport, ok := transport.FromServerContext(ctx)
 		if !ok {
 			return nil, status.Error(codes.InvalidArgument, "server transport is missing")
 		}

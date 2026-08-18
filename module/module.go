@@ -3,11 +3,11 @@ package module
 import (
 	"io/fs"
 
-	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
-	cronTransport "github.com/liujitcn/kratos-kit/transport/cron"
-	mcpserver "github.com/liujitcn/kratos-kit/transport/mcp"
-	queueTransport "github.com/liujitcn/kratos-kit/transport/queue"
-	sseTransport "github.com/liujitcn/kratos-kit/transport/sse"
+	"github.com/go-kratos/kratos/v3/transport/http"
+	"github.com/liujitcn/kratos-kit/transport/cron"
+	"github.com/liujitcn/kratos-kit/transport/mcp"
+	"github.com/liujitcn/kratos-kit/transport/queue"
+	"github.com/liujitcn/kratos-kit/transport/sse"
 	"google.golang.org/grpc"
 )
 
@@ -16,15 +16,15 @@ type Module interface {
 	// RegisterGRPC 将模块 gRPC 服务注册到宿主。
 	RegisterGRPC(grpc.ServiceRegistrar)
 	// RegisterHTTP 将模块 HTTP 服务注册到宿主。
-	RegisterHTTP(*kratosHTTP.Server)
+	RegisterHTTP(*http.Server)
 	// RegisterMCP 将模块 MCP 工具注册到宿主。
-	RegisterMCP(*mcpserver.Server)
+	RegisterMCP(*mcp.Server)
 	// RegisterQueue 将模块队列消费者注册到宿主。
-	RegisterQueue(*queueTransport.Server)
+	RegisterQueue(*queue.Server)
 	// RegisterCron 将模块数据库任务执行器注册到 Cron Server。
-	RegisterCron(*cronTransport.Server) error
+	RegisterCron(*cron.Server) error
 	// RegisterSSE 将模块业务 SSE 流注册到 SSE Server。
-	RegisterSSE(*sseTransport.Server) error
+	RegisterSSE(*sse.Server) error
 	// Resources 返回模块提供的文档、迁移、国际化和 OpenAPI 资源。
 	Resources() Resources
 }
@@ -179,7 +179,7 @@ func (modules Modules) RegisterGRPC(registrar grpc.ServiceRegistrar) {
 }
 
 // RegisterHTTP 将全部模块 HTTP 路由注册到宿主。
-func (modules Modules) RegisterHTTP(server *kratosHTTP.Server) {
+func (modules Modules) RegisterHTTP(server *http.Server) {
 	for _, module := range modules {
 		if module != nil {
 			module.RegisterHTTP(server)
@@ -188,7 +188,7 @@ func (modules Modules) RegisterHTTP(server *kratosHTTP.Server) {
 }
 
 // RegisterMCP 将全部模块 MCP 工具注册到宿主。
-func (modules Modules) RegisterMCP(server *mcpserver.Server) {
+func (modules Modules) RegisterMCP(server *mcp.Server) {
 	for _, module := range modules {
 		if module != nil {
 			module.RegisterMCP(server)
@@ -197,7 +197,7 @@ func (modules Modules) RegisterMCP(server *mcpserver.Server) {
 }
 
 // RegisterQueue 将全部模块队列消费者注册到宿主。
-func (modules Modules) RegisterQueue(server *queueTransport.Server) {
+func (modules Modules) RegisterQueue(server *queue.Server) {
 	for _, module := range modules {
 		if module != nil {
 			module.RegisterQueue(server)
@@ -206,7 +206,7 @@ func (modules Modules) RegisterQueue(server *queueTransport.Server) {
 }
 
 // RegisterCron 将全部模块数据库任务执行器注册到 Cron Server。
-func (modules Modules) RegisterCron(server *cronTransport.Server) error {
+func (modules Modules) RegisterCron(server *cron.Server) error {
 	for _, module := range modules {
 		if module != nil {
 			if err := module.RegisterCron(server); err != nil {
@@ -218,7 +218,7 @@ func (modules Modules) RegisterCron(server *cronTransport.Server) error {
 }
 
 // RegisterSSE 将全部模块业务 SSE 流注册到 SSE Server。
-func (modules Modules) RegisterSSE(server *sseTransport.Server) error {
+func (modules Modules) RegisterSSE(server *sse.Server) error {
 	for _, module := range modules {
 		if module != nil {
 			if err := module.RegisterSSE(server); err != nil {
