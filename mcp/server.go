@@ -10,7 +10,7 @@ import (
 	"github.com/liujitcn/kratos-core/module"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/bootstrap"
-	"github.com/liujitcn/kratos-kit/rpc"
+	servermcp "github.com/liujitcn/kratos-kit/server/mcp"
 	"github.com/liujitcn/kratos-kit/transport/mcp"
 )
 
@@ -35,9 +35,9 @@ func NewServer(ctx *bootstrap.Context, modules module.Modules) (*Server, func(),
 	var server *mcp.Server
 	var err error
 	if inProcess {
-		server, err = rpc.CreateMcpHandler(cfg)
+		server, err = servermcp.CreateMcpHandler(cfg)
 	} else {
-		server, err = rpc.CreateMcpServer(cfg)
+		server, err = servermcp.CreateMcpServer(cfg)
 	}
 	if err != nil {
 		return nil, func() {}, err

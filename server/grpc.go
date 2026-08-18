@@ -14,8 +14,7 @@ import (
 	authData "github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/cache"
-	"github.com/liujitcn/kratos-kit/rpc"
-	"github.com/liujitcn/kratos-kit/rpc/middleware/requestid"
+	servergrpc "github.com/liujitcn/kratos-kit/server/grpc"
 )
 
 // GRPCMiddlewares 表示 GRPC 服务中间件链。
@@ -34,8 +33,6 @@ func NewGRPCMiddleware(
 ) GRPCMiddlewares {
 	var grpcMiddlewares GRPCMiddlewares
 	cfg := ctx.GetConfig()
-	// 先补齐请求标识，再进入访问日志中间件，确保日志能读取到统一 request_id。
-	grpcMiddlewares = append(grpcMiddlewares, requestid.NewRequestIDMiddleware())
 	// i18n国际化
 	if i18nMiddleware := coreMiddleware.NewI18nCatalogMiddleware(catalog, cache); i18nMiddleware != nil {
 		grpcMiddlewares = append(grpcMiddlewares, i18nMiddleware)
@@ -47,7 +44,10 @@ func NewGRPCMiddleware(
 	if authenticator != nil && authorizer != nil && userToken != nil && jwtCfg != nil {
 		grpcMiddlewares = append(grpcMiddlewares, coreMiddleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
 	}
-	grpcMiddlewares = append(grpcMiddlewares, coreMiddleware.NewValidateMiddleware())
+	// 按 gRPC 服务配置挂载 Core 的校验错误转换，避免未启用时处理校验错误。
+	if cfg != nil && cfg.Server != nil && cfg.Server.Grpc != nil && cfg.Server.Grpc.Middleware != nil && cfg.Server.Grpc.Middleware.GetEnableValidate() {
+		grpcMiddlewares = append(grpcMiddlewares, coreMiddleware.NewValidateMiddleware())
+	}
 	return grpcMiddlewares
 }
 
@@ -63,7 +63,7 @@ func NewGRPCServer(
 		return nil, nil
 	}
 
-	srv, err := rpc.CreateGrpcServer(cfg, middlewares...)
+	srv, err := servergrpc.CreateGrpcServer(cfg, middlewares...)
 	if err != nil {
 		return nil, err
 	}

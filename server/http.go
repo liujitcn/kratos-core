@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-kratos/kratos/v3/log"
-	kratosMiddleware "github.com/go-kratos/kratos/v3/middleware"
+	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
 	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
 	"github.com/liujitcn/kratos-core/data"
@@ -27,14 +27,13 @@ import (
 	authData "github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/cache"
-	"github.com/liujitcn/kratos-kit/rpc"
-	"github.com/liujitcn/kratos-kit/rpc/middleware/requestid"
+	serverhttp "github.com/liujitcn/kratos-kit/server/http"
 	mcpserver "github.com/liujitcn/kratos-kit/transport/mcp"
 	sseServer "github.com/liujitcn/kratos-kit/transport/sse"
 )
 
 // HTTPMiddlewares 表示 HTTP 服务中间件链。
-type HTTPMiddlewares []kratosMiddleware.Middleware
+type HTTPMiddlewares []middleware.Middleware
 
 // NewHTTPMiddleware 创建 HTTP 服务统一中间件链。
 func NewHTTPMiddleware(
@@ -49,8 +48,6 @@ func NewHTTPMiddleware(
 ) HTTPMiddlewares {
 	var httpMiddlewares HTTPMiddlewares
 	cfg := ctx.GetConfig()
-	// 先补齐请求标识，再进入访问日志中间件，确保日志能读取到统一 request_id。
-	httpMiddlewares = append(httpMiddlewares, requestid.NewRequestIDMiddleware())
 	// i18n国际化
 	if i18nMiddleware := coreMiddleware.NewI18nCatalogMiddleware(catalog, cache); i18nMiddleware != nil {
 		httpMiddlewares = append(httpMiddlewares, i18nMiddleware)
@@ -62,7 +59,10 @@ func NewHTTPMiddleware(
 	if authenticator != nil && authorizer != nil && userToken != nil && jwtCfg != nil {
 		httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
 	}
-	httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewValidateMiddleware())
+	// 按 HTTP 服务配置挂载 Core 的校验错误转换，避免未启用时处理校验错误。
+	if cfg != nil && cfg.Server != nil && cfg.Server.Http != nil && cfg.Server.Http.Middleware != nil && cfg.Server.Http.Middleware.GetEnableValidate() {
+		httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewValidateMiddleware())
+	}
 	return httpMiddlewares
 }
 
@@ -90,7 +90,7 @@ func NewHTTPServer(
 	}
 
 	var srv *kratosHTTP.Server
-	srv, err = rpc.CreateHttpServer(cfg, middlewares...)
+	srv, err = serverhttp.CreateHttpServer(cfg, middlewares...)
 	if err != nil {
 		return nil, err
 	}

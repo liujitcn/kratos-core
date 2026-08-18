@@ -9,7 +9,7 @@ import (
 	"github.com/liujitcn/go-utils/geoip/qqwry"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/auth/data"
-	"github.com/liujitcn/kratos-kit/rpc/middleware/requestid"
+	"github.com/liujitcn/kratos-kit/server/http/middleware/requestid"
 )
 
 var ipClient = qqwry.NewClient()
@@ -85,7 +85,7 @@ func getClientRealIP(request *http.Request) string {
 // getRequestID 获取请求 ID
 func getRequestID(ctx context.Context, request *http.Request) string {
 	// 先读取请求上下文中的 request_id，优先复用统一中间件生成的值。
-	if requestID := requestid.GetRequestID(ctx); requestID != "" {
+	if requestID := requestid.FromContext(ctx); requestID != "" {
 		return requestID
 	}
 

@@ -16,7 +16,7 @@ import (
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
-	"github.com/liujitcn/kratos-kit/rpc"
+	serversse "github.com/liujitcn/kratos-kit/server/sse"
 	"github.com/liujitcn/kratos-kit/transport/sse"
 	"google.golang.org/protobuf/proto"
 )
@@ -78,12 +78,12 @@ func NewServer(ctx *bootstrap.Context, resolver sse.StreamIDResolver, modules mo
 	inProcess := cfg.Server.Sse.GetTransport() == configv1.Server_Sse_IN_PROCESS
 	var err error
 	if inProcess {
-		server, err = rpc.CreateSseHandler(cfg, options...)
+		server, err = serversse.CreateSseHandler(cfg, options...)
 	} else {
 		// 独立模式也延迟到 Kratos Start 阶段监听，避免后续 Provider 失败时泄漏监听器。
 		handlerConfig := proto.Clone(cfg).(*configv1.Bootstrap)
 		handlerConfig.Server.Sse.Transport = configv1.Server_Sse_IN_PROCESS
-		server, err = rpc.CreateSseHandler(handlerConfig, options...)
+		server, err = serversse.CreateSseHandler(handlerConfig, options...)
 	}
 	if err != nil {
 		return nil, func() {}, err
