@@ -10,6 +10,8 @@ type Document struct {
 	ProjectName string `json:"-"`
 	// Path 是项目内相对路径。
 	Path string `json:"path"`
+	// Name 是当前语言下的文档显示名。
+	Name string `json:"name"`
 	// Content 是 Markdown 文档内容。
 	Content string `json:"content"`
 	// UpdatedAt 是文档更新时间。
@@ -22,6 +24,8 @@ type DocumentListItem struct {
 	ID string `json:"id"`
 	// Path 是项目内相对路径。
 	Path string `json:"path"`
+	// Name 是当前语言下的文档显示名。
+	Name string `json:"name"`
 	// UpdatedAt 是文档更新时间。
 	UpdatedAt string `json:"updated_at"`
 }

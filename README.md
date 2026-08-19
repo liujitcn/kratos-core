@@ -115,7 +115,7 @@ func NewModuleResources() module.Resources { return module.Resources{&hostResour
 Core 还向宿主提供以下具体业务服务：
 
 - `job.Job`：启动、停止或立即运行数据库中的持久化任务。
-- `resource/docs.Docs`：按请求语言选择完整的项目文档目录树和正文；语言文件缺失时按基础语言、默认 `docs.json` 依次回退。
+- `resource/docs.Docs`：按请求语言选择完整的项目文档目录树、文档显示名和正文；稳定路径不随语言变化，语言文件缺失时按基础语言、默认 `docs.json` 依次回退。
 - `resource/openapi.OpenAPI`：按请求语言、服务或 HTTP 操作查询 OpenAPI 信息。
 - `sse.SSE`：建立 SSE 订阅并发布 JSON 事件。
 

@@ -19,6 +19,8 @@ import (
 const (
 	// maxDocumentContentBytes 限制单篇文档内容的最大字节数，避免异常资源占用过多内存。
 	maxDocumentContentBytes = 2 << 20
+	// maxDocumentNameBytes 限制本地化文档显示名的最大字节数。
+	maxDocumentNameBytes = 512
 	// maxDirectoryNameBytes 限制本地化目录显示名的最大字节数。
 	maxDirectoryNameBytes = 512
 )
@@ -129,6 +131,9 @@ func (r *Registry) registerCatalog(locale string, snapshot catalogSnapshot) erro
 	}
 	var err error
 	for _, document := range snapshot.documents {
+		if document.Name == "" {
+			document.Name = path.Base(document.Path)
+		}
 		err = validateDocument(document)
 		if err != nil {
 			return err
@@ -374,6 +379,9 @@ func validateDocument(document dto.Document) error {
 	if document.Path != normalized {
 		return fmt.Errorf("项目文档路径必须使用规范相对路径: %q", document.Path)
 	}
+	if document.Name == "" || !utf8.ValidString(document.Name) || len(document.Name) > maxDocumentNameBytes {
+		return fmt.Errorf("项目文档显示名无效: %s", document.Path)
+	}
 	if !utf8.ValidString(document.Content) {
 		return fmt.Errorf("项目文档不是有效 UTF-8: %s", document.Path)
 	}
@@ -392,7 +400,7 @@ func buildProjects(documents []dto.Document, directoryNames map[string]string) [
 			project = &treeProject{key: document.ProjectKey, name: document.ProjectName, directories: make(map[string]*treeDirectory)}
 			projects[document.ProjectKey] = project
 		}
-		item := dto.DocumentListItem{ID: document.ID, Path: document.Path, UpdatedAt: document.UpdatedAt}
+		item := dto.DocumentListItem{ID: document.ID, Path: document.Path, Name: document.Name, UpdatedAt: document.UpdatedAt}
 		segments := strings.Split(document.Path, "/")
 		if len(segments) == 1 {
 			project.documents = append(project.documents, item)
