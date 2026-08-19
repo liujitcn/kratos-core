@@ -16,15 +16,16 @@ import (
 	resourceLocale "github.com/liujitcn/kratos-core/resource/locale"
 )
 
-// maxDocumentContentBytes 限制单篇文档内容的最大字节数，避免异常资源占用过多内存。
-const maxDocumentContentBytes = 2 << 20
-
-// projectKeyPattern 约束项目标识只能以字母或数字开头，并继续使用字母、数字、点、下划线和连字符。
-var (
-	projectKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+const (
+	// maxDocumentContentBytes 限制单篇文档内容的最大字节数，避免异常资源占用过多内存。
+	maxDocumentContentBytes = 2 << 20
+	// maxDirectoryNameBytes 限制本地化目录显示名的最大字节数。
+	maxDirectoryNameBytes = 512
 )
 
-// catalog 是 docs.json 的根目录结构，文档可以直接声明或嵌套在目录中。
+var projectKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+
+// catalog 是单个语言 JSON 文件中的项目文档目录结构。
 type catalog struct {
 	// Documents 保存根目录下直接声明的文档。
 	Documents []dto.Document `json:"documents"`
@@ -32,107 +33,106 @@ type catalog struct {
 	Directories []directory `json:"directories"`
 }
 
-// directory 表示 docs.json 中可递归嵌套的目录节点。
+// directory 表示单个语言 JSON 文件中的递归目录节点。
 type directory struct {
+	// Name 是当前语言下的目录显示名。
+	Name string `json:"name"`
+	// Path 是跨语言保持不变的稳定目录路径。
+	Path string `json:"path"`
 	// Documents 保存当前目录直接声明的文档。
 	Documents []dto.Document `json:"documents"`
 	// Directories 保存当前目录的子目录。
 	Directories []directory `json:"directories"`
 }
 
+// catalogSnapshot 保存单个项目、单个语言文件解析后的文档和目录显示名。
+type catalogSnapshot struct {
+	documents      []dto.Document
+	directoryNames map[string]string
+}
+
+// registryCatalog 保存一个语言组内所有项目的文档索引。
+type registryCatalog struct {
+	documents      []dto.Document
+	documentsByID  map[string]dto.Document
+	directoryNames map[string]string
+}
+
 // treeProject 是 Projects 构建过程中使用的项目树节点。
 type treeProject struct {
-	// key 是项目唯一标识。
-	key string
-	// name 是项目展示名称。
-	name string
-	// documents 保存项目根目录下的文档摘要。
-	documents []dto.DocumentListItem
-	// directories 以目录完整相对路径为 key，避免同名目录在不同层级发生混淆。
+	key         string
+	name        string
+	documents   []dto.DocumentListItem
 	directories map[string]*treeDirectory
 }
 
 // treeDirectory 是 Projects 构建过程中使用的目录树节点。
 type treeDirectory struct {
-	// name 是当前目录名称，不包含父级路径。
-	name string
-	// path 是从项目根目录开始的规范相对路径。
-	path string
-	// documents 保存当前目录直接包含的文档摘要。
-	documents []dto.DocumentListItem
-	// directories 保存当前目录的子目录，key 为子目录的完整相对路径。
+	name        string
+	path        string
+	documents   []dto.DocumentListItem
 	directories map[string]*treeDirectory
 }
 
-// Registry 保存宿主和模块合并后的项目文档，并提供并发安全的查询与追加注册能力。
+// Registry 按语言组保存宿主和模块项目文档，并提供并发安全的查询与追加注册能力。
 type Registry struct {
-	// mu 保护 documents 和 documentsByID，禁止在持锁期间把内部切片或 map 暴露给调用方。
-	mu sync.RWMutex
-	// documents 保存已注册的完整文档，顺序与成功注册顺序一致。
-	documents []dto.Document
-	// documentsByID 保存文档 ID 到完整文档的索引。
-	documentsByID map[string]dto.Document
+	mu       sync.RWMutex
+	catalogs map[string]*registryCatalog
 }
 
-// NewProjectRegistry 从 docs.json 创建项目文档注册表，并为所有文档注入项目标识。
+// NewProjectRegistry 从默认语言 docs.json 创建单个项目的文档注册表。
 func NewProjectRegistry(data []byte, projectKey, projectName string) (*Registry, error) {
-	// 未配置文档资源时按空目录处理，保证调用方无需区分 nil 和空 JSON。
-	if len(data) == 0 {
-		data = []byte(`{}`)
-	}
-	var value catalog
-	err := json.Unmarshal(data, &value)
+	snapshot, err := parseCatalog(data, projectKey, projectName)
 	if err != nil {
-		return nil, fmt.Errorf("解析项目文档目录失败: %w", err)
-	}
-	// 将递归目录展开为顺序文档列表，后续统一走注册校验流程。
-	documents := append([]dto.Document(nil), value.Documents...)
-	documents = appendDirectoryDocuments(documents, value.Directories)
-	// docs.json 只描述文档本身，项目归属由宿主资源统一注入。
-	for index := range documents {
-		documents[index].ProjectKey = projectKey
-		documents[index].ProjectName = projectName
+		return nil, err
 	}
 	registry := &Registry{}
-	err = registry.Register(documents...)
+	err = registry.registerCatalog("", snapshot)
 	if err != nil {
 		return nil, fmt.Errorf("注册项目文档目录失败: %w", err)
 	}
 	return registry, nil
 }
 
-// Register 注册一批文档，并校验项目名称一致性以及项目内路径唯一性。
+// Register 将文档注册到默认语言组，并校验项目名称一致性以及项目内路径唯一性。
 func (r *Registry) Register(documents ...dto.Document) error {
+	return r.registerCatalog("", catalogSnapshot{documents: documents})
+}
+
+// registerCatalog 将一个项目语言快照原子追加到对应语言组。
+func (r *Registry) registerCatalog(locale string, snapshot catalogSnapshot) error {
 	if r == nil {
 		return fmt.Errorf("项目文档注册表不能为空")
 	}
+	locale = resourceLocale.Normalize(locale)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// 从已有文档重建冲突索引，同时复核注册表中的历史数据。
+	current := r.catalogs[locale]
+	registered := make([]dto.Document, 0, len(snapshot.documents))
+	byID := make(map[string]dto.Document)
+	directoryNames := make(map[string]string)
+	if current != nil {
+		registered = append(registered, current.documents...)
+		for id, document := range current.documentsByID {
+			byID[id] = document
+		}
+		for key, name := range current.directoryNames {
+			directoryNames[key] = name
+		}
+	}
 	projectNames := make(map[string]string)
 	paths := make(map[string]struct{})
-	for _, document := range r.documents {
-		if err := validateDocument(document); err != nil {
-			return err
-		}
+	for _, document := range registered {
 		projectNames[document.ProjectKey] = document.ProjectName
 		paths[document.ProjectKey+"\x00"+document.Path] = struct{}{}
 	}
-	// 在副本上组装新状态，确保批量注册失败时原注册表保持不变。
-	registered := append([]dto.Document(nil), r.documents...)
-	byID := make(map[string]dto.Document, len(registered)+len(documents))
-	// 重建 ID 索引，保证顺序存储与查询索引使用相同的 ID 生成规则。
-	for _, document := range registered {
-		document.ID = newDocumentID(document.ProjectKey, document.Path)
-		byID[document.ID] = document
-	}
-	// 逐篇校验新增文档，并同步更新临时冲突索引以发现批次内重复。
-	for _, document := range documents {
-		if err := validateDocument(document); err != nil {
+	var err error
+	for _, document := range snapshot.documents {
+		err = validateDocument(document)
+		if err != nil {
 			return err
 		}
-		document.Locale = cloneLocalizedContents(document.Locale)
 		if name, exists := projectNames[document.ProjectKey]; exists && name != document.ProjectName {
 			return fmt.Errorf("项目文档标识 %q 对应多个项目名称", document.ProjectKey)
 		}
@@ -140,63 +140,275 @@ func (r *Registry) Register(documents ...dto.Document) error {
 		if _, exists := paths[key]; exists {
 			return fmt.Errorf("项目文档路径重复: %s/%s", document.ProjectKey, document.Path)
 		}
-		// ID 完全由项目和路径决定，覆盖调用方可能传入的不可信 ID。
 		document.ID = newDocumentID(document.ProjectKey, document.Path)
 		projectNames[document.ProjectKey] = document.ProjectName
 		paths[key] = struct{}{}
 		registered = append(registered, document)
 		byID[document.ID] = document
 	}
-	// 所有文档校验通过后一次性提交两个内部索引。
-	r.documents = registered
-	r.documentsByID = byID
+	for key, name := range snapshot.directoryNames {
+		if existing, exists := directoryNames[key]; exists && existing != name {
+			return fmt.Errorf("项目文档目录显示名重复: %s", strings.ReplaceAll(key, "\x00", "/"))
+		}
+		directoryNames[key] = name
+	}
+	if r.catalogs == nil {
+		r.catalogs = make(map[string]*registryCatalog)
+	}
+	r.catalogs[locale] = &registryCatalog{
+		documents:      registered,
+		documentsByID:  byID,
+		directoryNames: directoryNames,
+	}
 	return nil
 }
 
-// Documents 返回按注册顺序排列的全部文档快照。
+// Documents 返回默认语言组中按注册顺序排列的全部文档快照。
 func (r *Registry) Documents() []dto.Document {
+	return r.documentsForLocale("")
+}
+
+// documentsForLocale 返回指定语言覆盖默认语言后的完整文档快照。
+func (r *Registry) documentsForLocale(locale string) []dto.Document {
 	if r == nil {
 		return nil
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	// 复制底层切片，避免调用方修改注册表内部顺序或文档值。
-	result := make([]dto.Document, 0, len(r.documents))
-	for _, document := range r.documents {
-		document.Locale = cloneLocalizedContents(document.Locale)
+	return r.documentsForLocaleLocked(locale)
+}
+
+// documentsForLocaleLocked 在读锁保护下按语言候选覆盖默认文档。
+func (r *Registry) documentsForLocaleLocked(locale string) []dto.Document {
+	defaults := r.catalogs[""]
+	if defaults == nil {
+		return nil
+	}
+	candidates := resourceLocale.Candidates(locale)
+	result := make([]dto.Document, 0, len(defaults.documents))
+	for _, document := range defaults.documents {
+		for _, candidate := range candidates {
+			localized := r.catalogs[candidate]
+			if localized == nil {
+				continue
+			}
+			if value, exists := localized.documentsByID[document.ID]; exists {
+				document = value
+				break
+			}
+		}
 		result = append(result, document)
 	}
 	return result
 }
 
-// Projects 将文档摘要组织为按项目和路径排序的目录树。
+// Projects 将默认语言文档摘要组织为按项目和路径排序的目录树。
 func (r *Registry) Projects() []dto.Project {
+	return r.ProjectsForLocale("")
+}
+
+// ProjectsForLocale 将请求语言下的文档摘要组织为本地化目录树。
+func (r *Registry) ProjectsForLocale(locale string) []dto.Project {
+	if r == nil {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	documents := r.documentsForLocaleLocked(locale)
+	directoryNames := r.directoryNamesForLocaleLocked(locale)
+	return buildProjects(documents, directoryNames)
+}
+
+// directoryNamesForLocaleLocked 在读锁保护下选择请求语言对应的目录显示名。
+func (r *Registry) directoryNamesForLocaleLocked(locale string) map[string]string {
+	defaults := r.catalogs[""]
+	if defaults == nil {
+		return nil
+	}
+	candidates := resourceLocale.Candidates(locale)
+	result := make(map[string]string, len(defaults.directoryNames))
+	for key, name := range defaults.directoryNames {
+		for _, candidate := range candidates {
+			localized := r.catalogs[candidate]
+			if localized == nil {
+				continue
+			}
+			if value, exists := localized.directoryNames[key]; exists {
+				name = value
+				break
+			}
+		}
+		result[key] = name
+	}
+	return result
+}
+
+// Get 按请求语言和稳定 ID 查询文档，缺少语言版本时回退默认正文。
+func (r *Registry) Get(locale, id string) (dto.Document, bool) {
+	if r == nil {
+		return dto.Document{}, false
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, candidate := range resourceLocale.Candidates(locale) {
+		localized := r.catalogs[candidate]
+		if localized == nil {
+			continue
+		}
+		if document, exists := localized.documentsByID[id]; exists {
+			return document, true
+		}
+	}
+	defaults := r.catalogs[""]
+	if defaults == nil {
+		return dto.Document{}, false
+	}
+	document, exists := defaults.documentsByID[id]
+	return document, exists
+}
+
+// parseCatalog 解析并校验单个项目、单个语言的文档目录快照。
+func parseCatalog(data []byte, projectKey, projectName string) (catalogSnapshot, error) {
+	if len(data) == 0 {
+		data = []byte(`{}`)
+	}
+	var value catalog
+	err := json.Unmarshal(data, &value)
+	if err != nil {
+		return catalogSnapshot{}, fmt.Errorf("解析项目文档目录失败: %w", err)
+	}
+	snapshot := catalogSnapshot{directoryNames: make(map[string]string)}
+	for _, document := range value.Documents {
+		document.ProjectKey = projectKey
+		document.ProjectName = projectName
+		if parentDocumentPath(document.Path) != "" {
+			return catalogSnapshot{}, fmt.Errorf("项目根目录包含非根文档: %s", document.Path)
+		}
+		snapshot.documents = append(snapshot.documents, document)
+	}
+	for _, item := range value.Directories {
+		err = appendDirectorySnapshot(&snapshot, item, "", projectKey, projectName)
+		if err != nil {
+			return catalogSnapshot{}, err
+		}
+	}
+	return snapshot, nil
+}
+
+// appendDirectorySnapshot 校验目录层级并深度优先追加文档和本地化目录名。
+func appendDirectorySnapshot(snapshot *catalogSnapshot, item directory, parentPath, projectKey, projectName string) error {
+	normalizedPath := path.Clean(strings.ReplaceAll(item.Path, "\\", "/"))
+	if item.Path == "" || normalizedPath == "." || normalizedPath == ".." || path.IsAbs(normalizedPath) || strings.HasPrefix(normalizedPath, "../") {
+		return fmt.Errorf("项目文档目录路径无效: %q", item.Path)
+	}
+	if item.Path != normalizedPath || parentDocumentPath(item.Path) != parentPath {
+		return fmt.Errorf("项目文档目录层级无效: %q", item.Path)
+	}
+	if item.Name == "" || !utf8.ValidString(item.Name) || len(item.Name) > maxDirectoryNameBytes {
+		return fmt.Errorf("项目文档目录显示名无效: %s", item.Path)
+	}
+	key := projectKey + "\x00" + item.Path
+	if _, exists := snapshot.directoryNames[key]; exists {
+		return fmt.Errorf("项目文档目录路径重复: %s", item.Path)
+	}
+	snapshot.directoryNames[key] = item.Name
+	for _, document := range item.Documents {
+		document.ProjectKey = projectKey
+		document.ProjectName = projectName
+		if parentDocumentPath(document.Path) != item.Path {
+			return fmt.Errorf("项目文档所在目录与路径不一致: %s", document.Path)
+		}
+		snapshot.documents = append(snapshot.documents, document)
+	}
+	var err error
+	for _, child := range item.Directories {
+		err = appendDirectorySnapshot(snapshot, child, item.Path, projectKey, projectName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateLocalizedCatalog 校验语言目录与默认目录使用完全相同的稳定路径和更新时间。
+func validateLocalizedCatalog(defaults, localized catalogSnapshot, locale string) error {
+	defaultDocuments := make(map[string]dto.Document, len(defaults.documents))
+	for _, document := range defaults.documents {
+		defaultDocuments[document.Path] = document
+	}
+	if len(localized.documents) != len(defaultDocuments) {
+		return fmt.Errorf("项目文档语言 %q 的文档数量与默认语言不一致", locale)
+	}
+	for _, document := range localized.documents {
+		defaultDocument, exists := defaultDocuments[document.Path]
+		if !exists {
+			return fmt.Errorf("项目文档语言 %q 包含未知路径: %s", locale, document.Path)
+		}
+		if document.UpdatedAt != defaultDocument.UpdatedAt {
+			return fmt.Errorf("项目文档语言 %q 的更新时间与默认语言不一致: %s", locale, document.Path)
+		}
+	}
+	if len(localized.directoryNames) != len(defaults.directoryNames) {
+		return fmt.Errorf("项目文档语言 %q 的目录数量与默认语言不一致", locale)
+	}
+	for key := range localized.directoryNames {
+		if _, exists := defaults.directoryNames[key]; !exists {
+			return fmt.Errorf("项目文档语言 %q 包含未知目录: %s", locale, strings.ReplaceAll(key, "\x00", "/"))
+		}
+	}
+	return nil
+}
+
+// validateDocument 校验文档的项目标识、路径和内容边界。
+func validateDocument(document dto.Document) error {
+	if !projectKeyPattern.MatchString(document.ProjectKey) {
+		return fmt.Errorf("项目文档标识 %q 无效", document.ProjectKey)
+	}
+	if document.ProjectName == "" {
+		return fmt.Errorf("项目文档 %q 缺少项目名称", document.ProjectKey)
+	}
+	normalized := path.Clean(strings.ReplaceAll(document.Path, "\\", "/"))
+	if document.Path == "" || normalized == "." || normalized == ".." || path.IsAbs(normalized) || strings.HasPrefix(normalized, "../") {
+		return fmt.Errorf("项目文档路径无效: %q", document.Path)
+	}
+	if document.Path != normalized {
+		return fmt.Errorf("项目文档路径必须使用规范相对路径: %q", document.Path)
+	}
+	if !utf8.ValidString(document.Content) {
+		return fmt.Errorf("项目文档不是有效 UTF-8: %s", document.Path)
+	}
+	if len(document.Content) > maxDocumentContentBytes {
+		return fmt.Errorf("项目文档超过 2 MiB: %s", document.Path)
+	}
+	return nil
+}
+
+// buildProjects 将文档快照和本地化目录显示名转换为项目树。
+func buildProjects(documents []dto.Document, directoryNames map[string]string) []dto.Project {
 	projects := make(map[string]*treeProject)
-	for _, document := range r.Documents() {
-		// 同一项目的文档共用一个根节点，项目名称已在注册阶段保证一致。
+	for _, document := range documents {
 		project := projects[document.ProjectKey]
 		if project == nil {
 			project = &treeProject{key: document.ProjectKey, name: document.ProjectName, directories: make(map[string]*treeDirectory)}
 			projects[document.ProjectKey] = project
 		}
-		// 列表树仅保留查询和展示所需字段，不携带文档正文。
 		item := dto.DocumentListItem{ID: document.ID, Path: document.Path, UpdatedAt: document.UpdatedAt}
-		// Path 已校验为规范相对路径，可以直接按正斜杠拆分。
 		segments := strings.Split(document.Path, "/")
-		// 单段路径表示文档直接位于项目根目录。
 		if len(segments) == 1 {
 			project.documents = append(project.documents, item)
 			continue
 		}
-		// 逐段下钻并复用已有节点，最后将文档挂到直接父目录。
 		parent := project.directories
 		currentPath := ""
 		for index, name := range segments[:len(segments)-1] {
 			currentPath = path.Join(currentPath, name)
 			current := parent[currentPath]
 			if current == nil {
-				// 首次遇到该路径时创建对应层级的目录节点。
-				current = &treeDirectory{name: name, path: currentPath, directories: make(map[string]*treeDirectory)}
+				displayName := directoryNames[document.ProjectKey+"\x00"+currentPath]
+				if displayName == "" {
+					displayName = name
+				}
+				current = &treeDirectory{name: displayName, path: currentPath, directories: make(map[string]*treeDirectory)}
 				parent[currentPath] = current
 			}
 			if index == len(segments)-2 {
@@ -205,7 +417,6 @@ func (r *Registry) Projects() []dto.Project {
 			parent = current.directories
 		}
 	}
-	// 递归转换目录节点，并在最后稳定项目的输出顺序。
 	result := make([]dto.Project, 0, len(projects))
 	for _, project := range projects {
 		result = append(result, convertProject(project))
@@ -214,116 +425,24 @@ func (r *Registry) Projects() []dto.Project {
 	return result
 }
 
-// Get 按语言和文档 ID 查询文档内容，缺少翻译时回退默认正文。
-func (r *Registry) Get(locale, id string) (dto.Document, bool) {
-	if r == nil {
-		return dto.Document{}, false
+// parentDocumentPath 返回文档或目录稳定路径的父目录，根目录统一为空字符串。
+func parentDocumentPath(value string) string {
+	parent := path.Dir(value)
+	if parent == "." {
+		return ""
 	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	document, exists := r.documentsByID[id]
-	if !exists {
-		return dto.Document{}, false
-	}
-	document.Locale = cloneLocalizedContents(document.Locale)
-	document.Content = localizedContent(document.Locale, locale, document.Content)
-	return document, exists
-}
-
-// validateDocument 校验文档的项目标识、路径和内容边界。
-func validateDocument(document dto.Document) error {
-	// 项目标识会参与文档 ID 和跨模块分组，只允许使用稳定且可移植的字符。
-	if !projectKeyPattern.MatchString(document.ProjectKey) {
-		return fmt.Errorf("项目文档标识 %q 无效", document.ProjectKey)
-	}
-	if document.ProjectName == "" {
-		return fmt.Errorf("项目文档 %q 缺少项目名称", document.ProjectKey)
-	}
-	// 先按统一分隔符清理路径，用于识别绝对路径和父目录穿越。
-	normalized := path.Clean(strings.ReplaceAll(document.Path, "\\", "/"))
-	if document.Path == "" || normalized == "." || normalized == ".." || path.IsAbs(normalized) || strings.HasPrefix(normalized, "../") {
-		return fmt.Errorf("项目文档路径无效: %q", document.Path)
-	}
-	// 只接受规范原值，避免同一路径因分隔符或冗余片段产生多个表示。
-	if document.Path != normalized {
-		return fmt.Errorf("项目文档路径必须使用规范相对路径: %q", document.Path)
-	}
-	// 文档内容直接作为文本返回，必须是合法 UTF-8 且大小受控。
-	if !utf8.ValidString(document.Content) {
-		return fmt.Errorf("项目文档不是有效 UTF-8: %s", document.Path)
-	}
-	if len(document.Content) > maxDocumentContentBytes {
-		return fmt.Errorf("项目文档超过 2 MiB: %s", document.Path)
-	}
-	locales := make(map[string]struct{}, len(document.Locale))
-	for locale, content := range document.Locale {
-		normalizedLocale := resourceLocale.Normalize(locale)
-		if normalizedLocale == "" {
-			return fmt.Errorf("项目文档语言标识不能为空: %s", document.Path)
-		}
-		if _, exists := locales[normalizedLocale]; exists {
-			return fmt.Errorf("项目文档语言版本重复: %s (%s)", document.Path, locale)
-		}
-		locales[normalizedLocale] = struct{}{}
-		if !utf8.ValidString(content) {
-			return fmt.Errorf("项目文档翻译不是有效 UTF-8: %s (%s)", document.Path, locale)
-		}
-		if len(content) > maxDocumentContentBytes {
-			return fmt.Errorf("项目文档翻译超过 2 MiB: %s (%s)", document.Path, locale)
-		}
-	}
-	return nil
-}
-
-// localizedContent 按精确语言、基础语言和默认正文顺序选择文档内容。
-func localizedContent(contents map[string]string, locale, fallback string) string {
-	if locale == "" || len(contents) == 0 {
-		return fallback
-	}
-	for _, candidate := range resourceLocale.Candidates(locale) {
-		for currentLocale, content := range contents {
-			if resourceLocale.Normalize(currentLocale) == candidate {
-				return content
-			}
-		}
-	}
-	return fallback
-}
-
-// cloneLocalizedContents 复制文档语言内容，避免调用方修改注册表内部状态。
-func cloneLocalizedContents(contents map[string]string) map[string]string {
-	if len(contents) == 0 {
-		return nil
-	}
-	result := make(map[string]string, len(contents))
-	for locale, content := range contents {
-		result[locale] = content
-	}
-	return result
-}
-
-// appendDirectoryDocuments 按声明顺序深度优先展开目录中的全部文档。
-func appendDirectoryDocuments(documents []dto.Document, directories []directory) []dto.Document {
-	for _, item := range directories {
-		// 先保留当前目录文档顺序，再递归展开它的子目录。
-		documents = append(documents, item.Documents...)
-		documents = appendDirectoryDocuments(documents, item.Directories)
-	}
-	return documents
+	return parent
 }
 
 // newDocumentID 根据项目标识和文档路径生成稳定 ID。
 func newDocumentID(projectKey, documentPath string) string {
-	// NUL 分隔字段避免拼接边界歧义，截取前 16 字节得到紧凑的 32 位十六进制 ID。
 	sum := sha256.Sum256([]byte(projectKey + "\x00" + documentPath))
 	return hex.EncodeToString(sum[:16])
 }
 
 // convertProject 将内部项目树转换为对外 DTO，并复制文档摘要切片。
 func convertProject(project *treeProject) dto.Project {
-	// 根目录文档按完整相对路径排序。
 	sort.Slice(project.documents, func(left, right int) bool { return project.documents[left].Path < project.documents[right].Path })
-	// map 不保证遍历顺序，先提取并排序目录路径再递归转换。
 	paths := make([]string, 0, len(project.directories))
 	for value := range project.directories {
 		paths = append(paths, value)
@@ -338,7 +457,6 @@ func convertProject(project *treeProject) dto.Project {
 
 // convertDirectory 递归转换目录树，并对同级目录和文档分别排序。
 func convertDirectory(directory *treeDirectory) dto.Directory {
-	// 子目录以完整相对路径排序，保证每次查询的树结构顺序一致。
 	paths := make([]string, 0, len(directory.directories))
 	for value := range directory.directories {
 		paths = append(paths, value)
@@ -348,7 +466,6 @@ func convertDirectory(directory *treeDirectory) dto.Directory {
 	for _, value := range paths {
 		directories = append(directories, convertDirectory(directory.directories[value]))
 	}
-	// 当前目录文档独立排序，不受注册顺序影响。
 	sort.Slice(directory.documents, func(left, right int) bool { return directory.documents[left].Path < directory.documents[right].Path })
 	return dto.Directory{Name: directory.name, Path: directory.path, Documents: append([]dto.DocumentListItem(nil), directory.documents...), Directories: directories}
 }

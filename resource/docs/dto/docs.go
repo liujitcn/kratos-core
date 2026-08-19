@@ -12,8 +12,6 @@ type Document struct {
 	Path string `json:"path"`
 	// Content 是 Markdown 文档内容。
 	Content string `json:"content"`
-	// Locale 保存按语言标识索引的 Markdown 翻译内容。
-	Locale map[string]string `json:"locale,omitempty"`
 	// UpdatedAt 是文档更新时间。
 	UpdatedAt string `json:"updated_at"`
 }

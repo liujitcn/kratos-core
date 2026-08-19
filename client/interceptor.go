@@ -11,7 +11,7 @@ import (
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	metricsPrometheus "github.com/liujitcn/kratos-kit/metrics/prometheus"
 	"github.com/liujitcn/kratos-kit/ratelimit/tokenbucket"
-	coreRetry "github.com/liujitcn/kratos-kit/retry"
+	"github.com/liujitcn/kratos-kit/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -118,13 +118,13 @@ func (interceptors *configuredClientInterceptors) appendRetry(config *configv1.C
 	if config.GetBackoffFactor() > 0 {
 		backoffFactor = config.GetBackoffFactor()
 	}
-	retrierOptions := []coreRetry.Option{coreRetry.WithBackoff(coreRetry.ExponentialBackoff{
+	retrierOptions := []retry.Option{retry.WithBackoff(retry.ExponentialBackoff{
 		Initial: initialBackoff,
 		Factor:  backoffFactor,
 		Max:     maxBackoff,
 	})}
 	if config.GetMaxAttempts() > 0 {
-		retrierOptions = append(retrierOptions, coreRetry.WithMaxAttempts(int(config.GetMaxAttempts())))
+		retrierOptions = append(retrierOptions, retry.WithMaxAttempts(int(config.GetMaxAttempts())))
 	}
 	if config.GetMaxTotalWait() != nil {
 		var maxTotalWait time.Duration
@@ -132,7 +132,7 @@ func (interceptors *configuredClientInterceptors) appendRetry(config *configv1.C
 		if err != nil {
 			return err
 		}
-		retrierOptions = append(retrierOptions, coreRetry.WithMaxTotalWait(maxTotalWait))
+		retrierOptions = append(retrierOptions, retry.WithMaxTotalWait(maxTotalWait))
 	}
 
 	interceptorOptions := make([]clientRetry.Option, 0, 3)
@@ -150,7 +150,7 @@ func (interceptors *configuredClientInterceptors) appendRetry(config *configv1.C
 	if len(config.GetSkipMethods()) > 0 {
 		interceptorOptions = append(interceptorOptions, clientRetry.WithSkipMethods(config.GetSkipMethods()...))
 	}
-	interceptors.unary = append(interceptors.unary, clientRetry.UnaryClientInterceptor(coreRetry.New(retrierOptions...), interceptorOptions...))
+	interceptors.unary = append(interceptors.unary, clientRetry.UnaryClientInterceptor(retry.New(retrierOptions...), interceptorOptions...))
 	return nil
 }
 

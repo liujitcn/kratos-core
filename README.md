@@ -88,7 +88,7 @@ func (*hostModule) RegisterMCP(*mcpserver.Server)      {}
 | `ProjectKey()` / `ProjectName()` | 项目稳定标识和展示名称；ProjectKey 为空时使用 `kratos-core`，ProjectName 为空时回退到 ProjectKey。 |
 | `Models()` | 按数据源名称分组的 GORM 模型。含模型的数据源必须在配置中存在，默认数据源必须配置。 |
 | `Migrations()` | 版本化迁移列表。每项 `module.Migration` 声明 `Name`、`FS`、`Path` 和 `Dependencies`，Core 按依赖顺序执行。 |
-| `OpenAPI()` / `Docs()` / `I18n()` | 分别返回 OpenAPI、项目文档和语言 JSON 文件系统；未提供的资源返回 nil。 |
+| `OpenAPI()` / `Docs()` / `I18n()` | 分别返回 OpenAPI、项目文档和语言 JSON 文件系统；项目文档包含 `docs.json` 和可选的 `docs.<locale>.json`，未提供的资源返回 nil。 |
 
 资源通常由宿主通过 `embed.FS`、代码生成器或 `fstest.MapFS` 提供：
 
@@ -115,7 +115,7 @@ func NewModuleResources() module.Resources { return module.Resources{&hostResour
 Core 还向宿主提供以下具体业务服务：
 
 - `job.Job`：启动、停止或立即运行数据库中的持久化任务。
-- `resource/docs.Docs`：查询合并后的项目文档树和按请求语言选择的文档正文。
+- `resource/docs.Docs`：按请求语言选择完整的项目文档目录树和正文；语言文件缺失时按基础语言、默认 `docs.json` 依次回退。
 - `resource/openapi.OpenAPI`：按请求语言、服务或 HTTP 操作查询 OpenAPI 信息。
 - `sse.SSE`：建立 SSE 订阅并发布 JSON 事件。
 

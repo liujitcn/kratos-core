@@ -10,7 +10,7 @@ type Resource interface {
 	ProjectName() string
 	// Models 是宿主数据库自动迁移所需的模型。
 	Models() Models
-	// Docs 是宿主项目文档生成器输出的文件系统，通常包含 docs.json。
+	// Docs 是宿主项目文档生成器输出的文件系统，包含 docs.json 和可选的 docs.<locale>.json。
 	Docs() fs.FS
 	// I18n 是宿主项目语言 JSON 文件系统，文件名应使用 locale 标识。
 	I18n() fs.FS

@@ -17,9 +17,9 @@ func NewDocs(registry *Registry) *Docs {
 	return &Docs{registry: registry}
 }
 
-// Projects 查询 Core 保存的项目文档树。
-func (d *Docs) Projects(_ context.Context) []dto.Project {
-	return d.registry.Projects()
+// Projects 按请求语言查询 Core 保存的项目文档树。
+func (d *Docs) Projects(ctx context.Context) []dto.Project {
+	return d.registry.ProjectsForLocale(biz.LocaleFromContext(ctx))
 }
 
 // Get 按稳定 ID 查询 Core 保存的项目文档。
