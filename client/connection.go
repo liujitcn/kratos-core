@@ -30,9 +30,11 @@ type Option func(*connectionOptions)
 type LocalServiceRegistrar func(grpc.ServiceRegistrar)
 
 type connectionOptions struct {
-	discovery     registry.Discovery
-	localServices []LocalServiceRegistrar
-	middlewares   []middleware.Middleware
+	discovery          registry.Discovery
+	localServices      []LocalServiceRegistrar
+	middlewares        []middleware.Middleware
+	unaryInterceptors  []grpc.UnaryClientInterceptor
+	streamInterceptors []grpc.StreamClientInterceptor
 }
 
 // WithDiscovery 为使用 discovery:/// 地址的客户端连接注入服务发现器。
@@ -56,6 +58,20 @@ func WithMiddleware(middlewares ...middleware.Middleware) Option {
 	}
 }
 
+// WithUnaryInterceptor 为 gRPC 客户端连接追加 unary 客户端拦截器。
+func WithUnaryInterceptor(interceptors ...grpc.UnaryClientInterceptor) Option {
+	return func(options *connectionOptions) {
+		options.unaryInterceptors = append(options.unaryInterceptors, interceptors...)
+	}
+}
+
+// WithStreamInterceptor 为 gRPC 客户端连接追加 stream 客户端拦截器。
+func WithStreamInterceptor(interceptors ...grpc.StreamClientInterceptor) Option {
+	return func(options *connectionOptions) {
+		options.streamInterceptors = append(options.streamInterceptors, interceptors...)
+	}
+}
+
 // NewConnection 根据客户端配置初始化 gRPC 客户端连接。
 // endpoint 使用普通地址时直连本地或远程服务，使用 discovery:/// 前缀时通过 WithDiscovery 注入的注册中心发现服务；客户端配置为空时创建进程内连接。
 func NewConnection(ctx context.Context, clientConfig *configv1.Client, options ...Option) (*Connection, func(), error) {
@@ -72,15 +88,27 @@ func NewConnection(ctx context.Context, clientConfig *configv1.Client, options .
 	if clientConfig == nil || clientConfig.GetGrpc() == nil || clientConfig.GetGrpc().GetEndpoint() == "" {
 		localMiddlewares := connectionOpts.middlewares
 		var err error
+		configuredInterceptors := configuredClientInterceptors{}
 		if clientConfig != nil && clientConfig.GetGrpc() != nil {
-			localMiddlewares, err = appendClientMiddlewares(clientConfig.GetGrpc().GetMiddleware(), localMiddlewares)
+			grpcConfig := clientConfig.GetGrpc()
+			localMiddlewares, err = appendClientMiddlewaresWithMetadata(grpcConfig.GetMiddleware(), grpcConfig.GetMetadata(), localMiddlewares...)
 			if err != nil {
 				return nil, nil, fmt.Errorf("创建本地客户端中间件: %w", err)
 			}
+			configuredInterceptors, err = buildConfiguredClientInterceptors(grpcConfig.GetMiddleware())
+			if err != nil {
+				return nil, nil, fmt.Errorf("创建本地客户端拦截器: %w", err)
+			}
 		}
+		localUnaryInterceptors := append([]grpc.UnaryClientInterceptor(nil), configuredInterceptors.unary...)
+		localUnaryInterceptors = append(localUnaryInterceptors, connectionOpts.unaryInterceptors...)
+		localStreamInterceptors := append([]grpc.StreamClientInterceptor(nil), configuredInterceptors.stream...)
+		localStreamInterceptors = append(localStreamInterceptors, connectionOpts.streamInterceptors...)
 		localOptions := []localgrpc.Option{
 			localgrpc.WithUnaryInterceptor(newLocalUnaryInterceptor(localMiddlewares)),
 			localgrpc.WithStreamInterceptor(newLocalStreamInterceptor(localMiddlewares)),
+			localgrpc.WithUnaryClientInterceptor(localUnaryInterceptors...),
+			localgrpc.WithStreamClientInterceptor(localStreamInterceptors...),
 		}
 		conn := localgrpc.NewConn(localOptions...)
 		for _, register := range connectionOpts.localServices {
@@ -95,7 +123,7 @@ func NewConnection(ctx context.Context, clientConfig *configv1.Client, options .
 	rpcConfig := &configv1.Bootstrap{Client: clientConfig}
 	var conn grpc.ClientConnInterface
 	var err error
-	conn, err = CreateGrpcClient(ctx, connectionOpts.discovery, "", rpcConfig, connectionOpts.middlewares...)
+	conn, err = createGrpcClient(ctx, connectionOpts.discovery, "", rpcConfig, connectionOpts.unaryInterceptors, connectionOpts.streamInterceptors, connectionOpts.middlewares...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("创建客户端 gRPC 连接: %w", err)
 	}

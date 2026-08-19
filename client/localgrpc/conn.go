@@ -52,11 +52,13 @@ func ResponseMetadataFromContext(ctx context.Context) *ResponseMetadata {
 
 // Conn 将注册的 gRPC 服务作为进程内生成客户端连接使用。
 type Conn struct {
-	mu                sync.RWMutex
-	methods           map[string]unaryMethod
-	streams           map[string]streamMethod
-	interceptor       grpc.UnaryServerInterceptor
-	streamInterceptor grpc.StreamServerInterceptor
+	mu                       sync.RWMutex
+	methods                  map[string]unaryMethod
+	streams                  map[string]streamMethod
+	interceptor              grpc.UnaryServerInterceptor
+	streamInterceptor        grpc.StreamServerInterceptor
+	clientInterceptors       []grpc.UnaryClientInterceptor
+	streamClientInterceptors []grpc.StreamClientInterceptor
 }
 
 // Option 配置进程内 gRPC 连接。
@@ -70,6 +72,20 @@ func WithUnaryInterceptor(interceptor grpc.UnaryServerInterceptor) Option {
 // WithStreamInterceptor 设置进程内调用使用的 stream 拦截器。
 func WithStreamInterceptor(interceptor grpc.StreamServerInterceptor) Option {
 	return func(conn *Conn) { conn.streamInterceptor = interceptor }
+}
+
+// WithUnaryClientInterceptor 追加进程内 unary 客户端拦截器。
+func WithUnaryClientInterceptor(interceptors ...grpc.UnaryClientInterceptor) Option {
+	return func(conn *Conn) {
+		conn.clientInterceptors = append(conn.clientInterceptors, interceptors...)
+	}
+}
+
+// WithStreamClientInterceptor 追加进程内 stream 客户端拦截器。
+func WithStreamClientInterceptor(interceptors ...grpc.StreamClientInterceptor) Option {
+	return func(conn *Conn) {
+		conn.streamClientInterceptors = append(conn.streamClientInterceptors, interceptors...)
+	}
 }
 
 // NewConn 创建进程内 gRPC 连接。
@@ -114,7 +130,20 @@ func (c *Conn) RegisterService(description *grpc.ServiceDesc, service any) {
 func (c *Conn) Invoke(ctx context.Context, method string, args, reply any, options ...grpc.CallOption) error {
 	responseMetadata := new(ResponseMetadata)
 	ctx = WithResponseMetadata(ctx, responseMetadata)
-	err := c.invoke(ctx, method, args, reply)
+	invoker := func(ctx context.Context, method string, req, response any, _ *grpc.ClientConn, callOptions ...grpc.CallOption) error {
+		return c.invoke(ctx, method, req, response)
+	}
+	for index := len(c.clientInterceptors) - 1; index >= 0; index-- {
+		interceptor := c.clientInterceptors[index]
+		if interceptor == nil {
+			continue
+		}
+		next := invoker
+		invoker = func(ctx context.Context, method string, req, response any, conn *grpc.ClientConn, callOptions ...grpc.CallOption) error {
+			return interceptor(ctx, method, req, response, conn, next, callOptions...)
+		}
+	}
+	err := invoker(ctx, method, args, reply, nil, options...)
 	applyCallOptions(options, responseMetadata)
 	return err
 }
@@ -147,8 +176,21 @@ func (c *Conn) invoke(ctx context.Context, method string, args, reply any) error
 }
 
 // NewStream 创建可直接调用本地服务处理器的进程内 streaming RPC。
-func (c *Conn) NewStream(ctx context.Context, _ *grpc.StreamDesc, method string, options ...grpc.CallOption) (grpc.ClientStream, error) {
-	return c.newStream(ctx, method, options...)
+func (c *Conn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, options ...grpc.CallOption) (grpc.ClientStream, error) {
+	streamer := func(ctx context.Context, desc *grpc.StreamDesc, conn *grpc.ClientConn, method string, callOptions ...grpc.CallOption) (grpc.ClientStream, error) {
+		return c.newStream(ctx, method, callOptions...)
+	}
+	for index := len(c.streamClientInterceptors) - 1; index >= 0; index-- {
+		interceptor := c.streamClientInterceptors[index]
+		if interceptor == nil {
+			continue
+		}
+		next := streamer
+		streamer = func(ctx context.Context, desc *grpc.StreamDesc, conn *grpc.ClientConn, method string, callOptions ...grpc.CallOption) (grpc.ClientStream, error) {
+			return interceptor(ctx, desc, conn, method, next, callOptions...)
+		}
+	}
+	return streamer(ctx, desc, nil, method, options...)
 }
 
 // newStream 创建并启动本地 stream 调用。

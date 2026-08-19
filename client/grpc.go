@@ -15,19 +15,27 @@ import (
 	"github.com/go-kratos/kratos/v3/selector/p2c"
 	"github.com/go-kratos/kratos/v3/selector/random"
 	"github.com/go-kratos/kratos/v3/selector/wrr"
+	"github.com/go-kratos/kratos/v3/transport"
 	kratosGrpc "github.com/go-kratos/kratos/v3/transport/grpc"
 
 	// HTTP transport initializes the shared selector before gRPC registers its balancer.
 	_ "github.com/go-kratos/kratos/v3/transport/http"
+	"github.com/liujitcn/kratos-core/client/middleware/requestid"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 const defaultTimeout = 5 * time.Second
 
 // CreateGrpcClient 根据服务名或配置地址创建 gRPC 客户端。
 func CreateGrpcClient(ctx context.Context, discovery registry.Discovery, serviceName string, config *configv1.Bootstrap, middlewares ...middleware.Middleware) (grpc.ClientConnInterface, error) {
+	return createGrpcClient(ctx, discovery, serviceName, config, nil, nil, middlewares...)
+}
+
+// createGrpcClient 创建支持原生客户端拦截器的 gRPC 客户端连接。
+func createGrpcClient(ctx context.Context, discovery registry.Discovery, serviceName string, config *configv1.Bootstrap, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor, middlewares ...middleware.Middleware) (grpc.ClientConnInterface, error) {
 	endpoint, err := resolveGrpcClientEndpoint(serviceName, config)
 	if err != nil {
 		return nil, err
@@ -42,7 +50,7 @@ func CreateGrpcClient(ctx context.Context, discovery registry.Discovery, service
 	}
 	options = append(options, kratosGrpc.WithEndpoint(endpoint))
 
-	options, err = initGrpcClientConfig(config, options, middlewares...)
+	options, err = initGrpcClientConfigWithInterceptors(config, options, unaryInterceptors, streamInterceptors, middlewares...)
 	if err != nil {
 		return nil, fmt.Errorf("init grpc client config failed: %w", err)
 	}
@@ -79,17 +87,20 @@ func resolveGrpcClientEndpoint(serviceName string, config *configv1.Bootstrap) (
 
 // initGrpcClientConfig 根据客户端配置组装 gRPC 客户端选项。
 func initGrpcClientConfig(config *configv1.Bootstrap, options []kratosGrpc.ClientOption, middlewares ...middleware.Middleware) ([]kratosGrpc.ClientOption, error) {
+	return initGrpcClientConfigWithInterceptors(config, options, nil, nil, middlewares...)
+}
+
+// initGrpcClientConfigWithInterceptors 根据配置组装 Kratos middleware 和原生 gRPC 客户端拦截器。
+func initGrpcClientConfigWithInterceptors(config *configv1.Bootstrap, options []kratosGrpc.ClientOption, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor, middlewares ...middleware.Middleware) ([]kratosGrpc.ClientOption, error) {
 	if config == nil || config.GetClient() == nil || config.GetClient().GetGrpc() == nil {
 		err := configureGlobalSelector("wrr")
 		if err != nil {
 			return nil, err
 		}
 		if len(middlewares) > 0 {
-			options = append(options,
-				kratosGrpc.WithMiddleware(middlewares...),
-				kratosGrpc.WithStreamMiddleware(middlewares...),
-			)
+			options = append(options, kratosGrpc.WithMiddleware(middlewares...))
 		}
+		options = appendClientInterceptors(options, middlewares, configuredClientInterceptors{}, unaryInterceptors, streamInterceptors)
 		return options, nil
 	}
 
@@ -101,11 +112,16 @@ func initGrpcClientConfig(config *configv1.Bootstrap, options []kratosGrpc.Clien
 	options = append(options, kratosGrpc.WithTimeout(timeout))
 
 	var err error
-	middlewares, err = appendClientMiddlewares(grpcConfig.Middleware, middlewares)
+	middlewares, err = appendClientMiddlewaresWithMetadata(grpcConfig.Middleware, grpcConfig.Metadata, middlewares...)
 	if err != nil {
 		return nil, err
 	}
 	middlewareConfig := grpcConfig.GetMiddleware()
+	var configuredInterceptors configuredClientInterceptors
+	configuredInterceptors, err = buildConfiguredClientInterceptors(middlewareConfig)
+	if err != nil {
+		return nil, err
+	}
 	balancerName := "wrr"
 	if middlewareConfig != nil {
 		selectorFilterConfig := middlewareConfig.GetSelectorFilter()
@@ -129,10 +145,8 @@ func initGrpcClientConfig(config *configv1.Bootstrap, options []kratosGrpc.Clien
 	if err != nil {
 		return nil, err
 	}
-	options = append(options,
-		kratosGrpc.WithMiddleware(middlewares...),
-		kratosGrpc.WithStreamMiddleware(middlewares...),
-	)
+	options = append(options, kratosGrpc.WithMiddleware(middlewares...))
+	options = appendClientInterceptors(options, middlewares, configuredInterceptors, unaryInterceptors, streamInterceptors)
 
 	if grpcConfig.Tls == nil {
 		return options, nil
@@ -146,6 +160,63 @@ func initGrpcClientConfig(config *configv1.Bootstrap, options []kratosGrpc.Clien
 		options = append(options, kratosGrpc.WithTLSConfig(tlsConfig))
 	}
 	return options, nil
+}
+
+// appendClientInterceptors 按请求 ID、配置拦截器、自定义拦截器和流式 middleware 的顺序追加客户端拦截器。
+func appendClientInterceptors(options []kratosGrpc.ClientOption, middlewares []middleware.Middleware, configured configuredClientInterceptors, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor) []kratosGrpc.ClientOption {
+	unary := clientUnaryInterceptors(configured, unaryInterceptors)
+	streams := clientStreamInterceptors(configured, streamInterceptors)
+	streams = append(streams, streamMiddlewareInterceptor(middlewares...))
+	streams = append(streams, requestid.StreamClientInterceptor())
+	return append(options,
+		kratosGrpc.WithUnaryInterceptor(unary...),
+		kratosGrpc.WithStreamInterceptor(streams...),
+	)
+}
+
+// clientUnaryInterceptors 组装请求 ID、配置项和调用方 unary 拦截器链。
+func clientUnaryInterceptors(configured configuredClientInterceptors, custom []grpc.UnaryClientInterceptor) []grpc.UnaryClientInterceptor {
+	interceptors := []grpc.UnaryClientInterceptor{requestid.UnaryClientInterceptor()}
+	interceptors = append(interceptors, configured.unary...)
+	return append(interceptors, custom...)
+}
+
+// clientStreamInterceptors 组装配置项和调用方 stream 拦截器链。
+func clientStreamInterceptors(configured configuredClientInterceptors, custom []grpc.StreamClientInterceptor) []grpc.StreamClientInterceptor {
+	interceptors := make([]grpc.StreamClientInterceptor, 0, len(configured.stream)+len(custom))
+	interceptors = append(interceptors, configured.stream...)
+	return append(interceptors, custom...)
+}
+
+// streamMiddlewareInterceptor 在创建 gRPC 流前执行客户端 middleware，并传播 transport 请求头。
+func streamMiddlewareInterceptor(middlewares ...middleware.Middleware) grpc.StreamClientInterceptor {
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, callOptions ...grpc.CallOption) (grpc.ClientStream, error) {
+		handler := func(nextCtx context.Context, _ any) (any, error) {
+			if clientTransport, ok := transport.FromClientContext(nextCtx); ok {
+				keys := clientTransport.RequestHeader().Keys()
+				values := make([]string, 0, len(keys)*2)
+				for _, key := range keys {
+					values = append(values, key, clientTransport.RequestHeader().Get(key))
+				}
+				if len(values) > 0 {
+					nextCtx = metadata.AppendToOutgoingContext(nextCtx, values...)
+				}
+			}
+			return streamer(nextCtx, desc, cc, method, callOptions...)
+		}
+		if len(middlewares) > 0 {
+			handler = middleware.Chain(middlewares...)(handler)
+		}
+		result, err := handler(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		stream, ok := result.(grpc.ClientStream)
+		if !ok {
+			return nil, fmt.Errorf("gRPC stream middleware returned %T", result)
+		}
+		return stream, nil
+	}
 }
 
 var globalSelectorState struct {

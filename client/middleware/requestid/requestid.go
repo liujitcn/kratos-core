@@ -7,6 +7,8 @@ import (
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
 	"github.com/liujitcn/go-utils/id"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // DefaultRequestIDHeader 是默认的请求标识请求头。
@@ -23,14 +25,18 @@ type requestIDOptions struct {
 // WithRequestIDHeader 设置自定义请求标识头名称。
 func WithRequestIDHeader(name string) RequestIDOption {
 	return func(options *requestIDOptions) {
-		options.headerName = name
+		if name != "" {
+			options.headerName = name
+		}
 	}
 }
 
 // WithRequestIDGenerator 设置自定义请求标识生成函数。
 func WithRequestIDGenerator(generator func() string) RequestIDOption {
 	return func(options *requestIDOptions) {
-		options.generator = generator
+		if generator != nil {
+			options.generator = generator
+		}
 	}
 }
 
@@ -43,6 +49,9 @@ func WithRequestID(ctx context.Context, requestID string) context.Context {
 
 // FromContext 从上下文读取请求标识，不存在时返回空字符串。
 func FromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
 	requestID, _ := ctx.Value(requestIDKey{}).(string)
 	return requestID
 }
@@ -92,6 +101,40 @@ func Client(opts ...RequestIDOption) middleware.Middleware {
 	}
 }
 
+// UnaryClientInterceptor 创建将上下文请求标识写入 outgoing metadata 的一元客户端拦截器。
+func UnaryClientInterceptor(opts ...RequestIDOption) grpc.UnaryClientInterceptor {
+	options := newOptions(opts)
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, callOpts ...grpc.CallOption) error {
+		requestID := FromContext(ctx)
+		if requestID == "" {
+			requestID = options.generator()
+			ctx = WithRequestID(ctx, requestID)
+		}
+		if outgoing, ok := metadata.FromOutgoingContext(ctx); ok && len(outgoing.Get(options.headerName)) > 0 {
+			return invoker(ctx, method, req, reply, cc, callOpts...)
+		}
+		ctx = metadata.AppendToOutgoingContext(ctx, options.headerName, requestID)
+		return invoker(ctx, method, req, reply, cc, callOpts...)
+	}
+}
+
+// StreamClientInterceptor 创建将上下文请求标识写入 outgoing metadata 的流式客户端拦截器。
+func StreamClientInterceptor(opts ...RequestIDOption) grpc.StreamClientInterceptor {
+	options := newOptions(opts)
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, callOpts ...grpc.CallOption) (grpc.ClientStream, error) {
+		requestID := FromContext(ctx)
+		if requestID == "" {
+			requestID = options.generator()
+			ctx = WithRequestID(ctx, requestID)
+		}
+		if outgoing, ok := metadata.FromOutgoingContext(ctx); ok && len(outgoing.Get(options.headerName)) > 0 {
+			return streamer(ctx, desc, cc, method, callOpts...)
+		}
+		ctx = metadata.AppendToOutgoingContext(ctx, options.headerName, requestID)
+		return streamer(ctx, desc, cc, method, callOpts...)
+	}
+}
+
 // NewRequestIDMiddleware 创建兼容旧调用方式的服务端请求标识中间件。
 func NewRequestIDMiddleware(opts ...RequestIDOption) middleware.Middleware {
 	return Server(opts...)
@@ -104,7 +147,9 @@ func newOptions(opts []RequestIDOption) *requestIDOptions {
 		generator:  id.NewGUIDv7,
 	}
 	for _, option := range opts {
-		option(options)
+		if option != nil {
+			option(options)
+		}
 	}
 	return options
 }

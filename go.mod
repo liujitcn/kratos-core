@@ -13,7 +13,7 @@ require (
 	github.com/liujitcn/go-utils/translator v0.0.2
 	github.com/liujitcn/kratos-core/api v0.0.1
 	github.com/liujitcn/kratos-kit v0.0.72
-	github.com/liujitcn/kratos-kit/api v0.0.28
+	github.com/liujitcn/kratos-kit/api v0.0.29
 	github.com/liujitcn/kratos-kit/auth v0.0.24
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.22
 	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.17
@@ -29,7 +29,7 @@ require (
 	github.com/liujitcn/kratos-kit/pprof v0.0.13
 	github.com/liujitcn/kratos-kit/queue v0.0.26
 	github.com/liujitcn/kratos-kit/server/grpc v0.0.1
-	github.com/liujitcn/kratos-kit/server/http v0.0.1
+	github.com/liujitcn/kratos-kit/server/http v0.0.2
 	github.com/liujitcn/kratos-kit/server/mcp v0.0.1
 	github.com/liujitcn/kratos-kit/server/sse v0.0.1
 	github.com/liujitcn/kratos-kit/swagger-ui v0.0.14
