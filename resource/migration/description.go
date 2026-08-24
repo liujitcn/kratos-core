@@ -1,7 +1,9 @@
 package migration
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/fs"
 	"path"
 	"regexp"
@@ -100,7 +102,44 @@ func (f migrationSourceFS) Open(name string) (fs.File, error) {
 	if isHiddenDescription(name) {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
 	}
-	return f.FS.Open(name)
+	file, err := f.FS.Open(name)
+	if err != nil || path.Ext(name) != ".sql" {
+		return file, err
+	}
+	var info fs.FileInfo
+	info, err = file.Stat()
+	if err != nil {
+		closeErr := file.Close()
+		if closeErr != nil {
+			return nil, fmt.Errorf("读取迁移脚本信息失败: %w; 关闭迁移脚本失败: %v", err, closeErr)
+		}
+		return nil, err
+	}
+	var content []byte
+	content, err = io.ReadAll(file)
+	closeErr := file.Close()
+	if err != nil {
+		return nil, fmt.Errorf("读取迁移脚本失败: %w", err)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("关闭迁移脚本失败: %w", closeErr)
+	}
+	return &migrationSQLFile{Reader: bytes.NewReader(stripSQLComments(content)), info: info}, nil
+}
+
+type migrationSQLFile struct {
+	*bytes.Reader
+	info fs.FileInfo
+}
+
+// Stat 返回清理注释后的迁移脚本文件信息。
+func (f *migrationSQLFile) Stat() (fs.FileInfo, error) {
+	return f.info, nil
+}
+
+// Close 关闭清理注释后的迁移脚本文件。
+func (f *migrationSQLFile) Close() error {
+	return nil
 }
 
 // ReadDir 读取目录并隐藏由宿主同步的本地化 README 和其他 Markdown。
@@ -122,4 +161,100 @@ func (f migrationSourceFS) ReadDir(name string) ([]fs.DirEntry, error) {
 func isHiddenDescription(name string) bool {
 	baseName := path.Base(name)
 	return path.Ext(baseName) == ".md" && baseName != "README.md"
+}
+
+type sqlCommentState uint8
+
+const (
+	sqlNormal sqlCommentState = iota
+	sqlSingleQuote
+	sqlDoubleQuote
+	sqlBacktick
+	sqlLineComment
+	sqlBlockComment
+)
+
+// stripSQLComments 删除 SQL 行注释和块注释，同时保留字符串及标识符中的注释样式。
+func stripSQLComments(content []byte) []byte {
+	result := make([]byte, 0, len(content))
+	state := sqlNormal
+	for index := 0; index < len(content); {
+		character := content[index]
+		switch state {
+		case sqlNormal:
+			switch character {
+			case '\'':
+				result = append(result, character)
+				state = sqlSingleQuote
+				index++
+			case '"':
+				result = append(result, character)
+				state = sqlDoubleQuote
+				index++
+			case '`':
+				result = append(result, character)
+				state = sqlBacktick
+				index++
+			case '#':
+				state = sqlLineComment
+				index++
+			case '-':
+				if index+1 < len(content) && content[index+1] == '-' && (index+2 == len(content) || isSQLWhitespace(content[index+2])) {
+					state = sqlLineComment
+					index += 2
+					continue
+				}
+				result = append(result, character)
+				index++
+			case '/':
+				if index+1 < len(content) && content[index+1] == '*' {
+					state = sqlBlockComment
+					index += 2
+					continue
+				}
+				result = append(result, character)
+				index++
+			default:
+				result = append(result, character)
+				index++
+			}
+		case sqlSingleQuote, sqlDoubleQuote, sqlBacktick:
+			result = append(result, character)
+			index++
+			if character == '\\' && index < len(content) {
+				result = append(result, content[index])
+				index++
+				continue
+			}
+			if (state == sqlSingleQuote && character == '\'') ||
+				(state == sqlDoubleQuote && character == '"') ||
+				(state == sqlBacktick && character == '`') {
+				if index < len(content) && content[index] == character {
+					result = append(result, content[index])
+					index++
+					continue
+				}
+				state = sqlNormal
+			}
+		case sqlLineComment:
+			if character == '\n' || character == '\r' {
+				result = append(result, character)
+				state = sqlNormal
+			}
+			index++
+		case sqlBlockComment:
+			if character == '*' && index+1 < len(content) && content[index+1] == '/' {
+				state = sqlNormal
+				index += 2
+				continue
+			}
+			index++
+		}
+	}
+	return result
+}
+
+// isSQLWhitespace 判断字符是否为 SQL 行注释要求的空白字符。
+func isSQLWhitespace(character byte) bool {
+	return character == ' ' || character == '\t' || character == '\n' || character == '\r' || character == '\f'
 }

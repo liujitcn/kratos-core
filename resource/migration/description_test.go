@@ -65,3 +65,19 @@ func TestMigrationSourceFS(t *testing.T) {
 		t.Fatalf("本地化 README 应对迁移执行器隐藏: %v", err)
 	}
 }
+
+// TestMigrationSourceFSCleansSQLComments 验证迁移执行器读取 SQL 时移除注释并保留字符串内容。
+func TestMigrationSourceFSCleansSQLComments(t *testing.T) {
+	files := fstest.MapFS{
+		"v0.0.1/mysql/default_data.up.sql": {Data: []byte("-- 表结构\nCREATE TABLE `demo` (\n  `value` varchar(32) DEFAULT '/* 保留 */',/* 字段说明 */\n  `expr` int DEFAULT (a--b),# 行尾说明\n  `id` bigint NOT NULL\n);\n")},
+	}
+	visibleFS := migrationSourceFS{FS: files}
+	content, err := fs.ReadFile(visibleFS, "v0.0.1/mysql/default_data.up.sql")
+	if err != nil {
+		t.Fatalf("读取迁移 SQL 失败: %v", err)
+	}
+	want := "\nCREATE TABLE `demo` (\n  `value` varchar(32) DEFAULT '/* 保留 */',\n  `expr` int DEFAULT (a--b),\n  `id` bigint NOT NULL\n);\n"
+	if string(content) != want {
+		t.Fatalf("迁移 SQL 注释清理结果不一致\nwant: %q\n got: %q", want, content)
+	}
+}
