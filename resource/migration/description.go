@@ -251,10 +251,34 @@ func stripSQLComments(content []byte) []byte {
 			index++
 		}
 	}
-	return result
+	return removeSQLBlankLines(result)
 }
 
 // isSQLWhitespace 判断字符是否为 SQL 行注释要求的空白字符。
 func isSQLWhitespace(character byte) bool {
 	return character == ' ' || character == '\t' || character == '\n' || character == '\r' || character == '\f'
+}
+
+// removeSQLBlankLines 删除注释清理后遗留的空白行，保留所有非空 SQL 行。
+func removeSQLBlankLines(content []byte) []byte {
+	result := make([]byte, 0, len(content))
+	for index := 0; index < len(content); {
+		lineEnd := bytes.IndexByte(content[index:], '\n')
+		hasNewline := lineEnd >= 0
+		if !hasNewline {
+			lineEnd = len(content) - index
+		}
+		line := content[index : index+lineEnd]
+		if len(bytes.TrimSpace(line)) > 0 {
+			result = append(result, line...)
+			if hasNewline {
+				result = append(result, '\n')
+			}
+		}
+		if !hasNewline {
+			break
+		}
+		index += lineEnd + 1
+	}
+	return result
 }
