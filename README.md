@@ -87,7 +87,7 @@ func (*hostModule) RegisterMCP(*mcpserver.Server)      {}
 | --- | --- |
 | `ProjectKey()` / `ProjectName()` | 项目稳定标识和展示名称；ProjectKey 为空时使用 `kratos-core`，ProjectName 为空时回退到 ProjectKey。 |
 | `Models()` | 按数据源名称分组的 GORM 模型。含模型的数据源必须在配置中存在，默认数据源必须配置。 |
-| `Migrations()` | 版本化迁移列表。每项 `module.Migration` 声明 `Name`、`FS`、`Path` 和 `Dependencies`，Core 按依赖顺序执行。 |
+| `Migrations()` | 版本化迁移列表。每项 `module.Migration` 声明 `Name`、`FS`、`Path` 和 `Dependencies`，Core 按依赖顺序执行；每个数据库类型或命名数据源目录使用 `README.md` 作为主说明，可选的 `README.<locale>.md` 由宿主同步。 |
 | `OpenAPI()` / `Docs()` / `I18n()` | 分别返回 OpenAPI、项目文档和语言 JSON 文件系统；项目文档包含 `docs.json` 和可选的 `docs.<locale>.json`，未提供的资源返回 nil。 |
 
 资源通常由宿主通过 `embed.FS`、代码生成器或 `fstest.MapFS` 提供：
@@ -105,6 +105,17 @@ func (*hostResources) Migrations() module.Migrations          { return module.Mi
 
 func NewModuleResources() module.Resources { return module.Resources{&hostResources{}} }
 ```
+
+迁移说明目录结构：
+
+```text
+assets/<version>/<database-type>/README.md
+assets/<version>/<database-type>/README.<locale>.md
+assets/<version>/<database-type>/<data-source>/README.md
+assets/<version>/<database-type>/<data-source>/README.<locale>.md
+```
+
+Core 只把 `README.md` 交给迁移执行器写入 `base_migration.description`，并通过 `resource/migration.Migration.DescriptionTranslations()` 返回现有语言文件的不可变快照。Core 不约定宿主的翻译表结构；缺少某个 `README.<locale>.md` 时不会生成该语言记录。
 
 ## 运行时能力
 

@@ -13,32 +13,45 @@ import (
 
 // Migration 保存宿主数据库客户端、迁移注册表及执行顺序。
 type Migration struct {
-	registry  *migration.Registry
-	names     []migration.ModuleName
-	databases map[string]*gorm.Client
+	registry                *migration.Registry
+	names                   []migration.ModuleName
+	databases               map[string]*gorm.Client
+	descriptionTranslations []DescriptionTranslation
 }
 
 // NewMigration 创建迁移注册表，注册资源后立即执行数据库迁移。
 func NewMigration(ctx *bootstrap.Context, databases map[string]*gorm.Client, migrations module.Migrations) (*Migration, error) {
 	contributors := make(migration.AdditionalMigrations, 0, len(migrations))
 	names := make([]migration.ModuleName, 0, len(migrations))
+	descriptionTranslations := make([]DescriptionTranslation, 0)
+	var err error
 	for _, value := range migrations {
 		dependencies := make([]migration.ModuleName, 0, len(value.Dependencies))
 		for _, dependency := range value.Dependencies {
 			dependencies = append(dependencies, migration.ModuleName(dependency))
 		}
 		name := migration.ModuleName(value.Name)
+		var translations []DescriptionTranslation
+		translations, err = loadDescriptionTranslations(value.Name, value.FS, value.Path)
+		if err != nil {
+			return nil, fmt.Errorf("读取数据库迁移说明 %q: %w", value.Name, err)
+		}
+		descriptionTranslations = append(descriptionTranslations, translations...)
 		contributors = append(contributors, migrationContributor{
 			name:       name,
-			migrations: []migration.Migration{{FS: value.FS, Path: value.Path, Dependencies: dependencies}},
+			migrations: []migration.Migration{{FS: migrationSourceFS{FS: value.FS}, Path: value.Path, Dependencies: dependencies}},
 		})
 		names = append(names, name)
 	}
-	registry := &Migration{names: names, databases: databases}
+	sortDescriptionTranslations(descriptionTranslations)
+	registry := &Migration{
+		names:                   names,
+		databases:               databases,
+		descriptionTranslations: descriptionTranslations,
+	}
 	if len(contributors) == 0 {
 		return registry, nil
 	}
-	var err error
 	registry.registry, err = migration.NewRegistry(contributors)
 	if err != nil {
 		return nil, fmt.Errorf("注册数据库迁移: %w", err)
@@ -48,6 +61,14 @@ func NewMigration(ctx *bootstrap.Context, databases map[string]*gorm.Client, mig
 		return nil, err
 	}
 	return registry, nil
+}
+
+// DescriptionTranslations 返回已注册迁移资源中的本地化说明快照。
+func (r *Migration) DescriptionTranslations() []DescriptionTranslation {
+	if r == nil {
+		return nil
+	}
+	return append([]DescriptionTranslation(nil), r.descriptionTranslations...)
 }
 
 // Run 使用当前注册表中的多数据源客户端并按依赖顺序执行宿主迁移。
