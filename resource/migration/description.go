@@ -13,6 +13,9 @@ import (
 
 var localizedReadmePattern = regexp.MustCompile(`^README\.([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)\.md$`)
 
+// DescriptionTargetType 是迁移说明在 base_i18n 中使用的目标类型。
+const DescriptionTargetType int32 = 7
+
 // DescriptionTranslation 表示一个模块迁移版本说明的单语言译文。
 type DescriptionTranslation struct {
 	Module      string

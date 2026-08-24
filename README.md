@@ -115,7 +115,7 @@ assets/<version>/<database-type>/<data-source>/README.md
 assets/<version>/<database-type>/<data-source>/README.<locale>.md
 ```
 
-Core 只把 `README.md` 交给迁移执行器写入 `base_migration.description`，并通过 `resource/migration.Migration.DescriptionTranslations()` 返回现有语言文件的不可变快照。Core 不约定宿主的翻译表结构；缺少某个 `README.<locale>.md` 时不会生成该语言记录。
+Core 只把 `README.md` 交给迁移执行器写入 `base_migration.description`；迁移执行完成后，将现有 `README.<locale>.md` 按 `target_type=7`、迁移记录 ID 写入 `base_i18n`。宿主需要通过模型自动迁移提供该表；缺少某个 `README.<locale>.md` 时不会生成该语言记录。
 
 ## 运行时能力
 

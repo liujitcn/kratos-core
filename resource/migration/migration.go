@@ -13,10 +13,9 @@ import (
 
 // Migration 保存宿主数据库客户端、迁移注册表及执行顺序。
 type Migration struct {
-	registry                *migration.Registry
-	names                   []migration.ModuleName
-	databases               map[string]*gorm.Client
-	descriptionTranslations []DescriptionTranslation
+	registry  *migration.Registry
+	names     []migration.ModuleName
+	databases map[string]*gorm.Client
 }
 
 // NewMigration 创建迁移注册表，注册资源后立即执行数据库迁移。
@@ -44,11 +43,7 @@ func NewMigration(ctx *bootstrap.Context, databases map[string]*gorm.Client, mig
 		names = append(names, name)
 	}
 	sortDescriptionTranslations(descriptionTranslations)
-	registry := &Migration{
-		names:                   names,
-		databases:               databases,
-		descriptionTranslations: descriptionTranslations,
-	}
+	registry := &Migration{names: names, databases: databases}
 	if len(contributors) == 0 {
 		return registry, nil
 	}
@@ -60,15 +55,11 @@ func NewMigration(ctx *bootstrap.Context, databases map[string]*gorm.Client, mig
 	if err != nil {
 		return nil, err
 	}
-	return registry, nil
-}
-
-// DescriptionTranslations 返回已注册迁移资源中的本地化说明快照。
-func (r *Migration) DescriptionTranslations() []DescriptionTranslation {
-	if r == nil {
-		return nil
+	err = syncDescriptionTranslations(ctx.Context(), databases, descriptionTranslations)
+	if err != nil {
+		return nil, err
 	}
-	return append([]DescriptionTranslation(nil), r.descriptionTranslations...)
+	return registry, nil
 }
 
 // Run 使用当前注册表中的多数据源客户端并按依赖顺序执行宿主迁移。

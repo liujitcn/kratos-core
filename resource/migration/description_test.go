@@ -65,14 +65,3 @@ func TestMigrationSourceFS(t *testing.T) {
 		t.Fatalf("本地化 README 应对迁移执行器隐藏: %v", err)
 	}
 }
-
-// TestDescriptionTranslationsReturnsCopy 验证公开快照不会泄漏内部切片。
-func TestDescriptionTranslationsReturnsCopy(t *testing.T) {
-	registry := &Migration{descriptionTranslations: []DescriptionTranslation{{Module: "admin", Locale: "en-US"}}}
-	first := registry.DescriptionTranslations()
-	first[0].Locale = "ja-JP"
-	second := registry.DescriptionTranslations()
-	if second[0].Locale != "en-US" {
-		t.Fatalf("迁移说明译文内部快照被修改: %q", second[0].Locale)
-	}
-}
