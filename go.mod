@@ -11,7 +11,7 @@ require (
 	github.com/liujitcn/go-utils v0.0.37
 	github.com/liujitcn/go-utils/geoip v0.0.5
 	github.com/liujitcn/go-utils/translator v0.0.4
-	github.com/liujitcn/kratos-core/api v0.0.2
+	github.com/liujitcn/kratos-core/api v0.0.3
 	github.com/liujitcn/kratos-kit v0.0.75
 	github.com/liujitcn/kratos-kit/api v0.0.32
 	github.com/liujitcn/kratos-kit/auth v0.0.25
@@ -43,7 +43,7 @@ require (
 	github.com/nicksnyder/go-i18n/v2 v2.0.2
 	github.com/robfig/cron/v3 v3.0.1
 	golang.org/x/text v0.41.0
-	google.golang.org/grpc v1.83.0
+	google.golang.org/grpc v1.83.1
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/gorm v1.31.2
@@ -146,12 +146,12 @@ require (
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
-	github.com/liujitcn/go-utils/http v0.0.7 // indirect
+	github.com/liujitcn/go-utils/http v0.0.6 // indirect
 	github.com/liujitcn/go-utils/translator/alibaba v0.0.2 // indirect
 	github.com/liujitcn/go-utils/translator/baidu v0.0.3 // indirect
 	github.com/liujitcn/go-utils/translator/google v0.0.3 // indirect
 	github.com/liujitcn/go-utils/translator/volc v0.0.2 // indirect
-	github.com/liujitcn/kratos-kit/broker v0.0.9 // indirect
+	github.com/liujitcn/kratos-kit/broker v0.0.10 // indirect
 	github.com/liujitcn/kratos-kit/config v0.0.25 // indirect
 	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.18 // indirect
 	github.com/liujitcn/kratos-kit/locker v0.0.15 // indirect
@@ -220,7 +220,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
-	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
+	golang.org/x/exp v0.0.0-20250813145105-42675adae3e6 // indirect
 	golang.org/x/mod v0.38.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect

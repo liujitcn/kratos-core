@@ -225,6 +225,6 @@ MODULE=api EXACT=1 make tag      # 只处理 api 模块
 
 脚本会自动跳过没有代码更新或 tag 已存在的模块；根模块的变更检测会排除 `api` 和 `client` 子模块，避免子模块改动重复触发根模块 tag。
 
-项目要求 Go `1.26.5`。`api` 和 `client` 是独立 Go 模块，修改它们时还应分别执行 `cd api && go test ./...`、`cd client && go test ./...`。修改公共模块契约后，应额外编译依赖 Core 的宿主项目。
+项目要求 Go `1.27.0`。`api` 和 `client` 是独立 Go 模块，修改它们时还应分别执行 `cd api && go test ./...`、`cd client && go test ./...`。修改公共模块契约后，应额外编译依赖 Core 的宿主项目。
 
 客户端连接的独立说明见 [client/README.md](client/README.md)。

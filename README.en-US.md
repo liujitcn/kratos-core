@@ -225,6 +225,6 @@ MODULE=api EXACT=1 make tag      # Process only the api module
 
 The script skips modules without code changes or with an existing tag. Root-module change detection excludes the `api` and `client` submodules so their changes do not trigger a duplicate root tag.
 
-The project requires Go `1.26.5`. `api` and `client` are independent Go modules; when changing either one, also run `cd api && go test ./...` or `cd client && go test ./...`. Changes to public module contracts should additionally be compile-checked against the host projects that depend on Core.
+The project requires Go `1.27.0`. `api` and `client` are independent Go modules; when changing either one, also run `cd api && go test ./...` or `cd client && go test ./...`. Changes to public module contracts should additionally be compile-checked against the host projects that depend on Core.
 
 See [client/README.md](client/README.md) for the standalone client connection guide.

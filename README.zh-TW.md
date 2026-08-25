@@ -225,6 +225,6 @@ MODULE=api EXACT=1 make tag      # 只處理 api 模組
 
 腳本會自動跳過沒有程式碼更新或 tag 已存在的模組；根模組的變更檢測會排除 `api` 和 `client` 子模組，避免子模組改動重複觸發根模組 tag。
 
-專案要求 Go `1.26.5`。`api` 和 `client` 是獨立 Go 模組，修改它們時還應分別執行 `cd api && go test ./...`、`cd client && go test ./...`。修改公共模組契約後，還應額外編譯依賴 Core 的宿主專案。
+專案要求 Go `1.27.0`。`api` 和 `client` 是獨立 Go 模組，修改它們時還應分別執行 `cd api && go test ./...`、`cd client && go test ./...`。修改公共模組契約後，還應額外編譯依賴 Core 的宿主專案。
 
 客戶端連線的獨立說明見 [client/README.md](client/README.md)。
