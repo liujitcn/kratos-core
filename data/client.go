@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/liujitcn/go-utils/set"
 	"github.com/liujitcn/kratos-core/module"
@@ -34,8 +35,8 @@ func NewClients(configs map[string]*configv1.Data_Database, moduleModels module.
 	clients := make(map[string]*gorm.Client, len(names))
 	cleanups := make(map[string]func(), len(names))
 	cleanup := func() {
-		for index := len(names) - 1; index >= 0; index-- {
-			if cleanupClient := cleanups[names[index]]; cleanupClient != nil {
+		for _, name := range slices.Backward(names) {
+			if cleanupClient := cleanups[name]; cleanupClient != nil {
 				cleanupClient()
 			}
 		}

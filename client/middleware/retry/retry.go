@@ -5,7 +5,7 @@ import (
 	"context"
 	"strings"
 
-	coreRetry "github.com/liujitcn/kratos-kit/retry"
+	"github.com/liujitcn/kratos-kit/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -56,7 +56,7 @@ func WithSkipMethods(methods ...string) Option {
 }
 
 // UnaryClientInterceptor 创建在服务端返回临时错误时重试幂等出站 RPC 的客户端拦截器。
-func UnaryClientInterceptor(retrier *coreRetry.Retrier, interceptorOptions ...Option) grpc.UnaryClientInterceptor {
+func UnaryClientInterceptor(retrier *retry.Retrier, interceptorOptions ...Option) grpc.UnaryClientInterceptor {
 	config := &options{
 		idempotentPrefixes: defaultIdempotentPrefixes,
 		retryCodes:         defaultRetryCodes,
@@ -93,9 +93,8 @@ func UnaryClientInterceptor(retrier *coreRetry.Retrier, interceptorOptions ...Op
 // isIdempotent 检查 gRPC 完整方法名是否匹配任一幂等方法前缀。
 func isIdempotent(fullMethod string, prefixes []string) bool {
 	methodName := fullMethod
-	index := strings.LastIndex(fullMethod, "/")
-	if index >= 0 {
-		methodName = fullMethod[index+1:]
+	if _, method, found := strings.CutLast(fullMethod, "/"); found {
+		methodName = method
 	}
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(methodName, prefix) {

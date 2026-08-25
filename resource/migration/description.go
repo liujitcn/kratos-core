@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	kitMigration "github.com/liujitcn/kratos-kit/database/gorm/migration"
+	"github.com/liujitcn/kratos-kit/database/gorm/migration"
 )
 
 var localizedReadmePattern = regexp.MustCompile(`^README\.([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)\.md$`)
@@ -50,7 +50,7 @@ func loadDescriptionTranslations(moduleName string, files fs.FS, root string) ([
 		if len(parts) != 3 && len(parts) != 4 {
 			return fmt.Errorf("迁移说明路径无效: %s", name)
 		}
-		dataSource := kitMigration.DefaultTarget
+		dataSource := migration.DefaultTarget
 		if len(parts) == 4 {
 			dataSource = parts[2]
 		}

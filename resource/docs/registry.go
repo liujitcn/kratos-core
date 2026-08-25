@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"path"
 	"regexp"
 	"sort"
@@ -116,12 +117,8 @@ func (r *Registry) registerCatalog(locale string, snapshot catalogSnapshot) erro
 	directoryNames := make(map[string]string)
 	if current != nil {
 		registered = append(registered, current.documents...)
-		for id, document := range current.documentsByID {
-			byID[id] = document
-		}
-		for key, name := range current.directoryNames {
-			directoryNames[key] = name
-		}
+		maps.Copy(byID, current.documentsByID)
+		maps.Copy(directoryNames, current.directoryNames)
 	}
 	projectNames := make(map[string]string)
 	paths := make(map[string]struct{})

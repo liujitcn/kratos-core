@@ -5,11 +5,11 @@ import (
 	"math"
 	"time"
 
-	clientMetrics "github.com/liujitcn/kratos-core/client/middleware/metrics"
-	clientRateLimit "github.com/liujitcn/kratos-core/client/middleware/ratelimit"
+	"github.com/liujitcn/kratos-core/client/middleware/metrics"
+	"github.com/liujitcn/kratos-core/client/middleware/ratelimit"
 	clientRetry "github.com/liujitcn/kratos-core/client/middleware/retry"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
-	metricsPrometheus "github.com/liujitcn/kratos-kit/metrics/prometheus"
+	"github.com/liujitcn/kratos-kit/metrics/prometheus"
 	"github.com/liujitcn/kratos-kit/ratelimit/tokenbucket"
 	"github.com/liujitcn/kratos-kit/retry"
 	"google.golang.org/grpc"
@@ -55,42 +55,42 @@ func buildConfiguredClientInterceptors(config *configv1.Client_Middleware) (conf
 
 // appendMetrics 创建 Prometheus 指标提供者并追加 unary 与 stream 指标拦截器。
 func (interceptors *configuredClientInterceptors) appendMetrics(config *configv1.Client_Middleware_Metrics) error {
-	providerOptions := make([]metricsPrometheus.Option, 0, 2)
+	providerOptions := make([]prometheus.Option, 0, 2)
 	if config.GetNamespace() != "" {
-		providerOptions = append(providerOptions, metricsPrometheus.WithNamespace(config.GetNamespace()))
+		providerOptions = append(providerOptions, prometheus.WithNamespace(config.GetNamespace()))
 	}
 	subsystem := config.GetSubsystem()
 	if subsystem == "" {
 		subsystem = defaultClientMetricsSubsystem
 	}
-	providerOptions = append(providerOptions, metricsPrometheus.WithSubsystem(subsystem))
+	providerOptions = append(providerOptions, prometheus.WithSubsystem(subsystem))
 
-	provider, err := metricsPrometheus.NewWithDefaultRegistry(providerOptions...)
+	provider, err := prometheus.NewWithDefaultRegistry(providerOptions...)
 	if err != nil {
 		return fmt.Errorf("创建客户端 Prometheus 指标提供者: %w", err)
 	}
-	options := make([]clientMetrics.Option, 0, 4)
+	options := make([]metrics.Option, 0, 4)
 	if config.GetRequestCounterName() != "" {
-		options = append(options, clientMetrics.WithRequestCounterName(config.GetRequestCounterName()))
+		options = append(options, metrics.WithRequestCounterName(config.GetRequestCounterName()))
 	}
 	if config.GetLatencyHistogramName() != "" {
-		options = append(options, clientMetrics.WithLatencyHistogramName(config.GetLatencyHistogramName()))
+		options = append(options, metrics.WithLatencyHistogramName(config.GetLatencyHistogramName()))
 	}
 	if config.GetInFlightGaugeName() != "" {
-		options = append(options, clientMetrics.WithInFlightGaugeName(config.GetInFlightGaugeName()))
+		options = append(options, metrics.WithInFlightGaugeName(config.GetInFlightGaugeName()))
 	}
 	if len(config.GetSkipMethods()) > 0 {
 		skippedMethods := make(map[string]struct{}, len(config.GetSkipMethods()))
 		for _, method := range config.GetSkipMethods() {
 			skippedMethods[method] = struct{}{}
 		}
-		options = append(options, clientMetrics.WithSkipFunc(func(method string) bool {
+		options = append(options, metrics.WithSkipFunc(func(method string) bool {
 			_, skipped := skippedMethods[method]
 			return skipped
 		}))
 	}
-	interceptors.unary = append(interceptors.unary, clientMetrics.UnaryClientInterceptor(provider, options...))
-	interceptors.stream = append(interceptors.stream, clientMetrics.StreamClientInterceptor(provider, options...))
+	interceptors.unary = append(interceptors.unary, metrics.UnaryClientInterceptor(provider, options...))
+	interceptors.stream = append(interceptors.stream, metrics.StreamClientInterceptor(provider, options...))
 	return nil
 }
 
@@ -166,15 +166,15 @@ func (interceptors *configuredClientInterceptors) appendRateLimiter(config *conf
 	if err != nil {
 		return fmt.Errorf("创建客户端令牌桶限流器: %w", err)
 	}
-	options := make([]clientRateLimit.Option, 0, 2)
+	options := make([]ratelimit.Option, 0, 2)
 	if config.GetWait() {
-		options = append(options, clientRateLimit.WithWait())
+		options = append(options, ratelimit.WithWait())
 	}
 	if len(config.GetSkipMethods()) > 0 {
-		options = append(options, clientRateLimit.WithSkipMethods(config.GetSkipMethods()...))
+		options = append(options, ratelimit.WithSkipMethods(config.GetSkipMethods()...))
 	}
-	interceptors.unary = append(interceptors.unary, clientRateLimit.UnaryClientInterceptor(limiter, options...))
-	interceptors.stream = append(interceptors.stream, clientRateLimit.StreamClientInterceptor(limiter, options...))
+	interceptors.unary = append(interceptors.unary, ratelimit.UnaryClientInterceptor(limiter, options...))
+	interceptors.stream = append(interceptors.stream, ratelimit.StreamClientInterceptor(limiter, options...))
 	return nil
 }
 

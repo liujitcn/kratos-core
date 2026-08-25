@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	coreMetrics "github.com/liujitcn/kratos-kit/metrics"
+	"github.com/liujitcn/kratos-kit/metrics"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -60,7 +60,7 @@ func WithSkipFunc(skip func(string) bool) Option {
 }
 
 // UnaryClientInterceptor 创建记录出站一元 RPC 指标的客户端拦截器。
-func UnaryClientInterceptor(recorder coreMetrics.Metrics, interceptorOptions ...Option) grpc.UnaryClientInterceptor {
+func UnaryClientInterceptor(recorder metrics.Metrics, interceptorOptions ...Option) grpc.UnaryClientInterceptor {
 	config := newOptions(interceptorOptions)
 	return func(ctx context.Context, method string, request any, reply any, conn *grpc.ClientConn, invoker grpc.UnaryInvoker, callOptions ...grpc.CallOption) error {
 		if config.skipFunc != nil && config.skipFunc(method) {
@@ -78,7 +78,7 @@ func UnaryClientInterceptor(recorder coreMetrics.Metrics, interceptorOptions ...
 }
 
 // StreamClientInterceptor 创建记录出站流式 RPC 指标的客户端拦截器。
-func StreamClientInterceptor(recorder coreMetrics.Metrics, interceptorOptions ...Option) grpc.StreamClientInterceptor {
+func StreamClientInterceptor(recorder metrics.Metrics, interceptorOptions ...Option) grpc.StreamClientInterceptor {
 	config := newOptions(interceptorOptions)
 	return func(ctx context.Context, description *grpc.StreamDesc, conn *grpc.ClientConn, method string, streamer grpc.Streamer, callOptions ...grpc.CallOption) (grpc.ClientStream, error) {
 		if config.skipFunc != nil && config.skipFunc(method) {
@@ -106,7 +106,7 @@ func StreamClientInterceptor(recorder coreMetrics.Metrics, interceptorOptions ..
 
 type trackedClientStream struct {
 	grpc.ClientStream
-	recorder    coreMetrics.Metrics
+	recorder    metrics.Metrics
 	config      *options
 	ctx         context.Context
 	method      string
@@ -165,14 +165,14 @@ func newOptions(interceptorOptions []Option) *options {
 }
 
 // finish 记录一次一元 RPC 的请求数和耗时。
-func finish(recorder coreMetrics.Metrics, config *options, ctx context.Context, method string, start time.Time, err error) {
+func finish(recorder metrics.Metrics, config *options, ctx context.Context, method string, start time.Time, err error) {
 	metricLabels := labels(method, err)
 	recorder.Counter(ctx, config.requestCounter, 1, metricLabels)
 	recorder.Histogram(ctx, config.latencyHistogram, time.Since(start).Seconds(), metricLabels)
 }
 
 // finishStream 记录流式 RPC 的最终结果并清除进行中指标。
-func finishStream(recorder coreMetrics.Metrics, config *options, ctx context.Context, method string, start time.Time, gaugeLabels map[string]string, err error) {
+func finishStream(recorder metrics.Metrics, config *options, ctx context.Context, method string, start time.Time, gaugeLabels map[string]string, err error) {
 	finish(recorder, config, ctx, method, start, err)
 	recorder.Gauge(ctx, config.inFlightGauge, 0, gaugeLabels)
 }

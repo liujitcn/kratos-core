@@ -4,7 +4,7 @@ package ratelimit
 import (
 	"context"
 
-	coreRateLimit "github.com/liujitcn/kratos-kit/ratelimit"
+	"github.com/liujitcn/kratos-kit/ratelimit"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -38,7 +38,7 @@ func WithSkipMethods(methods ...string) Option {
 }
 
 // UnaryClientInterceptor 创建限制出站一元 RPC 速率的客户端拦截器。
-func UnaryClientInterceptor(limiter coreRateLimit.Limiter, interceptorOptions ...Option) grpc.UnaryClientInterceptor {
+func UnaryClientInterceptor(limiter ratelimit.Limiter, interceptorOptions ...Option) grpc.UnaryClientInterceptor {
 	config := &options{}
 	for _, option := range interceptorOptions {
 		option(config)
@@ -56,7 +56,7 @@ func UnaryClientInterceptor(limiter coreRateLimit.Limiter, interceptorOptions ..
 }
 
 // StreamClientInterceptor 创建限制出站流式 RPC 建流速率的客户端拦截器。
-func StreamClientInterceptor(limiter coreRateLimit.Limiter, interceptorOptions ...Option) grpc.StreamClientInterceptor {
+func StreamClientInterceptor(limiter ratelimit.Limiter, interceptorOptions ...Option) grpc.StreamClientInterceptor {
 	config := &options{}
 	for _, option := range interceptorOptions {
 		option(config)
@@ -74,7 +74,7 @@ func StreamClientInterceptor(limiter coreRateLimit.Limiter, interceptorOptions .
 }
 
 // acquire 从限流器获取一次请求许可。
-func acquire(ctx context.Context, limiter coreRateLimit.Limiter, waitMode bool) error {
+func acquire(ctx context.Context, limiter ratelimit.Limiter, waitMode bool) error {
 	if waitMode {
 		err := limiter.Wait(ctx)
 		if err != nil {

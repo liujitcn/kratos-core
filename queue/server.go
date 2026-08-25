@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-kratos/kratos/v3/transport"
 	_const "github.com/liujitcn/kratos-core/const"
-	coreData "github.com/liujitcn/kratos-core/data"
+	"github.com/liujitcn/kratos-core/data"
 	"github.com/liujitcn/kratos-core/internal/models"
 	kitQueue "github.com/liujitcn/kratos-kit/queue"
 	queueData "github.com/liujitcn/kratos-kit/queue/data"
@@ -32,7 +32,7 @@ type Consumer struct {
 type Consumers []Consumer
 
 // NewServer 创建队列服务，注册 Core 和宿主提供的队列消费者。
-func NewServer(queue kitQueue.Queue, baseJobLogRepository *coreData.BaseJobLogRepository, baseLogRepository *coreData.BaseLogRepository, consumers Consumers) (*Server, error) {
+func NewServer(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogRepository, baseLogRepository *data.BaseLogRepository, consumers Consumers) (*Server, error) {
 	if queue == nil {
 		return nil, fmt.Errorf("队列适配器不能为空")
 	}

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"maps"
 
 	"github.com/go-kratos/kratos/v3/errors"
 )
@@ -27,9 +28,7 @@ func WithMessageKey(structuredErr *errors.Error, messageKey string, messageArgs 
 		return nil
 	}
 	metadata := make(map[string]string, len(structuredErr.Metadata)+2)
-	for key, value := range structuredErr.Metadata {
-		metadata[key] = value
-	}
+	maps.Copy(metadata, structuredErr.Metadata)
 	metadata[METADATA_KEY_MESSAGE_KEY] = messageKey
 	metadata[METADATA_KEY_MESSAGE_ARGS] = "{}"
 	if len(messageArgs) > 0 {

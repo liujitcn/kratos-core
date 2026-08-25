@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	"github.com/liujitcn/kratos-core/module"
-	resourceLocale "github.com/liujitcn/kratos-core/resource/locale"
+	"github.com/liujitcn/kratos-core/resource/locale"
 )
 
 var docsResourceFilePattern = regexp.MustCompile(`^docs(?:\.([A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{1,8})*))?\.json$`)
@@ -108,7 +108,7 @@ func readResourceCatalogs(files fs.FS) ([]resourceCatalog, error) {
 		if err != nil {
 			return nil, fmt.Errorf("读取文件 %q: %w", entry.Name(), err)
 		}
-		result = append(result, resourceCatalog{locale: resourceLocale.Normalize(matches[1]), data: data})
+		result = append(result, resourceCatalog{locale: locale.Normalize(matches[1]), data: data})
 	}
 	sort.SliceStable(result, func(left, right int) bool {
 		if result[left].locale == "" {

@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"encoding/json"
+	"maps"
 	"strings"
 
 	"github.com/go-kratos/kratos/v3/errors"
@@ -29,9 +30,7 @@ func LocalizeError(catalog *I18n, localeValue string, fallbackLocale string, err
 	result := errors.Clone(structured)
 	result.Message = localized
 	metadata := make(map[string]string, len(result.Metadata)+2)
-	for key, value := range result.Metadata {
-		metadata[key] = value
-	}
+	maps.Copy(metadata, result.Metadata)
 	metadata[errorsx.METADATA_KEY_MESSAGE_KEY] = messageKey
 	if metadata[errorsx.METADATA_KEY_MESSAGE_ARGS] == "" {
 		metadata[errorsx.METADATA_KEY_MESSAGE_ARGS] = "{}"

@@ -11,7 +11,7 @@ import (
 	"github.com/liujitcn/kratos-core/errorsx"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/auth/data"
-	sseServer "github.com/liujitcn/kratos-kit/transport/sse"
+	"github.com/liujitcn/kratos-kit/transport/sse"
 )
 
 // SSE 实现 Core 的 SSE 订阅与发布能力。
@@ -19,7 +19,7 @@ type SSE struct {
 	mu            sync.RWMutex
 	authenticator engine.Authenticator
 	userToken     *data.UserToken
-	server        *sseServer.Server
+	server        *sse.Server
 	registry      *Registry
 	publisher     *Publisher
 }
@@ -67,7 +67,7 @@ func (r *SSE) Serve(ctx context.Context, streamID, channelID string) error {
 	}
 	streamRequest, cleanup := DetachRequestContext(request)
 	defer cleanup()
-	server.ServeStreamHTTP(w, streamRequest, sseServer.StreamID(transportID))
+	server.ServeStreamHTTP(w, streamRequest, sse.StreamID(transportID))
 	return nil
 }
 
@@ -86,7 +86,7 @@ func (r *SSE) PublishJSON(ctx context.Context, streamID, eventID string, payload
 }
 
 // BindServer 绑定 SSE 服务。
-func (r *SSE) BindServer(server *sseServer.Server) {
+func (r *SSE) BindServer(server *sse.Server) {
 	r.mu.Lock()
 	r.server = server
 	r.publisher = NewPublisher(server)
@@ -128,7 +128,7 @@ func (r *SSE) authenticate(request *http.Request) (*data.UserTokenPayload, error
 }
 
 // snapshot 获取当前 SSE 传输实现的并发安全快照。
-func (r *SSE) snapshot() (*sseServer.Server, *Registry, *Publisher) {
+func (r *SSE) snapshot() (*sse.Server, *Registry, *Publisher) {
 	r.mu.RLock()
 	server := r.server
 	registry := r.registry

@@ -49,9 +49,9 @@ func getClientRealIP(request *http.Request) string {
 	// 请求头携带代理链地址时，优先从中提取首个合法 IP。
 	if xff != "" {
 		// X-Forwarded-For字段的值是一个逗号分隔的IP地址列表，一般来说，第一个IP地址是原始请求的客户端 IP地址（当然，它可以被伪造）。
-		ips := strings.Split(xff, ",")
+		ips := strings.SplitSeq(xff, ",")
 
-		for _, ip := range ips {
+		for ip := range ips {
 			// 检查是否是合法的IP地址，命中合法 IP 时，直接作为客户端真实地址返回。
 			if net.ParseIP(ip) != nil {
 				return ip

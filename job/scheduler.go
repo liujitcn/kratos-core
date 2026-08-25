@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/go-kratos/kratos/v3/log"
@@ -183,10 +185,7 @@ func (c *Scheduler) startJob(ctx context.Context, baseJob *models.BaseJob) error
 	}
 	var entryID cron.EntryID
 	entryID, err = c.server.StartTimerJob(cronTransport.Spec(baseJob.CronExpression), func() {
-		clonedArgs := make(map[string]string, len(argsMap))
-		for key, value := range argsMap {
-			clonedArgs[key] = value
-		}
+		clonedArgs := maps.Clone(argsMap)
 		execution := &Execution{
 			JobID:        jobID,
 			Args:         clonedArgs,
@@ -246,8 +245,7 @@ func (c *Scheduler) reloadJobs(ctx context.Context) error {
 		// 重载启用任务失败时，直接中断启动流程。
 		if err != nil {
 			// 回滚失败时仅记录日志，优先保留原始启动错误。
-			for i := len(startedJobs) - 1; i >= 0; i-- {
-				startedJob := startedJobs[i]
+			for _, startedJob := range slices.Backward(startedJobs) {
 				// 空任务记录不参与回滚。
 				if startedJob == nil {
 					continue

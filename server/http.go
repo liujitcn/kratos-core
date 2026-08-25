@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
-	stdhttp "net/http"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,7 +22,7 @@ import (
 	"github.com/liujitcn/kratos-core/server/middleware/logging"
 	"github.com/liujitcn/kratos-core/sse"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
-	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
+	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
 	authData "github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
@@ -38,7 +38,7 @@ type HTTPMiddlewares []middleware.Middleware
 // NewHTTPMiddleware 创建 HTTP 服务统一中间件链。
 func NewHTTPMiddleware(
 	ctx *bootstrap.Context,
-	authenticator authnEngine.Authenticator,
+	authenticator engine.Authenticator,
 	baseUserRepo *data.BaseUserRepository,
 	authorizer authzEngine.Engine,
 	userToken *authData.UserToken,
@@ -72,7 +72,7 @@ func NewHTTPServer(
 	appInfo *configv1.AppInfo,
 	middlewares HTTPMiddlewares,
 	modules module.Modules,
-	authenticator authnEngine.Authenticator,
+	authenticator engine.Authenticator,
 	userToken *authData.UserToken,
 	openAPIRegistry *openapi.Registry,
 	mcpServer *mcp.Server,
@@ -120,10 +120,10 @@ func NewHTTPServer(
 	staticPrefix := "/" + projectName + "/"
 	staticDirectory := filepath.Join(ossRootDirectory, projectName)
 	// 将本地 OSS 目录暴露为静态资源目录，默认访问 /shop/* 时映射到 ./data/shop/*。
-	staticHandler := stdhttp.StripPrefix(staticPrefix, stdhttp.FileServer(stdhttp.Dir(staticDirectory)))
+	staticHandler := http.StripPrefix(staticPrefix, http.FileServer(http.Dir(staticDirectory)))
 	srv.HandlePrefix(staticPrefix, staticHandler)
 	if mcpServer != nil && mcpServer.Server != nil && mcpServer.InProcess {
-		var mcpHandler stdhttp.Handler
+		var mcpHandler http.Handler
 		mcpHandler, err = mcpServer.Server.HTTPHandler()
 		if err != nil {
 			return nil, err
@@ -172,32 +172,32 @@ func validateInProcessHTTPHost(httpConfigured bool, mcpServer *mcp.Server, sseSe
 }
 
 // NewSSEHTTPHandler 创建带业务流解析的 SSE HTTP 处理器。
-func NewSSEHTTPHandler(server *sseServer.Server, resolver sseServer.StreamIDResolver) stdhttp.Handler {
-	return stdhttp.HandlerFunc(func(writer stdhttp.ResponseWriter, request *stdhttp.Request) {
-		if request.Method == stdhttp.MethodOptions {
+func NewSSEHTTPHandler(server *sseServer.Server, resolver sseServer.StreamIDResolver) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodOptions {
 			server.ServeHTTP(writer, request)
 			return
 		}
 		if resolver == nil {
-			serveSSEHTTP(request, func(streamRequest *stdhttp.Request) {
+			serveSSEHTTP(request, func(streamRequest *http.Request) {
 				server.ServeHTTP(writer, streamRequest)
 			})
 			return
 		}
 		streamID, err := resolver(request)
 		if err != nil {
-			stdhttp.Error(writer, err.Error(), stdhttp.StatusUnauthorized)
+			http.Error(writer, err.Error(), http.StatusUnauthorized)
 			return
 		}
 		server.CreateStream(sseServer.StreamID(streamID))
-		serveSSEHTTP(request, func(streamRequest *stdhttp.Request) {
+		serveSSEHTTP(request, func(streamRequest *http.Request) {
 			server.ServeStreamHTTP(writer, streamRequest, sseServer.StreamID(streamID))
 		})
 	})
 }
 
 // serveSSEHTTP 为 SSE 请求移除服务级 deadline，同时保留客户端断开带来的取消信号。
-func serveSSEHTTP(request *stdhttp.Request, handler func(*stdhttp.Request)) {
+func serveSSEHTTP(request *http.Request, handler func(*http.Request)) {
 	streamRequest, cleanup := sse.DetachRequestContext(request)
 	defer cleanup()
 	handler(streamRequest)
@@ -225,9 +225,9 @@ func registerLocalSPARoutes(srv *kratosHTTP.Server, rootDirectory string) {
 }
 
 // newSPAHandler 为前端路由提供静态文件和 index.html 回退。
-func newSPAHandler(webFS fs.FS, prefix string) stdhttp.Handler {
-	fileHandler := stdhttp.StripPrefix(prefix, stdhttp.FileServer(stdhttp.FS(webFS)))
-	return stdhttp.HandlerFunc(func(writer stdhttp.ResponseWriter, request *stdhttp.Request) {
+func newSPAHandler(webFS fs.FS, prefix string) http.Handler {
+	fileHandler := http.StripPrefix(prefix, http.FileServer(http.FS(webFS)))
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		relativePath := strings.TrimPrefix(request.URL.Path, prefix)
 		relativePath = strings.TrimPrefix(relativePath, "/")
 		if relativePath != "" {
@@ -236,18 +236,18 @@ func newSPAHandler(webFS fs.FS, prefix string) stdhttp.Handler {
 				return
 			}
 		}
-		stdhttp.ServeFileFS(writer, request, webFS, "index.html")
+		http.ServeFileFS(writer, request, webFS, "index.html")
 	})
 }
 
 // newOpenAPIAuthorizer 校验 Swagger 文档请求中的 Bearer Token。
-func newOpenAPIAuthorizer(authenticator authnEngine.Authenticator, userToken *authData.UserToken) func(*stdhttp.Request) bool {
-	return func(request *stdhttp.Request) bool {
+func newOpenAPIAuthorizer(authenticator engine.Authenticator, userToken *authData.UserToken) func(*http.Request) bool {
+	return func(request *http.Request) bool {
 		if authenticator == nil || userToken == nil {
 			return true
 		}
 		parts := strings.Fields(request.Header.Get("Authorization"))
-		if len(parts) != 2 || !strings.EqualFold(parts[0], authnEngine.BearerWord) {
+		if len(parts) != 2 || !strings.EqualFold(parts[0], engine.BearerWord) {
 			return false
 		}
 		claims, err := authenticator.AuthenticateToken(parts[1])

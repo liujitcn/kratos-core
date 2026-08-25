@@ -5,13 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 
-	kratosMiddleware "github.com/go-kratos/kratos/v3/middleware"
+	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth"
-	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
+	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authnMiddleware "github.com/liujitcn/kratos-kit/auth/authn/middleware"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
 	authzMiddleware "github.com/liujitcn/kratos-kit/auth/authz/middleware"
@@ -30,19 +31,19 @@ type methodTransport interface {
 
 // NewAuthMiddleware 创建使用真实请求方式的统一鉴权中间件。
 func NewAuthMiddleware(
-	authenticator authnEngine.Authenticator,
+	authenticator engine.Authenticator,
 	authorizer authzEngine.Engine,
 	userToken *data.UserToken,
 	cfg *configv1.Authentication_Jwt,
-) kratosMiddleware.Middleware {
-	fullAuth := kratosMiddleware.Chain(
+) middleware.Middleware {
+	fullAuth := middleware.Chain(
 		authnMiddleware.Server(authenticator, authnMiddleware.WithAuthErrorMapper(mapAuthnError)),
 		authClaimsMiddleware(userToken),
 		authzMiddleware.Server(authorizer),
 	)
 
 	optionalAuth := auth.OptionalServer(authenticator, userToken)
-	return func(handler kratosMiddleware.Handler) kratosMiddleware.Handler {
+	return func(handler middleware.Handler) middleware.Handler {
 		fullAuthHandler := fullAuth(handler)
 		optionalAuthHandler := optionalAuth(handler)
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -67,8 +68,8 @@ func NewAuthMiddleware(
 }
 
 // authClaimsMiddleware 将认证声明转换为 Casbin 鉴权声明。
-func authClaimsMiddleware(userToken *data.UserToken) kratosMiddleware.Middleware {
-	return func(handler kratosMiddleware.Handler) kratosMiddleware.Handler {
+func authClaimsMiddleware(userToken *data.UserToken) middleware.Middleware {
+	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			serverTransport, ok := transport.FromServerContext(ctx)
 			if !ok {
@@ -129,7 +130,7 @@ func requestAction(serverTransport transport.Transporter) authzEngine.Action {
 }
 
 // verifyAccessToken 校验访问令牌仍在缓存有效期内。
-func verifyAccessToken(userToken *data.UserToken, authnClaims *authnEngine.AuthClaims) error {
+func verifyAccessToken(userToken *data.UserToken, authnClaims *engine.AuthClaims) error {
 	userID, err := authnClaims.GetInt64(data.ClaimFieldUserID)
 	if err != nil {
 		return auth.ErrExtractUserInfoFailed
@@ -146,10 +147,10 @@ func verifyAccessToken(userToken *data.UserToken, authnClaims *authnEngine.AuthC
 
 // mapAuthnError 将底层认证错误转换为对外稳定的访问令牌错误。
 func mapAuthnError(err error) error {
-	if errors.Is(err, authnEngine.ErrMissingBearerToken) {
+	if errors.Is(err, engine.ErrMissingBearerToken) {
 		return auth.ErrAccessTokenNotExist
 	}
-	if errors.Is(err, authnEngine.ErrTokenExpired) {
+	if errors.Is(err, engine.ErrTokenExpired) {
 		return auth.ErrAccessTokenExpired
 	}
 	return authnMiddleware.ErrUnauthorized
@@ -174,15 +175,8 @@ func matchWhiteList(whiteList *configv1.Authentication_Jwt_WhiteList, operation 
 			return true
 		}
 	}
-	for _, path := range whiteList.Path {
-		if path == operation {
-			return true
-		}
+	if slices.Contains(whiteList.Path, operation) {
+		return true
 	}
-	for _, item := range whiteList.Match {
-		if item == operation {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(whiteList.Match, operation)
 }

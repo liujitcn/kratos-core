@@ -20,7 +20,6 @@ import (
 	"github.com/go-kratos/kratos/v3/transport"
 	"github.com/go-kratos/kratos/v3/transport/http"
 	"github.com/go-kratos/kratos/v3/transport/http/status"
-	"github.com/liujitcn/go-utils/trans"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/database/gorm"
 	"github.com/mileusna/useragent"
@@ -87,10 +86,10 @@ func Server(_ *slog.Logger,
 
 					baseLog.Method = htr.Request().Method
 					baseLog.Path = htr.PathTemplate()
-					baseLog.Referer = trans.Ptr(referer)
-					baseLog.RequestURI = trans.Ptr(requestURI)
-					baseLog.ClientIP = trans.Ptr(clientIP)
-					baseLog.Location = trans.Ptr(clientIPToLocation(clientIP))
+					baseLog.Referer = referer
+					baseLog.RequestURI = requestURI
+					baseLog.ClientIP = clientIP
+					baseLog.Location = clientIPToLocation(clientIP)
 
 					// 登录接口优先从请求体回填用户名与用户编号。
 					if htr.Operation() == operationLoginServiceLogin {

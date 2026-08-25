@@ -6,7 +6,7 @@ import (
 
 	"github.com/liujitcn/kratos-core/internal/models"
 	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
-	kitMigration "github.com/liujitcn/kratos-kit/database/gorm/migration"
+	"github.com/liujitcn/kratos-kit/database/gorm/migration"
 	"gorm.io/gorm"
 )
 
@@ -26,7 +26,7 @@ func syncDescriptionTranslations(ctx context.Context, databases map[string]*data
 	if len(translations) == 0 {
 		return nil
 	}
-	centralClient, ok := databases[kitMigration.DefaultTarget]
+	centralClient, ok := databases[migration.DefaultTarget]
 	if !ok || centralClient == nil || centralClient.DB == nil {
 		return fmt.Errorf("迁移说明翻译需要默认数据库客户端")
 	}

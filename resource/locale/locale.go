@@ -18,11 +18,11 @@ func Candidates(value string) []string {
 		result = appendCandidate(result, seen, preference.locale)
 		currentLocale := preference.locale
 		for {
-			index := strings.LastIndexByte(currentLocale, '-')
-			if index < 0 {
+			parentLocale, _, found := strings.CutLast(currentLocale, "-")
+			if !found {
 				break
 			}
-			currentLocale = currentLocale[:index]
+			currentLocale = parentLocale
 			result = appendCandidate(result, seen, currentLocale)
 		}
 	}

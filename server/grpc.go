@@ -9,7 +9,7 @@ import (
 	coreMiddleware "github.com/liujitcn/kratos-core/server/middleware"
 	"github.com/liujitcn/kratos-core/server/middleware/logging"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
-	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
+	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
 	authData "github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
@@ -23,7 +23,7 @@ type GRPCMiddlewares []middleware.Middleware
 // NewGRPCMiddleware 创建 GRPC 服务统一中间件链。
 func NewGRPCMiddleware(
 	ctx *bootstrap.Context,
-	authenticator authnEngine.Authenticator,
+	authenticator engine.Authenticator,
 	baseUserRepo *data.BaseUserRepository,
 	authorizer authzEngine.Engine,
 	userToken *authData.UserToken,

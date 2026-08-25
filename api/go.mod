@@ -1,6 +1,6 @@
 module github.com/liujitcn/kratos-core/api
 
-go 1.26.5
+go 1.27.0
 
 require (
 	github.com/go-kratos/kratos/v3 v3.0.0

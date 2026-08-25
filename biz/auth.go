@@ -5,7 +5,7 @@ import (
 
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 
-	authnEngine "github.com/liujitcn/kratos-kit/auth/authn/engine"
+	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine/jwt"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
 	"github.com/liujitcn/kratos-kit/auth/authz/engine/casbin"
@@ -14,7 +14,7 @@ import (
 )
 
 // NewAuthenticator 创建认证器。
-func NewAuthenticator(cfg *configv1.Authentication_Jwt) (authnEngine.Authenticator, error) {
+func NewAuthenticator(cfg *configv1.Authentication_Jwt) (engine.Authenticator, error) {
 	if cfg == nil {
 		return nil, nil
 	}
@@ -30,7 +30,7 @@ func NewAuthzEngine() (authzEngine.Engine, error) {
 }
 
 // NewUserToken 创建用户令牌管理器。
-func NewUserToken(cfg *configv1.Authentication_Jwt, cache cache.Cache, authenticator authnEngine.Authenticator) *data.UserToken {
+func NewUserToken(cfg *configv1.Authentication_Jwt, cache cache.Cache, authenticator engine.Authenticator) *data.UserToken {
 	if cfg == nil || cache == nil || authenticator == nil {
 		return nil
 	}

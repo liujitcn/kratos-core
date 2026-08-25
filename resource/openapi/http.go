@@ -2,7 +2,7 @@ package openapi
 
 import (
 	"fmt"
-	stdhttp "net/http"
+	"net/http"
 	"strings"
 
 	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
@@ -21,7 +21,7 @@ type HTTPOptions struct {
 	// SwaggerPath 是 Swagger UI 的路由前缀。
 	SwaggerPath string
 	// Authorizer 校验原始文档请求，nil 表示允许访问。
-	Authorizer func(*stdhttp.Request) bool
+	Authorizer func(*http.Request) bool
 }
 
 // RegisterHTTP 为注册表中的每份文档挂载原文接口和独立 Swagger UI。
@@ -30,7 +30,7 @@ func RegisterHTTP(server *kratosHTTP.Server, registry *Registry, opts HTTPOption
 	swaggerPath := normalizePath(opts.SwaggerPath, defaultSwaggerPath)
 	authorizer := opts.Authorizer
 	if authorizer == nil {
-		authorizer = func(*stdhttp.Request) bool { return true }
+		authorizer = func(*http.Request) bool { return true }
 	}
 
 	var err error

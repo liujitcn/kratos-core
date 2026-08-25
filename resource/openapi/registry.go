@@ -3,6 +3,7 @@ package openapi
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"regexp"
 	"sort"
 	"strings"
@@ -53,8 +54,14 @@ func (r *Registry) Register(documents ...Document) error {
 	defer r.mu.Unlock()
 
 	registeredDocuments := append([]Document(nil), r.documents...)
-	documentsByKey := cloneDocumentMap(r.documentsByKey)
-	documentKeysByAPI := cloneStringMap(r.documentKeysByAPI)
+	documentsByKey := maps.Clone(r.documentsByKey)
+	if documentsByKey == nil {
+		documentsByKey = make(map[string]Document)
+	}
+	documentKeysByAPI := maps.Clone(r.documentKeysByAPI)
+	if documentKeysByAPI == nil {
+		documentKeysByAPI = make(map[string]string)
+	}
 	var err error
 	for _, document := range documents {
 		document.Locale = resourceLocale.Normalize(document.Locale)
@@ -241,22 +248,4 @@ func newLocaleAPIKey(locale, apiKey string) string {
 // displayAPIKey 将内部 HTTP 操作索引转换为可读文本。
 func displayAPIKey(apiKey string) string {
 	return strings.Replace(apiKey, "\x00", " ", 1)
-}
-
-// cloneDocumentMap 复制文档索引。
-func cloneDocumentMap(source map[string]Document) map[string]Document {
-	target := make(map[string]Document, len(source))
-	for key, value := range source {
-		target[key] = value
-	}
-	return target
-}
-
-// cloneStringMap 复制字符串索引。
-func cloneStringMap(source map[string]string) map[string]string {
-	target := make(map[string]string, len(source))
-	for key, value := range source {
-		target[key] = value
-	}
-	return target
 }
