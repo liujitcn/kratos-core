@@ -8,7 +8,7 @@ require (
 	github.com/go-kratos/kratos/v3 v3.0.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/google/wire v0.7.0
-	github.com/liujitcn/go-utils v0.0.37
+	github.com/liujitcn/go-utils v0.0.38
 	github.com/liujitcn/go-utils/geoip v0.0.5
 	github.com/liujitcn/go-utils/translator v0.0.4
 	github.com/liujitcn/kratos-core/api v0.0.3
@@ -21,7 +21,7 @@ require (
 	github.com/liujitcn/kratos-kit/auth/authz v0.0.22
 	github.com/liujitcn/kratos-kit/auth/authz/engine/casbin v0.0.20
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.18
-	github.com/liujitcn/kratos-kit/bootstrap v0.0.22
+	github.com/liujitcn/kratos-kit/bootstrap v0.0.23
 	github.com/liujitcn/kratos-kit/cache v0.0.18
 	github.com/liujitcn/kratos-kit/database/gorm v0.0.40
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.13
@@ -38,7 +38,7 @@ require (
 	github.com/liujitcn/kratos-kit/transport/mcp v0.0.14
 	github.com/liujitcn/kratos-kit/transport/queue v0.0.3
 	github.com/liujitcn/kratos-kit/transport/sse v0.0.13
-	github.com/liujitcn/kratos-kit/utils v0.0.19
+	github.com/liujitcn/kratos-kit/utils v0.0.20
 	github.com/mileusna/useragent v1.3.5
 	github.com/nicksnyder/go-i18n/v2 v2.0.2
 	github.com/robfig/cron/v3 v3.0.1

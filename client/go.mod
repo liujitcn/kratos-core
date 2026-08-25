@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/go-kratos/kratos/v3 v3.0.0
-	github.com/liujitcn/go-utils v0.0.37
+	github.com/liujitcn/go-utils v0.0.38
 	github.com/liujitcn/kratos-kit/api v0.0.32
 	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.18
 	github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.19
@@ -14,7 +14,7 @@ require (
 	github.com/liujitcn/kratos-kit/ratelimit/tokenbucket v0.0.3
 	github.com/liujitcn/kratos-kit/retry v0.0.3
 	github.com/liujitcn/kratos-kit/tracing v0.0.11
-	github.com/liujitcn/kratos-kit/utils v0.0.19
+	github.com/liujitcn/kratos-kit/utils v0.0.20
 	google.golang.org/grpc v1.83.1
 	google.golang.org/protobuf v1.36.12
 )
