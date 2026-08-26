@@ -21,7 +21,11 @@ func LocalizeError(catalog *I18n, localeValue string, fallbackLocale string, err
 	} else if strings.HasPrefix(messageKey, "legacy.error.") && !catalog.HasMessage(messageKey) {
 		if sourceKey, ok := catalog.KeyForSource(structured.Message); ok {
 			messageKey = sourceKey
+		} else if structured.Reason != errorsx.ReasonInternalError {
+			// 未配置稳定词条时保留原始安全文案，避免业务错误被通用 reason 文案覆盖。
+			messageKey = ""
 		} else {
+			// 内部错误不得向客户端暴露实现细节，继续使用通用内部错误文案。
 			messageKey = defaultMessageKey(structured.Reason)
 		}
 	}
@@ -31,7 +35,11 @@ func LocalizeError(catalog *I18n, localeValue string, fallbackLocale string, err
 	result.Message = localized
 	metadata := make(map[string]string, len(result.Metadata)+2)
 	maps.Copy(metadata, result.Metadata)
-	metadata[errorsx.METADATA_KEY_MESSAGE_KEY] = messageKey
+	if messageKey == "" {
+		delete(metadata, errorsx.METADATA_KEY_MESSAGE_KEY)
+	} else {
+		metadata[errorsx.METADATA_KEY_MESSAGE_KEY] = messageKey
+	}
 	if metadata[errorsx.METADATA_KEY_MESSAGE_ARGS] == "" {
 		metadata[errorsx.METADATA_KEY_MESSAGE_ARGS] = "{}"
 	}
