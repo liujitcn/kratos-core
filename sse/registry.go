@@ -13,6 +13,11 @@ type Registry struct {
 	streams map[string]sse.SSEStream
 }
 
+// tenantResolver 支持从认证主体中获取租户隔离信息的 SSE 流。
+type tenantResolver interface {
+	ResolveTenant(channelID string, userID, tenantID int64) (string, error)
+}
+
 // NewRegistry 创建空 SSE 流注册表。
 func NewRegistry() *Registry {
 	return &Registry{streams: make(map[string]sse.SSEStream)}
@@ -47,13 +52,33 @@ func (r *Registry) Register(streams ...sse.SSEStream) error {
 
 // Resolve 解析订阅请求对应的传输流标识。
 func (r *Registry) Resolve(streamID, channelID string, userID int64) (string, bool, error) {
+	return r.resolve(streamID, channelID, userID, 0)
+}
+
+// ResolveWithTenant 解析带可信租户上下文的 SSE 流。
+func (r *Registry) ResolveWithTenant(streamID, channelID string, userID, tenantID int64) (string, bool, error) {
+	return r.resolve(streamID, channelID, userID, tenantID)
+}
+
+// resolve 兼容旧流并优先调用支持租户隔离的流实现。
+func (r *Registry) resolve(streamID, channelID string, userID, tenantID int64) (string, bool, error) {
 	r.mu.RLock()
 	stream, exists := r.streams[streamID]
 	r.mu.RUnlock()
 	if !exists {
 		return "", false, nil
 	}
-	transportID, err := stream.Resolve(channelID, userID)
+	var transportID string
+	var err error
+	if tenantID > 0 {
+		if tenantStream, ok := stream.(tenantResolver); ok {
+			transportID, err = tenantStream.ResolveTenant(channelID, userID, tenantID)
+		} else {
+			transportID, err = stream.Resolve(channelID, userID)
+		}
+	} else {
+		transportID, err = stream.Resolve(channelID, userID)
+	}
 	if err != nil {
 		return "", true, err
 	}

@@ -51,14 +51,14 @@ func (r *SSE) Serve(ctx context.Context, streamID, channelID string) error {
 		return errorsx.InvalidArgument("SSE订阅仅支持HTTP访问")
 	}
 	userToken, err := r.authenticate(request)
-	if err != nil || userToken.RoleCode == _const.BASE_ROLE_CODE_USER || userToken.RoleCode == _const.BASE_ROLE_CODE_AUTHUSER {
+	if err != nil || userToken.UserId <= 0 || ((userToken.RoleCode == _const.BASE_ROLE_CODE_USER || userToken.RoleCode == _const.BASE_ROLE_CODE_AUTHUSER) && streamID != "base.notification") {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return nil
 	}
 	var transportID string
 	var found bool
-	transportID, found, err = registry.Resolve(streamID, channelID, userToken.UserId)
+	transportID, found, err = registry.ResolveWithTenant(streamID, channelID, userToken.UserId, userToken.TenantId)
 	if !found {
 		return errorsx.InvalidArgument("SSE流不支持")
 	}

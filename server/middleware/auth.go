@@ -3,13 +3,18 @@ package middleware
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
+	kratosErrors "github.com/go-kratos/kratos/v3/errors"
+	"github.com/go-kratos/kratos/v3/log"
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
+	"github.com/liujitcn/kratos-core/audit"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
@@ -39,7 +44,7 @@ func NewAuthMiddleware(
 	fullAuth := middleware.Chain(
 		authnMiddleware.Server(authenticator, authnMiddleware.WithAuthErrorMapper(mapAuthnError)),
 		authClaimsMiddleware(userToken),
-		authzMiddleware.Server(authorizer),
+		auditedAuthzMiddleware(authorizer),
 	)
 
 	optionalAuth := auth.OptionalServer(authenticator, userToken)
@@ -65,6 +70,88 @@ func NewAuthMiddleware(
 			return fullAuthHandler(ctx, req)
 		}
 	}
+}
+
+// auditedAuthzMiddleware 记录授权引擎允许、拒绝和异常决策。
+func auditedAuthzMiddleware(authorizer authzEngine.Engine) middleware.Middleware {
+	delegated := authzMiddleware.Server(authorizer)
+	return func(handler middleware.Handler) middleware.Handler {
+		wrapped := delegated(handler)
+		return func(ctx context.Context, req interface{}) (interface{}, error) {
+			startedAt := time.Now()
+			reply, err := wrapped(ctx, req)
+			decision := int32(1)
+			if err != nil {
+				decision = 2
+				if structured := kratosErrors.FromError(err); structured != nil && structured.Code >= http.StatusInternalServerError {
+					decision = 3
+				}
+			}
+			operation := ""
+			requestID := ""
+			method := requestActionValue(ctx)
+			path := ""
+			clientIP := ""
+			userAgent := ""
+			if serverTransport, ok := transport.FromServerContext(ctx); ok {
+				operation = serverTransport.Operation()
+				if requestTransport, ok := serverTransport.(httpRequestTransport); ok && requestTransport.Request() != nil {
+					request := requestTransport.Request()
+					requestID = request.Header.Get("X-Request-ID")
+					path = request.URL.Path
+					clientIP = request.RemoteAddr
+					if host, _, splitErr := net.SplitHostPort(clientIP); splitErr == nil {
+						clientIP = host
+					}
+					userAgent = request.UserAgent()
+				}
+			}
+			event := audit.Event{
+				Kind: "policy_evaluation", Engine: "casbin", EvaluationType: 1,
+				RequestID: requestID, Method: method, Operation: operation, Path: path, ClientIP: clientIP, UserAgent: userAgent,
+				Resource: operation, Action: method, Decision: decision, StatusCode: int32(http.StatusOK), IsSuccess: err == nil,
+				DurationMs:  int32(time.Since(startedAt).Milliseconds()),
+				RequestTime: startedAt,
+				Reason:      errorText(err), ReasonCode: errorReason(err),
+			}
+			if claims, ok := authnMiddleware.FromContext(ctx); ok {
+				event.UserID, _ = claims.GetInt64(data.ClaimFieldUserID)
+				event.UserName, _ = claims.GetSubject()
+				event.TenantID, _ = claims.GetInt64(data.ClaimFieldTenantID)
+				event.TenantCode, _ = claims.GetString(data.ClaimFieldTenantCode)
+				event.RoleID, _ = claims.GetInt64(data.ClaimFieldRoleID)
+				event.RoleCode, _ = claims.GetString(data.ClaimFieldRoleCode)
+			}
+			if emitErr := audit.Emit(ctx, event); emitErr != nil {
+				log.Error("发送授权审计事件失败", "error", emitErr, "operation", operation)
+			}
+			return reply, err
+		}
+	}
+}
+
+func requestActionValue(ctx context.Context) string {
+	if serverTransport, ok := transport.FromServerContext(ctx); ok {
+		return string(requestAction(serverTransport))
+	}
+	return fallbackAuthAction
+}
+
+func errorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func errorReason(err error) string {
+	if err == nil {
+		return ""
+	}
+	if structured := kratosErrors.FromError(err); structured != nil {
+		return structured.Reason
+	}
+	return "INTERNAL_ERROR"
 }
 
 // authClaimsMiddleware 将认证声明转换为 Casbin 鉴权声明。

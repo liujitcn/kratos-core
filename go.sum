@@ -587,8 +587,8 @@ github.com/liujitcn/kratos-kit/bootstrap v0.0.23 h1:iMz/JAb8MvS39xL+ymgVDkRdKTTX
 github.com/liujitcn/kratos-kit/bootstrap v0.0.23/go.mod h1:CPB2fS45tV3p03FhfoaYZMsVfyNK4x6bFtgT+jX7OqE=
 github.com/liujitcn/kratos-kit/broker v0.0.10 h1:9GkdSx7nj9XCxb9R2q0x5Gx2G+YO1LmJTcf5oNHqVZs=
 github.com/liujitcn/kratos-kit/broker v0.0.10/go.mod h1:BjdT+A8Yfjqa6wMSUcTtiym3/AiEn5zRp+2/MVRt1gU=
-github.com/liujitcn/kratos-kit/cache v0.0.18 h1:D+B4YnPfPmay2QDB6kNM6vNndb9pB+aXw/VC9gs5/IE=
-github.com/liujitcn/kratos-kit/cache v0.0.18/go.mod h1:DPxpLowgDNOdL4HWbh4Z4S/Qbaj5UYaSR4PLxc06220=
+github.com/liujitcn/kratos-kit/cache v0.0.19 h1:0kV96QgOM+L2kmj6BF2S2E8cvESx1uNYv1Pl7KqHz04=
+github.com/liujitcn/kratos-kit/cache v0.0.19/go.mod h1:DPxpLowgDNOdL4HWbh4Z4S/Qbaj5UYaSR4PLxc06220=
 github.com/liujitcn/kratos-kit/config v0.0.25 h1:nLarwp9kh8Mtyr8gW+bkJmFibRZAuhc/s2EHl2qfBZM=
 github.com/liujitcn/kratos-kit/config v0.0.25/go.mod h1:HvDjYwizH+mTr8/1k+TPoy5ozXEsApDjcf4YkKGqwCk=
 github.com/liujitcn/kratos-kit/database/gorm v0.0.40 h1:6zwEBInbX3WS1QtGtoH35m9EmfNgJJdYEDji5J6k0ps=

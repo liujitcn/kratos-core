@@ -45,7 +45,7 @@ func NewStreamResolver(registry *Registry, authenticator engine.Authenticator, u
 		}
 		streamID := request.URL.Query().Get("stream")
 		channelID := request.URL.Query().Get("channel")
-		userID, err := requestUserID(request, authenticator, userToken)
+		userID, tenantID, err := requestUserID(request, streamID, authenticator, userToken)
 		if err != nil {
 			return "", err
 		}
@@ -54,7 +54,7 @@ func NewStreamResolver(registry *Registry, authenticator engine.Authenticator, u
 		}
 		var transportID string
 		var found bool
-		transportID, found, err = registry.Resolve(streamID, channelID, userID)
+		transportID, found, err = registry.ResolveWithTenant(streamID, channelID, userID, tenantID)
 		if err != nil {
 			return "", err
 		}
@@ -144,36 +144,41 @@ func (t *Server) Resolver() sse.StreamIDResolver {
 	return t.resolver
 }
 
-func requestUserID(request *http.Request, authenticator engine.Authenticator, userToken *data.UserToken) (int64, error) {
+func requestUserID(request *http.Request, streamID string, authenticator engine.Authenticator, userToken *data.UserToken) (int64, int64, error) {
 	if authenticator == nil {
-		return 0, nil
+		return 0, 0, nil
 	}
 	parts := strings.Fields(request.Header.Get("Authorization"))
 	if len(parts) == 0 {
-		return 0, fmt.Errorf("SSE 请求需要认证")
+		return 0, 0, fmt.Errorf("SSE 请求需要认证")
 	}
 	if len(parts) != 2 || !strings.EqualFold(parts[0], engine.BearerWord) {
-		return 0, fmt.Errorf("SSE Authorization 请求头格式错误")
+		return 0, 0, fmt.Errorf("SSE Authorization 请求头格式错误")
 	}
 	claims, err := authenticator.AuthenticateToken(parts[1])
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	var userID int64
 	userID, err = claims.GetInt64(data.ClaimFieldUserID)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	var roleCode string
 	roleCode, err = claims.GetString(data.ClaimFieldRoleCode)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	if roleCode == _const.BASE_ROLE_CODE_USER || roleCode == _const.BASE_ROLE_CODE_AUTHUSER {
-		return 0, fmt.Errorf("SSE 仅允许后台用户访问")
+	if (roleCode == _const.BASE_ROLE_CODE_USER || roleCode == _const.BASE_ROLE_CODE_AUTHUSER) && streamID != "base.notification" {
+		return 0, 0, fmt.Errorf("SSE 仅允许后台用户访问")
 	}
+	if userID <= 0 {
+		return 0, 0, fmt.Errorf("SSE 访问主体无效")
+	}
+	var tenantID int64
+	tenantID, _ = claims.GetInt64(data.ClaimFieldTenantID)
 	if userID != 0 && userToken != nil && !userToken.IsExistAccessToken(userID) {
-		return 0, fmt.Errorf("SSE 访问令牌已失效")
+		return 0, 0, fmt.Errorf("SSE 访问令牌已失效")
 	}
-	return userID, nil
+	return userID, tenantID, nil
 }

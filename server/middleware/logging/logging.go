@@ -9,10 +9,9 @@ import (
 	"strings"
 	"time"
 
-	_const "github.com/liujitcn/kratos-core/const"
+	"github.com/liujitcn/kratos-core/audit"
 	"github.com/liujitcn/kratos-core/data"
 	"github.com/liujitcn/kratos-core/internal/models"
-	"github.com/liujitcn/kratos-core/queue"
 
 	"github.com/go-kratos/kratos/v3/errors"
 	"github.com/go-kratos/kratos/v3/log"
@@ -50,7 +49,7 @@ func Server(_ *slog.Logger,
 		return func(ctx context.Context, req interface{}) (reply interface{}, err error) {
 			startTime := time.Now()
 			// 日志信息
-			baseLog := models.BaseLog{
+			baseLog := audit.Event{
 				RequestTime: startTime,
 				// 默认返回码按成功初始化，后续再根据实际错误覆盖。
 				StatusCode: int32(status.FromGRPCCode(codes.OK)),
@@ -62,6 +61,7 @@ func Server(_ *slog.Logger,
 				// 当前请求走 HTTP 传输层时，补充 HTTP 相关访问日志字段。
 				if htr, htrOk := info.(*http.Transport); htrOk {
 					baseLog.RequestID = getRequestID(ctx, htr.Request())
+					baseLog.TraceID = htr.RequestHeader().Get("traceparent")
 					// 文件上传不存请求内容，文件上传和下载请求体通常较大，不记录请求体内容。
 					if !strings.HasPrefix(htr.Operation(), operationFileService) {
 						baseLog.RequestBody = extractArgs(req)
@@ -105,6 +105,7 @@ func Server(_ *slog.Logger,
 								if tenantCode == "" {
 									tenantCode = gorm.DefaultTenantCode
 								}
+								baseLog.TenantCode = tenantCode
 								var baseUser *models.BaseUser
 								// 基础用户回查成功时，补充用户编号。
 								baseUser, fullErr = baseUserRepo.FindByTenantCodeAndUserName(htr.Request().Context(), tenantCode, userName)
@@ -118,6 +119,8 @@ func Server(_ *slog.Logger,
 						ut := extractAuthToken(authToken, authenticator)
 						// 非登录接口能解析出用户令牌时，回填登录态用户信息。
 						if ut != nil {
+							baseLog.TenantID = ut.TenantId
+							baseLog.TenantCode = ut.TenantCode
 							baseLog.UserID = ut.UserId
 							baseLog.UserName = ut.UserName
 						}
@@ -152,6 +155,7 @@ func Server(_ *slog.Logger,
 			// 当前错误可转换为 Kratos 标准错误时，补充业务错误码和原因。
 			if se := errors.FromError(err); se != nil {
 				baseLog.StatusCode = se.Code
+				baseLog.ReasonCode = se.Reason
 				baseLog.Reason = se.Reason
 			}
 			baseLog.CostTime = time.Since(startTime).Milliseconds()
@@ -169,7 +173,9 @@ func Server(_ *slog.Logger,
 				baseLog.Reason = fmt.Sprintf("[%s]%s", baseLog.Reason, stack)
 			}
 			// 写入日志
-			queue.AddQueue(_const.LOG, &baseLog)
+			if emitErr := audit.Emit(ctx, baseLog); emitErr != nil {
+				log.Error("发送审计事件失败", "error", emitErr, "operation", baseLog.Operation)
+			}
 			logLine := fmt.Sprintf(
 				"operation=%s method=%s path=%s args=%s code=%d latency=%s",
 				normalizeLogField(baseLog.Operation),

@@ -7,6 +7,7 @@ import (
 	"github.com/go-kratos/kratos/v3/transport"
 	"github.com/go-kratos/kratos/v3/transport/grpc"
 	"github.com/google/wire"
+	"github.com/liujitcn/kratos-core/audit"
 	"github.com/liujitcn/kratos-core/biz"
 	"github.com/liujitcn/kratos-core/config"
 	"github.com/liujitcn/kratos-core/data"
@@ -29,6 +30,7 @@ var ProviderSet = wire.NewSet(
 	biz.ProviderSet,
 	module.ProviderSet,
 	data.ProviderSet,
+	audit.NewPipeline,
 	// 注册文档、国际化、OpenAPI、迁移等资源能力，以及 SSE、队列、任务和 MCP 运行组件。
 	resource.ProviderSet,
 	sse.ProviderSet,

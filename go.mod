@@ -22,7 +22,7 @@ require (
 	github.com/liujitcn/kratos-kit/auth/authz/engine/casbin v0.0.20
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.18
 	github.com/liujitcn/kratos-kit/bootstrap v0.0.23
-	github.com/liujitcn/kratos-kit/cache v0.0.18
+	github.com/liujitcn/kratos-kit/cache v0.0.19
 	github.com/liujitcn/kratos-kit/database/gorm v0.0.40
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.13
 	github.com/liujitcn/kratos-kit/oss v0.0.17

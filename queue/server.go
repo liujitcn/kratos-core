@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-kratos/kratos/v3/transport"
+	"github.com/liujitcn/kratos-core/audit"
 	_const "github.com/liujitcn/kratos-core/const"
 	"github.com/liujitcn/kratos-core/data"
 	"github.com/liujitcn/kratos-core/internal/models"
@@ -32,7 +33,7 @@ type Consumer struct {
 type Consumers []Consumer
 
 // NewServer 创建队列服务，注册 Core 和宿主提供的队列消费者。
-func NewServer(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogRepository, baseLogRepository *data.BaseLogRepository, consumers Consumers) (*Server, error) {
+func NewServer(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogRepository, auditPipeline *audit.Pipeline, consumers Consumers) (*Server, error) {
 	if queue == nil {
 		return nil, fmt.Errorf("队列适配器不能为空")
 	}
@@ -56,15 +57,7 @@ func NewServer(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogReposi
 		}
 		return baseJobLogRepository.Create(context.Background(), entity)
 	})
-	server.Register(_const.LOG, func(message queueData.Message) error {
-		var entity *models.BaseLog
-		entity, err = Decode[models.BaseLog](message)
-		if err != nil {
-			return err
-		}
-		return baseLogRepository.Create(context.Background(), entity)
-	})
-
+	server.Register(audit.EventStream, auditPipeline.Consume)
 	for _, consumer := range consumers {
 		server.Register(consumer.Stream, consumer.Handler)
 	}
