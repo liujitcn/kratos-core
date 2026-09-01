@@ -45,6 +45,7 @@ func (s *Server) Start(ctx context.Context) error {
 	var err error
 	err = s.transport.Start(ctx)
 	if err != nil {
+		s.server.Close()
 		return err
 	}
 	runContext, cancel := context.WithCancel(ctx)
@@ -57,6 +58,7 @@ func (s *Server) Start(ctx context.Context) error {
 			log.Error(fmt.Sprintf("cron server stop failed, err=%v", stopErr))
 		}
 		s.server.ClearExecutionContext()
+		s.server.Close()
 		return err
 	}
 	s.runCancel = cancel
@@ -81,6 +83,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	s.transport.RemoveAllJobs()
 	if s.server != nil {
 		s.server.ClearExecutionContext()
+		s.server.Close()
 	}
 	return err
 }

@@ -5,6 +5,7 @@ go 1.27.0
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260709200747-435963d16310.1
 	buf.build/go/protovalidate v1.3.0
+	github.com/bsm/redislock v0.9.4
 	github.com/go-kratos/kratos/v3 v3.0.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/google/wire v0.7.0
@@ -12,8 +13,8 @@ require (
 	github.com/liujitcn/go-utils/geoip v0.0.5
 	github.com/liujitcn/go-utils/translator v0.0.4
 	github.com/liujitcn/kratos-core/api v0.0.3
-	github.com/liujitcn/kratos-kit v0.0.75
-	github.com/liujitcn/kratos-kit/api v0.0.32
+	github.com/liujitcn/kratos-kit v0.0.77
+	github.com/liujitcn/kratos-kit/api v0.0.33
 	github.com/liujitcn/kratos-kit/auth v0.0.25
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.23
 	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.18
@@ -22,14 +23,15 @@ require (
 	github.com/liujitcn/kratos-kit/auth/authz/engine/casbin v0.0.20
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.18
 	github.com/liujitcn/kratos-kit/bootstrap v0.0.23
-	github.com/liujitcn/kratos-kit/cache v0.0.19
+	github.com/liujitcn/kratos-kit/cache v0.0.20
 	github.com/liujitcn/kratos-kit/database/gorm v0.0.40
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.13
+	github.com/liujitcn/kratos-kit/locker v0.0.16
 	github.com/liujitcn/kratos-kit/oss v0.0.17
 	github.com/liujitcn/kratos-kit/pprof v0.0.14
 	github.com/liujitcn/kratos-kit/queue v0.0.27
 	github.com/liujitcn/kratos-kit/server/grpc v0.0.2
-	github.com/liujitcn/kratos-kit/server/http v0.0.3
+	github.com/liujitcn/kratos-kit/server/http v0.0.4
 	github.com/liujitcn/kratos-kit/server/mcp v0.0.2
 	github.com/liujitcn/kratos-kit/server/sse v0.0.2
 	github.com/liujitcn/kratos-kit/swagger-ui v0.0.15
@@ -38,10 +40,10 @@ require (
 	github.com/liujitcn/kratos-kit/transport/mcp v0.0.14
 	github.com/liujitcn/kratos-kit/transport/queue v0.0.3
 	github.com/liujitcn/kratos-kit/transport/sse v0.0.13
-	github.com/liujitcn/kratos-kit/utils v0.0.20
-	github.com/mileusna/useragent v1.3.5
+	github.com/liujitcn/kratos-kit/utils v0.0.21
 	github.com/nicksnyder/go-i18n/v2 v2.0.2
 	github.com/robfig/cron/v3 v3.0.1
+	go.opentelemetry.io/otel/trace v1.44.0
 	golang.org/x/text v0.41.0
 	google.golang.org/grpc v1.83.1
 	google.golang.org/protobuf v1.36.12
@@ -95,7 +97,6 @@ require (
 	github.com/aws/smithy-go v1.27.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
-	github.com/bsm/redislock v0.9.4 // indirect
 	github.com/casbin/casbin/v2 v2.135.0 // indirect
 	github.com/casbin/govaluate v1.3.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -154,7 +155,6 @@ require (
 	github.com/liujitcn/kratos-kit/broker v0.0.10 // indirect
 	github.com/liujitcn/kratos-kit/config v0.0.25 // indirect
 	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.18 // indirect
-	github.com/liujitcn/kratos-kit/locker v0.0.15 // indirect
 	github.com/liujitcn/kratos-kit/logger v0.0.31 // indirect
 	github.com/liujitcn/kratos-kit/oss/s3 v0.0.3 // indirect
 	github.com/liujitcn/kratos-kit/queue/redisqueue v0.0.15 // indirect
@@ -214,7 +214,6 @@ require (
 	go.opentelemetry.io/otel/exporters/zipkin v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.44.0 // indirect
-	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect

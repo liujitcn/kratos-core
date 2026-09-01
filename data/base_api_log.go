@@ -20,3 +20,10 @@ func NewBaseAPILogRepository(data *Data) *BaseAPILogRepository {
 func (r *BaseAPILogRepository) Create(ctx context.Context, item *models.BaseAPILog) error {
 	return r.data.DB(ctx).Create(item).Error
 }
+
+// FindByID 按主键查询 API 访问日志，用于确认重复队列投递。
+func (r *BaseAPILogRepository) FindByID(ctx context.Context, id int64) (*models.BaseAPILog, error) {
+	item := &models.BaseAPILog{}
+	err := r.data.DB(ctx).First(item, id).Error
+	return item, err
+}

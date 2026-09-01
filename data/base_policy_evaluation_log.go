@@ -20,3 +20,10 @@ func NewBasePolicyEvaluationLogRepository(data *Data) *BasePolicyEvaluationLogRe
 func (r *BasePolicyEvaluationLogRepository) Create(ctx context.Context, item *models.BasePolicyEvaluationLog) error {
 	return r.data.DB(ctx).Create(item).Error
 }
+
+// FindByID 按主键查询策略评估日志，用于确认重复队列投递。
+func (r *BasePolicyEvaluationLogRepository) FindByID(ctx context.Context, id int64) (*models.BasePolicyEvaluationLog, error) {
+	item := &models.BasePolicyEvaluationLog{}
+	err := r.data.DB(ctx).First(item, id).Error
+	return item, err
+}

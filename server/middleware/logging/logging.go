@@ -5,13 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"strings"
 	"time"
 
-	"github.com/liujitcn/kratos-core/audit"
+	coreBiz "github.com/liujitcn/kratos-core/biz"
 	"github.com/liujitcn/kratos-core/data"
-	"github.com/liujitcn/kratos-core/internal/models"
+	"github.com/liujitcn/kratos-core/server/requestmeta"
 
 	"github.com/go-kratos/kratos/v3/errors"
 	"github.com/go-kratos/kratos/v3/log"
@@ -20,20 +19,12 @@ import (
 	"github.com/go-kratos/kratos/v3/transport/http"
 	"github.com/go-kratos/kratos/v3/transport/http/status"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
-	"github.com/liujitcn/kratos-kit/database/gorm"
-	"github.com/mileusna/useragent"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
-const operationLoginServiceLogin = "/base.v1.LoginService/Login"
 const operationFileService = "/base.v1.FileService/"
-
-type loginRequest struct {
-	TenantCode string `json:"tenant_code"` // 租户编码
-	UserName   string `json:"user_name"`   // 用户名，必选项。
-}
 
 // Redacter 定义日志脱敏接口。
 type Redacter interface {
@@ -42,14 +33,14 @@ type Redacter interface {
 
 // Server 创建服务端访问日志中间件。
 func Server(_ *slog.Logger,
-	baseUserRepo *data.BaseUserRepository,
+	_ *data.BaseUserRepository,
 	authenticator engine.Authenticator,
 ) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (reply interface{}, err error) {
 			startTime := time.Now()
 			// 日志信息
-			baseLog := audit.Event{
+			baseLog := coreBiz.LogEvent{
 				RequestTime: startTime,
 				// 默认返回码按成功初始化，后续再根据实际错误覆盖。
 				StatusCode: int32(status.FromGRPCCode(codes.OK)),
@@ -57,97 +48,28 @@ func Server(_ *slog.Logger,
 			// 当前上下文存在服务端传输信息时，补充访问日志的请求元数据。
 			if info, ok := transport.FromServerContext(ctx); ok {
 				baseLog.Operation = info.Operation()
-				var fullErr error
 				// 当前请求走 HTTP 传输层时，补充 HTTP 相关访问日志字段。
 				if htr, htrOk := info.(*http.Transport); htrOk {
 					baseLog.RequestID = getRequestID(ctx, htr.Request())
-					baseLog.TraceID = htr.RequestHeader().Get("traceparent")
+					baseLog.TraceID = requestmeta.TraceID(ctx)
 					// 文件上传不存请求内容，文件上传和下载请求体通常较大，不记录请求体内容。
 					if !strings.HasPrefix(htr.Operation(), operationFileService) {
 						baseLog.RequestBody = extractArgs(req)
 					}
 
-					headers := htr.RequestHeader()
-					headersMap := make(map[string]string)
-					for _, key := range headers.Keys() {
-						headersMap[key] = htr.RequestHeader().Get(key)
-					}
-					headersMap = redactLogHeaderMap(headersMap)
-					var headersBytes []byte
-					// 请求头序列化成功时，再写入日志字段。
-					headersBytes, fullErr = json.Marshal(headersMap)
-					if fullErr == nil {
-						baseLog.RequestHeader = string(headersBytes)
-					}
-
 					clientIP := getClientRealIP(htr.Request())
-					referer, _ := url.QueryUnescape(htr.RequestHeader().Get(HEADER_KEY_REFERER))
-					requestURI, _ := url.QueryUnescape(htr.Request().RequestURI)
-
 					baseLog.Method = htr.Request().Method
 					baseLog.Path = htr.PathTemplate()
-					baseLog.Referer = referer
-					baseLog.RequestURI = requestURI
 					baseLog.ClientIP = clientIP
-					baseLog.Location = clientIPToLocation(clientIP)
-
-					// 登录接口优先从请求体回填用户名与用户编号。
-					if htr.Operation() == operationLoginServiceLogin {
-						var req loginRequest
-						// 登录请求体可正常解析时，继续提取登录用户名。
-						fullErr = json.Unmarshal([]byte(baseLog.RequestBody), &req)
-						if fullErr == nil {
-							userName := req.UserName
-							// 登录用户名存在时，继续回查基础用户信息。
-							if len(userName) > 0 {
-								baseLog.UserName = userName
-								tenantCode := req.TenantCode
-								if tenantCode == "" {
-									tenantCode = gorm.DefaultTenantCode
-								}
-								baseLog.TenantCode = tenantCode
-								var baseUser *models.BaseUser
-								// 基础用户回查成功时，补充用户编号。
-								baseUser, fullErr = baseUserRepo.FindByTenantCodeAndUserName(htr.Request().Context(), tenantCode, userName)
-								if fullErr == nil {
-									baseLog.UserID = baseUser.ID
-								}
-							}
-						}
-					} else {
-						authToken := htr.RequestHeader().Get(HEADER_KEY_AUTHORIZATION)
-						ut := extractAuthToken(authToken, authenticator)
-						// 非登录接口能解析出用户令牌时，回填登录态用户信息。
-						if ut != nil {
-							baseLog.TenantID = ut.TenantId
-							baseLog.TenantCode = ut.TenantCode
-							baseLog.UserID = ut.UserId
-							baseLog.UserName = ut.UserName
-						}
+					authToken := htr.RequestHeader().Get(HEADER_KEY_AUTHORIZATION)
+					ut := extractAuthToken(authToken, authenticator)
+					if ut != nil {
+						baseLog.TenantID = ut.TenantId
+						baseLog.TenantCode = ut.TenantCode
+						baseLog.UserID = ut.UserId
+						baseLog.UserName = ut.UserName
 					}
-
-					// 用户代理信息
-					strUserAgent := htr.RequestHeader().Get(HEADER_KEY_USER_AGENT)
-					ua := useragent.Parse(strUserAgent)
-
-					var deviceName string
-					// User-Agent 能识别设备名时，优先使用识别结果。
-					if ua.Device != "" {
-						deviceName = ua.Device
-					} else {
-						// 未识别设备名但属于桌面端时，统一标记为 PC。
-						if ua.Desktop {
-							deviceName = "PC"
-						}
-					}
-
-					baseLog.UserAgent = ua.String
-					baseLog.BrowserVersion = ua.Version
-					baseLog.BrowserName = ua.Name
-					baseLog.OsName = ua.OS
-					baseLog.OsVersion = ua.OSVersion
-					baseLog.ClientID = deviceName
-					baseLog.ClientName = deviceName
+					baseLog.UserAgent = htr.RequestHeader().Get(HEADER_KEY_USER_AGENT)
 				}
 			}
 			reply, err = handler(ctx, req)
@@ -159,8 +81,6 @@ func Server(_ *slog.Logger,
 				baseLog.Reason = se.Reason
 			}
 			baseLog.CostTime = time.Since(startTime).Milliseconds()
-			// 响应日志统一交给独立提取器处理，便于对大列表和大树结构做摘要。
-			baseLog.Response = extractResponse(reply)
 			level := log.LevelInfo
 			stack := ""
 			// 请求处理失败时，将访问日志提升为错误级别并保留堆栈。
@@ -173,7 +93,7 @@ func Server(_ *slog.Logger,
 				baseLog.Reason = fmt.Sprintf("[%s]%s", baseLog.Reason, stack)
 			}
 			// 写入日志
-			if emitErr := audit.Emit(ctx, baseLog); emitErr != nil {
+			if emitErr := coreBiz.EmitLog(ctx, baseLog); emitErr != nil {
 				log.Error("发送审计事件失败", "error", emitErr, "operation", baseLog.Operation)
 			}
 			logLine := fmt.Sprintf(

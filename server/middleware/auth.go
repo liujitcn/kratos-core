@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	kratosErrors "github.com/go-kratos/kratos/v3/errors"
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
-	"github.com/liujitcn/kratos-core/audit"
+	coreBiz "github.com/liujitcn/kratos-core/biz"
+	"github.com/liujitcn/kratos-core/server/requestmeta"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
@@ -24,7 +24,12 @@ import (
 	"github.com/liujitcn/kratos-kit/auth/data"
 )
 
-const fallbackAuthAction = "ANY"
+const (
+	fallbackAuthAction  = "ANY"
+	policyDecisionAllow = int32(1)
+	policyDecisionDeny  = int32(2)
+	policyDecisionError = int32(3)
+)
 
 type httpRequestTransport interface {
 	Request() *http.Request
@@ -72,86 +77,96 @@ func NewAuthMiddleware(
 	}
 }
 
-// auditedAuthzMiddleware 记录授权引擎允许、拒绝和异常决策。
+// auditedAuthzMiddleware 使用授权引擎装饰器记录每次真实策略评估。
 func auditedAuthzMiddleware(authorizer authzEngine.Engine) middleware.Middleware {
-	delegated := authzMiddleware.Server(authorizer)
-	return func(handler middleware.Handler) middleware.Handler {
-		wrapped := delegated(handler)
-		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			startedAt := time.Now()
-			reply, err := wrapped(ctx, req)
-			decision := int32(1)
-			if err != nil {
-				decision = 2
-				if structured := kratosErrors.FromError(err); structured != nil && structured.Code >= http.StatusInternalServerError {
-					decision = 3
-				}
+	return authzMiddleware.Server(&auditedAuthorizer{authorizer: authorizer})
+}
+
+// auditedAuthorizer 只装饰授权引擎调用，不把后续业务处理计入策略耗时。
+type auditedAuthorizer struct {
+	authorizer authzEngine.Engine
+}
+
+// Name 返回实际授权引擎名称。
+func (a *auditedAuthorizer) Name() string {
+	return a.authorizer.Name()
+}
+
+// ProjectsAuthorized 透传项目批量授权查询。
+func (a *auditedAuthorizer) ProjectsAuthorized(ctx context.Context, subjects authzEngine.Subjects, action authzEngine.Action, resource authzEngine.Resource, projects authzEngine.Projects) (authzEngine.Projects, error) {
+	return a.authorizer.ProjectsAuthorized(ctx, subjects, action, resource, projects)
+}
+
+// FilterAuthorizedPairs 透传资源动作对批量过滤。
+func (a *auditedAuthorizer) FilterAuthorizedPairs(ctx context.Context, subjects authzEngine.Subjects, pairs authzEngine.Pairs) (authzEngine.Pairs, error) {
+	return a.authorizer.FilterAuthorizedPairs(ctx, subjects, pairs)
+}
+
+// FilterAuthorizedProjects 透传项目授权过滤。
+func (a *auditedAuthorizer) FilterAuthorizedProjects(ctx context.Context, subjects authzEngine.Subjects) (authzEngine.Projects, error) {
+	return a.authorizer.FilterAuthorizedProjects(ctx, subjects)
+}
+
+// IsAuthorized 记录单次真实授权引擎调用及其耗时。
+func (a *auditedAuthorizer) IsAuthorized(ctx context.Context, subject authzEngine.Subject, action authzEngine.Action, resource authzEngine.Resource, project authzEngine.Project) (bool, error) {
+	startedAt := time.Now()
+	allowed, err := a.authorizer.IsAuthorized(ctx, subject, action, resource, project)
+	a.emitPolicyEvaluation(ctx, startedAt, subject, action, resource, project, allowed, err)
+	return allowed, err
+}
+
+// emitPolicyEvaluation 非阻塞投递单次策略评估事实，投递失败不改变授权结果。
+func (a *auditedAuthorizer) emitPolicyEvaluation(ctx context.Context, startedAt time.Time, subject authzEngine.Subject, action authzEngine.Action, resource authzEngine.Resource, project authzEngine.Project, allowed bool, evaluationErr error) {
+	decision := policyDecisionAllow
+	statusCode := int32(http.StatusOK)
+	reasonCode := ""
+	reason := ""
+	isSuccess := true
+	if evaluationErr != nil {
+		decision = policyDecisionError
+		statusCode = int32(http.StatusInternalServerError)
+		reasonCode = "INTERNAL_ERROR"
+		reason = evaluationErr.Error()
+		isSuccess = false
+	} else if !allowed {
+		decision = policyDecisionDeny
+		statusCode = int32(http.StatusForbidden)
+		reasonCode = "PERMISSION_DENIED"
+		reason = "权限策略拒绝访问"
+	}
+	event := coreBiz.LogEvent{
+		Kind: "policy_evaluation", Engine: a.authorizer.Name(), EvaluationType: 1,
+		RequestID: requestmeta.RequestID(ctx), TraceID: requestmeta.TraceID(ctx),
+		Resource: string(resource), Action: string(action), Project: string(project), Decision: decision,
+		StatusCode: statusCode, IsSuccess: isSuccess, DurationMs: int32(time.Since(startedAt).Milliseconds()),
+		RequestTime: startedAt, ReasonCode: reasonCode, Reason: reason, RoleCode: string(subject),
+	}
+	if serverTransport, ok := transport.FromServerContext(ctx); ok {
+		event.Operation = serverTransport.Operation()
+		if requestTransport, ok := serverTransport.(httpRequestTransport); ok && requestTransport.Request() != nil {
+			request := requestTransport.Request()
+			event.Method = request.Method
+			event.Path = request.URL.Path
+			event.ClientIP = request.RemoteAddr
+			if host, _, splitErr := net.SplitHostPort(event.ClientIP); splitErr == nil {
+				event.ClientIP = host
 			}
-			operation := ""
-			requestID := ""
-			method := requestActionValue(ctx)
-			path := ""
-			clientIP := ""
-			userAgent := ""
-			if serverTransport, ok := transport.FromServerContext(ctx); ok {
-				operation = serverTransport.Operation()
-				if requestTransport, ok := serverTransport.(httpRequestTransport); ok && requestTransport.Request() != nil {
-					request := requestTransport.Request()
-					requestID = request.Header.Get("X-Request-ID")
-					path = request.URL.Path
-					clientIP = request.RemoteAddr
-					if host, _, splitErr := net.SplitHostPort(clientIP); splitErr == nil {
-						clientIP = host
-					}
-					userAgent = request.UserAgent()
-				}
-			}
-			event := audit.Event{
-				Kind: "policy_evaluation", Engine: "casbin", EvaluationType: 1,
-				RequestID: requestID, Method: method, Operation: operation, Path: path, ClientIP: clientIP, UserAgent: userAgent,
-				Resource: operation, Action: method, Decision: decision, StatusCode: int32(http.StatusOK), IsSuccess: err == nil,
-				DurationMs:  int32(time.Since(startedAt).Milliseconds()),
-				RequestTime: startedAt,
-				Reason:      errorText(err), ReasonCode: errorReason(err),
-			}
-			if claims, ok := authnMiddleware.FromContext(ctx); ok {
-				event.UserID, _ = claims.GetInt64(data.ClaimFieldUserID)
-				event.UserName, _ = claims.GetSubject()
-				event.TenantID, _ = claims.GetInt64(data.ClaimFieldTenantID)
-				event.TenantCode, _ = claims.GetString(data.ClaimFieldTenantCode)
-				event.RoleID, _ = claims.GetInt64(data.ClaimFieldRoleID)
-				event.RoleCode, _ = claims.GetString(data.ClaimFieldRoleCode)
-			}
-			if emitErr := audit.Emit(ctx, event); emitErr != nil {
-				log.Error("发送授权审计事件失败", "error", emitErr, "operation", operation)
-			}
-			return reply, err
+			event.UserAgent = request.UserAgent()
 		}
 	}
-}
-
-func requestActionValue(ctx context.Context) string {
-	if serverTransport, ok := transport.FromServerContext(ctx); ok {
-		return string(requestAction(serverTransport))
+	if claims, ok := authnMiddleware.FromContext(ctx); ok {
+		event.UserID, _ = claims.GetInt64(data.ClaimFieldUserID)
+		event.UserName, _ = claims.GetSubject()
+		event.TenantID, _ = claims.GetInt64(data.ClaimFieldTenantID)
+		event.TenantCode, _ = claims.GetString(data.ClaimFieldTenantCode)
+		event.RoleID, _ = claims.GetInt64(data.ClaimFieldRoleID)
 	}
-	return fallbackAuthAction
-}
-
-func errorText(err error) string {
-	if err == nil {
-		return ""
+	if claims, ok := authzEngine.AuthClaimsFromContext(ctx); ok && claims.Tenant != nil {
+		event.TenantCode = string(*claims.Tenant)
 	}
-	return err.Error()
-}
-
-func errorReason(err error) string {
-	if err == nil {
-		return ""
+	if emitErr := coreBiz.EmitLog(ctx, event); emitErr != nil {
+		log.Error("发送授权审计事件失败", "error", emitErr, "operation", event.Operation)
 	}
-	if structured := kratosErrors.FromError(err); structured != nil {
-		return structured.Reason
-	}
-	return "INTERNAL_ERROR"
 }
 
 // authClaimsMiddleware 将认证声明转换为 Casbin 鉴权声明。

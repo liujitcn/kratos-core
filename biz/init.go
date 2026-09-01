@@ -9,11 +9,12 @@ import (
 	"github.com/liujitcn/kratos-kit/translator"
 )
 
-// ProviderSet 提供认证授权、基础设施客户端及 Core 业务共用的 BaseCase。
+// ProviderSet 提供认证授权、日志流水线、基础设施客户端及 Core 业务共用的 BaseCase。
 var ProviderSet = wire.NewSet(
 	NewAuthenticator,
 	NewAuthzEngine,
 	NewUserToken,
+	NewLogPipeline,
 	pprof.NewPprof,
 	cache.NewCache,
 	queue.NewQueue,

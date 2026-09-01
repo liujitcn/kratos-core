@@ -156,7 +156,7 @@ client/
   connection.go         遠端或行程內 gRPC 連線適配
   localgrpc/             行程內 gRPC 服務註冊與呼叫
 
-biz/                     基礎上下文、認證授權和公開執行時業務能力
+biz/                     基礎上下文、認證授權、日誌事件和公開執行時業務能力
 config/                  啟動設定解析
 const/                   公共常數
 data/                    多資料源用戶端、事務和 Core 資料儲存庫

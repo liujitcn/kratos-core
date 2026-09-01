@@ -156,7 +156,7 @@ client/
   connection.go         Remote or in-process gRPC connection adapter
   localgrpc/             In-process gRPC registration and invocation
 
-biz/                     Shared context, authentication, and public runtime cases
+biz/                     Shared context, authentication, log events, and public runtime cases
 config/                  Startup configuration parsing
 const/                   Public constants
 data/                    Multi-database clients, transactions, and Core repositories

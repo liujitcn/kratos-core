@@ -19,7 +19,7 @@ Core 不是完整的业务模板。宿主通过一个 `module.Module` 把业务�
 跨项目可以依赖的 Go 代码分为四类入口：
 
 - 根包提供 `ProviderSet` 和 `NewApp`。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 图。
-- 根目录的 `audit`、`biz`、`config`、`const`、`data`、`errorsx`、`job`、`mcp`、`module`、`queue`、`resource`、`server` 和 `sse` 提供跨项目公共包。
+- 根目录的 `biz`、`config`、`const`、`data`、`errorsx`、`job`、`mcp`、`module`、`queue`、`resource`、`server` 和 `sse` 提供跨项目公共包。
 - `api` 是独立 Go 模块，`api/proto` 保存 Core 的 protobuf 定义，`api/gen/go` 保存生成的 Go 类型。
 - `client` 是独立 Go 模块，提供基于 `kratos-kit` 配置的 gRPC 连接和进程内 gRPC 连接。
 
@@ -134,7 +134,7 @@ Core 还向宿主提供以下具体业务服务：
 
 HTTP 和 gRPC 服务会按配置挂载 request ID、I18n、日志、认证授权和参数校验中间件。HTTP 还支持本地 OSS 静态文件、SPA 回退和 Swagger；启用进程内 MCP 或 SSE 时，对应端点会挂载到 HTTP 服务，因此必须同时配置 HTTP。
 
-队列运行时负责消费任务日志消息并转发宿主通过 `queue.Consumers` 提供的业务事件消费者；Core 审计流水线负责投递并异步写入 API 访问和策略评估日志，完整模型注册与自动迁移仍由宿主提供。Cron 运行时从数据库重载启用的 `BaseJob`，按 `job.Tasks` 中的执行器执行任务。
+队列运行时负责消费任务日志消息并转发宿主通过 `queue.Consumers` 提供的业务事件消费者；Core 审计流水线负责投递并异步写入 API 访问和策略评估日志，完整模型注册与自动迁移仍由宿主提供。Cron 运行时从数据库重载启用的 `BaseJob`，按 `job.Tasks` 中的执行器执行任务，并在执行入口按任务编号取得 Redis 分布式锁；Redis 锁初始化失败时自动降级为进程内内存锁，仅保证单实例互斥。
 
 ## 装配与启动顺序
 
@@ -156,8 +156,7 @@ client/
   connection.go         远程或进程内 gRPC 连接适配
   localgrpc/             进程内 gRPC 服务注册与调用
 
-audit/                   Core 审计事件契约、队列投递与异步入库
-biz/                     基础上下文、认证授权和公共业务能力
+biz/                     基础上下文、认证授权、日志事件和公共业务能力
 config/                  启动配置解析
 const/                   公共常量
 data/                    多数据源客户端、事务和 Core 数据仓储

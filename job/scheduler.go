@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -27,12 +28,18 @@ type Scheduler struct {
 	server      *cronTransport.Server
 	baseJobRepo *data.BaseJobRepository
 	registry    *Registry
+	locker      *ExecutionLocker
 	scheduleMu  sync.Mutex
 	runContext  context.Context
 }
 
 // NewScheduler 创建定时任务调度器。
 func NewScheduler(baseJobRepo *data.BaseJobRepository, registry *Registry) *Scheduler {
+	return NewSchedulerWithLocker(baseJobRepo, registry, NewMemoryExecutionLocker())
+}
+
+// NewSchedulerWithLocker 创建带任务执行锁的定时任务调度器。
+func NewSchedulerWithLocker(baseJobRepo *data.BaseJobRepository, registry *Registry, executionLocker *ExecutionLocker) *Scheduler {
 	var server *cronTransport.Server
 	if registry != nil {
 		server = registry.Server()
@@ -40,10 +47,14 @@ func NewScheduler(baseJobRepo *data.BaseJobRepository, registry *Registry) *Sche
 	if server == nil {
 		server = cronTransport.NewServer()
 	}
+	if executionLocker == nil {
+		executionLocker = NewMemoryExecutionLocker()
+	}
 	return &Scheduler{
 		server:      server,
 		baseJobRepo: baseJobRepo,
 		registry:    registry,
+		locker:      executionLocker,
 	}
 }
 
@@ -53,6 +64,14 @@ func (c *Scheduler) Server() *cronTransport.Server {
 		return nil
 	}
 	return c.server
+}
+
+// Close 释放调度器持有的锁资源。
+func (c *Scheduler) Close() {
+	if c == nil || c.locker == nil {
+		return
+	}
+	c.locker.Close()
 }
 
 // Reload 重载数据库中的全部定时任务状态。
@@ -146,13 +165,7 @@ func (c *Scheduler) RunJob(ctx context.Context, baseJob *models.BaseJob) error {
 		return err
 	}
 
-	execution := &Execution{
-		JobID:        baseJob.ID,
-		Args:         argsMap,
-		InvokeTarget: invokeTarget,
-		Context:      ctx,
-	}
-	return execution.Execute()
+	return c.executeJob(ctx, baseJob.ID, argsMap, invokeTarget, false)
 }
 
 // startJob 注册一项已完成参数校验的定时任务。
@@ -186,14 +199,8 @@ func (c *Scheduler) startJob(ctx context.Context, baseJob *models.BaseJob) error
 	var entryID cron.EntryID
 	entryID, err = c.server.StartTimerJob(cronTransport.Spec(baseJob.CronExpression), func() {
 		clonedArgs := maps.Clone(argsMap)
-		execution := &Execution{
-			JobID:        jobID,
-			Args:         clonedArgs,
-			InvokeTarget: invokeTarget,
-			Context:      executionContext,
-		}
 		// 单次调度执行失败时，仅记录错误日志，不影响后续调度。
-		execErr := execution.Execute()
+		execErr := c.executeJob(executionContext, jobID, clonedArgs, invokeTarget, true)
 		if execErr != nil {
 			log.Error(fmt.Sprintf("cron job execute failed, jobID=%d err=%v", jobID, execErr))
 		}
@@ -215,6 +222,37 @@ func (c *Scheduler) startJob(ctx context.Context, baseJob *models.BaseJob) error
 	}
 	baseJob.EntryID = int32(entryID)
 	return nil
+}
+
+// executeJob 在统一任务执行入口取得租约后运行任务。
+func (c *Scheduler) executeJob(ctx context.Context, jobID int64, args map[string]string, invokeTarget cronTransport.TaskExec, scheduled bool) error {
+	executionLocker := c.locker
+	if executionLocker == nil {
+		executionLocker = NewMemoryExecutionLocker()
+	}
+	lease, err := executionLocker.Acquire(ctx, executionLockKey(jobID))
+	if err != nil {
+		if errors.Is(err, ErrExecutionLockNotObtained) && scheduled {
+			log.Debug(fmt.Sprintf("[JOB_LOCK] cron job skipped because execution lock is held, jobID=%d", jobID))
+			return nil
+		}
+		if errors.Is(err, ErrExecutionLockNotObtained) {
+			return errorsx.Conflict("任务正在其他实例执行").WithCause(err)
+		}
+		return err
+	}
+	defer func() {
+		if releaseErr := lease.Release(); releaseErr != nil {
+			log.Warn("释放任务执行锁失败", "jobID", jobID, "error", releaseErr)
+		}
+	}()
+	execution := &Execution{
+		JobID:        jobID,
+		Args:         args,
+		InvokeTarget: invokeTarget,
+		Context:      lease.Context(),
+	}
+	return execution.Execute()
 }
 
 // reloadJobs 重载数据库中的全部定时任务状态。

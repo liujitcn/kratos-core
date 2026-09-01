@@ -51,17 +51,17 @@ func NewBaseCase(
 		pprof.Start()
 	}
 	return &BaseCase{
-			Context:     ctx,
-			Cache:       cacheValue,
-			Queue:       queueValue,
-			OSS:         ossValue,
-			Translator:  translatorValue,
-			GormClients: gormClients,
-		}, func() {
-			if pprof != nil {
-				pprof.Stop()
-			}
+		Context:     ctx,
+		Cache:       cacheValue,
+		Queue:       queueValue,
+		OSS:         ossValue,
+		Translator:  translatorValue,
+		GormClients: gormClients,
+	}, func() {
+		if pprof != nil {
+			pprof.Stop()
 		}
+	}
 }
 
 // GetAuthInfo 获取当前登录用户认证信息。
