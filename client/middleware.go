@@ -15,10 +15,13 @@ import (
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine/jwt"
 	authnMiddleware "github.com/liujitcn/kratos-kit/auth/authn/middleware"
+	"github.com/liujitcn/kratos-kit/sdk"
 	"github.com/liujitcn/kratos-kit/tracing"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+const jwtKeyName = "kratos-kit:authn/jwt"
 
 // appendClientMiddlewares 按客户端配置追加 Kratos 中间件。
 func appendClientMiddlewares(config *configv1.Client_Middleware, middlewares []middleware.Middleware) ([]middleware.Middleware, error) {
@@ -58,8 +61,22 @@ func appendClientMiddlewaresWithMetadata(config *configv1.Client_Middleware, sta
 	if authConfig == nil {
 		return append(result, custom...), nil
 	}
+	secret := authConfig.GetSecret()
+	if secret == "" {
+		keyValue := sdk.Runtime.GetKey()
+		if keyValue == nil {
+			return nil, fmt.Errorf("客户端 JWT 密钥为空且运行时密钥未初始化")
+		}
+		var err error
+		var derived []byte
+		derived, err = keyValue.Derive(context.Background(), jwtKeyName)
+		if err != nil {
+			return nil, fmt.Errorf("派生客户端 JWT 密钥失败: %w", err)
+		}
+		secret = string(derived)
+	}
 	authenticator, err := jwt.NewAuthenticator(
-		jwt.WithKey([]byte(authConfig.GetSecret())),
+		jwt.WithKey([]byte(secret)),
 		jwt.WithSigningMethod(authConfig.GetMethod()),
 	)
 	if err != nil {

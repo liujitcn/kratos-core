@@ -2,6 +2,7 @@ package biz
 
 import (
 	"context"
+	"fmt"
 
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 
@@ -11,15 +12,32 @@ import (
 	"github.com/liujitcn/kratos-kit/auth/authz/engine/casbin"
 	"github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/cache"
+	"github.com/liujitcn/kratos-kit/sdk"
 )
+
+const jwtKeyName = "kratos-kit:authn/jwt"
 
 // NewAuthenticator 创建认证器。
 func NewAuthenticator(cfg *configv1.Authentication_Jwt) (engine.Authenticator, error) {
 	if cfg == nil {
 		return nil, nil
 	}
+	secret := cfg.GetSecret()
+	if secret == "" {
+		keyValue := sdk.Runtime.GetKey()
+		if keyValue == nil {
+			return nil, fmt.Errorf("JWT密钥为空且运行时密钥未初始化")
+		}
+		var err error
+		var derived []byte
+		derived, err = keyValue.Derive(context.Background(), jwtKeyName)
+		if err != nil {
+			return nil, fmt.Errorf("派生 JWT 密钥失败: %w", err)
+		}
+		secret = string(derived)
+	}
 	return jwt.NewAuthenticator(
-		jwt.WithKey([]byte(cfg.GetSecret())),
+		jwt.WithKey([]byte(secret)),
 		jwt.WithSigningMethod(cfg.GetMethod()),
 	)
 }

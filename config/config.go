@@ -88,9 +88,6 @@ func ParseAuthnJWT(cfg *configv1.Bootstrap) (*configv1.Authentication_Jwt, error
 		return nil, errors.New("JWT认证配置不能为空")
 	}
 	jwtConfig := cfg.GetAuthn().GetJwt()
-	if jwtConfig.GetSecret() == "" {
-		return nil, errors.New("JWT密钥不能为空")
-	}
 	return jwtConfig, nil
 }
 
