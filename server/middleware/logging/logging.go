@@ -8,8 +8,7 @@ import (
 	"strings"
 	"time"
 
-	coreBiz "github.com/liujitcn/kratos-core/biz"
-	"github.com/liujitcn/kratos-core/data"
+	"github.com/liujitcn/kratos-core/biz"
 	"github.com/liujitcn/kratos-core/server/requestmeta"
 
 	"github.com/go-kratos/kratos/v3/errors"
@@ -33,14 +32,13 @@ type Redacter interface {
 
 // Server 创建服务端访问日志中间件。
 func Server(_ *slog.Logger,
-	_ *data.BaseUserRepository,
 	authenticator engine.Authenticator,
 ) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (reply interface{}, err error) {
 			startTime := time.Now()
 			// 日志信息
-			baseLog := coreBiz.LogEvent{
+			baseLog := biz.LogEvent{
 				RequestTime: startTime,
 				// 默认返回码按成功初始化，后续再根据实际错误覆盖。
 				StatusCode: int32(status.FromGRPCCode(codes.OK)),
@@ -93,7 +91,7 @@ func Server(_ *slog.Logger,
 				baseLog.Reason = fmt.Sprintf("[%s]%s", baseLog.Reason, stack)
 			}
 			// 写入日志
-			if emitErr := coreBiz.EmitLog(ctx, baseLog); emitErr != nil {
+			if emitErr := biz.EmitLog(ctx, baseLog); emitErr != nil {
 				log.Error("发送审计事件失败", "error", emitErr, "operation", baseLog.Operation)
 			}
 			logLine := fmt.Sprintf(

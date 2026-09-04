@@ -23,7 +23,7 @@ Core は完全な業務テンプレートではありません。ホストは業
 - `api` は独立した Go モジュールです。`api/proto` に Core の protobuf 定義、`api/gen/go` に生成済みの Go 型を保存します。
 - `client` は独立した Go モジュールで、`kratos-kit` の設定に基づく gRPC 接続とプロセス内 gRPC 接続を提供します。
 
-`internal/models` 以下のコードは Core の実装詳細であり、プロジェクト間の API ではありません。Core が作成したキャッシュ、キュー、OSS、翻訳器、複数データベースの GORM クライアントは `biz.BaseCase` に注入され、同時に `kratos-kit/sdk.Runtime` にも保存されます。業務コードは必要に応じて BaseCase または SDK から取得できます。
+`data` パッケージは、複数データベースクライアントの初期化、トランザクション境界、および API、ジョブ、ログ、権限リソースのホスト側ストレージ契約だけを公開します。データベースモデルと生成 Repository はホストプロジェクトが管理します。Core が作成したキャッシュ、キュー、OSS、翻訳器、複数データベースの GORM クライアントは `biz.BaseCase` に注入され、同時に `kratos-kit/sdk.Runtime` にも保存されます。業務コードは必要に応じて BaseCase または SDK から取得できます。
 
 ## Wire の統合
 
@@ -56,6 +56,8 @@ func newHostModules(host *hostModule) []module.Module {
 ```
 
 Core の `ProviderSet` は設定、インフラストラクチャ、モジュールリソース、データアクセス、リソース同期、各プロトコルランタイムをまとめ、`NewApp` を含みます。ホスト固有の Provider と `[]module.Module` を追加し、Core の ProviderSet を重複して追加しないでください。Core のルートでは `wire.go` と `wire_gen.go` を管理しません。ホストプロジェクト自身の Wire コマンドで組み立てルートと `wire_gen.go` を生成するか、`make wire WIRE_DIR=<ホストの Wire ディレクトリ>` を使用してください。
+
+Core のジョブ、ログ、権限リソースのランタイムは、`data` パッケージの `Store`/`Writer` 契約に依存します。ホストは Wire の合成ルートで実装を提供してください。Admin の実装は `backend/internal/adapter/core` にあります。Core はホストのデータベースモデルや生成 Repository に依存しません。
 
 ## モジュール契約
 
@@ -159,7 +161,7 @@ client/
 biz/                     共有コンテキスト、認証・認可、ログイベント、公開ランタイムケース
 config/                  起動設定の解析
 const/                   公開定数
-data/                    複数データベースクライアント、トランザクション、Core リポジトリ
+data/                    複数データベースクライアント、トランザクション、ホストストレージ契約
 errorsx/                 統一エラー生成
 job/                     Cron 登録、永続ジョブ、ランタイム
 mcp/                     MCP サービスとライフサイクルアダプター
@@ -178,8 +180,6 @@ resource/                ドキュメント、i18n、マイグレーション、
 server/                  HTTP、gRPC、ミドルウェア
   middleware/             共通 HTTP/gRPC ミドルウェア
 sse/                     SSE ストリームの登録、トランスポート、発行
-internal/models/         Core 内部データベースモデル
-
 bootstrap.go             公開 ProviderSet とアプリケーションのライフサイクル組み立て
 Makefile                 生成、フォーマット、テスト、静的チェックのコマンド
 ```

@@ -10,7 +10,7 @@ import (
 	"github.com/bsm/redislock"
 	"github.com/go-kratos/kratos/v3/log"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
-	kitlocker "github.com/liujitcn/kratos-kit/locker"
+	"github.com/liujitcn/kratos-kit/locker"
 )
 
 const (
@@ -25,7 +25,7 @@ var (
 
 // ExecutionLocker 为定时任务提供 Redis 锁和单机内存锁两种实现。
 type ExecutionLocker struct {
-	distributed kitlocker.Locker
+	distributed locker.Locker
 	cleanup     func()
 	local       *memoryExecutionLocker
 	mode        string
@@ -62,7 +62,7 @@ func NewExecutionLocker(cfg *configv1.Data_Redis) *ExecutionLocker {
 }
 
 // newDistributedLocker 隔离外部锁适配器的初始化 panic，保证锁失败时可以降级启动。
-func newDistributedLocker(cfg *configv1.Data_Redis) (distributed kitlocker.Locker, cleanup func(), err error) {
+func newDistributedLocker(cfg *configv1.Data_Redis) (distributed locker.Locker, cleanup func(), err error) {
 	defer func() {
 		if panicValue := recover(); panicValue != nil {
 			distributed = nil
@@ -70,7 +70,7 @@ func newDistributedLocker(cfg *configv1.Data_Redis) (distributed kitlocker.Locke
 			err = fmt.Errorf("初始化 Redis 分布式锁异常: %v", panicValue)
 		}
 	}()
-	return kitlocker.NewLocker(cfg)
+	return locker.NewLocker(cfg)
 }
 
 // NewMemoryExecutionLocker 创建只使用进程内内存锁的任务执行锁。

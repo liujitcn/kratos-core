@@ -13,7 +13,6 @@ import (
 	_const "github.com/liujitcn/kratos-core/const"
 	"github.com/liujitcn/kratos-core/data"
 	"github.com/liujitcn/kratos-core/errorsx"
-	"github.com/liujitcn/kratos-core/internal/models"
 	cronTransport "github.com/liujitcn/kratos-kit/transport/cron"
 	"github.com/robfig/cron/v3"
 )
@@ -25,21 +24,21 @@ type baseJobArgs struct {
 
 // Scheduler 是 Core 唯一的定时任务调度器，负责调度数据库中的 BaseJob。
 type Scheduler struct {
-	server      *cronTransport.Server
-	baseJobRepo *data.BaseJobRepository
-	registry    *Registry
-	locker      *ExecutionLocker
-	scheduleMu  sync.Mutex
-	runContext  context.Context
+	server     *cronTransport.Server
+	jobStore   data.JobStore
+	registry   *Registry
+	locker     *ExecutionLocker
+	scheduleMu sync.Mutex
+	runContext context.Context
 }
 
 // NewScheduler 创建定时任务调度器。
-func NewScheduler(baseJobRepo *data.BaseJobRepository, registry *Registry) *Scheduler {
-	return NewSchedulerWithLocker(baseJobRepo, registry, NewMemoryExecutionLocker())
+func NewScheduler(jobStore data.JobStore, registry *Registry) *Scheduler {
+	return NewSchedulerWithLocker(jobStore, registry, NewMemoryExecutionLocker())
 }
 
 // NewSchedulerWithLocker 创建带任务执行锁的定时任务调度器。
-func NewSchedulerWithLocker(baseJobRepo *data.BaseJobRepository, registry *Registry, executionLocker *ExecutionLocker) *Scheduler {
+func NewSchedulerWithLocker(jobStore data.JobStore, registry *Registry, executionLocker *ExecutionLocker) *Scheduler {
 	var server *cronTransport.Server
 	if registry != nil {
 		server = registry.Server()
@@ -51,10 +50,10 @@ func NewSchedulerWithLocker(baseJobRepo *data.BaseJobRepository, registry *Regis
 		executionLocker = NewMemoryExecutionLocker()
 	}
 	return &Scheduler{
-		server:      server,
-		baseJobRepo: baseJobRepo,
-		registry:    registry,
-		locker:      executionLocker,
+		server:   server,
+		jobStore: jobStore,
+		registry: registry,
+		locker:   executionLocker,
 	}
 }
 
@@ -96,7 +95,7 @@ func (c *Scheduler) ClearExecutionContext() {
 }
 
 // StartJob 启动单个定时任务。
-func (c *Scheduler) StartJob(ctx context.Context, baseJob *models.BaseJob) error {
+func (c *Scheduler) StartJob(ctx context.Context, baseJob *data.JobRecord) error {
 	// 任务实体为空时，无法继续启动调度。
 	if baseJob == nil {
 		return errorsx.ResourceNotFound("定时任务不存在")
@@ -107,7 +106,7 @@ func (c *Scheduler) StartJob(ctx context.Context, baseJob *models.BaseJob) error
 }
 
 // StopJob 停止单个定时任务。
-func (c *Scheduler) StopJob(ctx context.Context, baseJob *models.BaseJob) error {
+func (c *Scheduler) StopJob(ctx context.Context, baseJob *data.JobRecord) error {
 	// 任务实体为空时，无法继续停止调度。
 	if baseJob == nil {
 		return errorsx.ResourceNotFound("定时任务不存在")
@@ -118,11 +117,11 @@ func (c *Scheduler) StopJob(ctx context.Context, baseJob *models.BaseJob) error 
 }
 
 // stopJob 停止一项定时任务并同步持久化状态。
-func (c *Scheduler) stopJob(ctx context.Context, baseJob *models.BaseJob) error {
+func (c *Scheduler) stopJob(ctx context.Context, baseJob *data.JobRecord) error {
 	entryID := baseJob.EntryID
 	var err error
-	var currentJob *models.BaseJob
-	currentJob, err = c.baseJobRepo.FindByID(ctx, baseJob.ID)
+	var currentJob data.JobRecord
+	currentJob, err = c.jobStore.FindByID(ctx, baseJob.ID)
 	if err != nil {
 		return err
 	}
@@ -144,7 +143,7 @@ func (c *Scheduler) stopJob(ctx context.Context, baseJob *models.BaseJob) error 
 }
 
 // RunJob 立即执行单个定时任务。
-func (c *Scheduler) RunJob(ctx context.Context, baseJob *models.BaseJob) error {
+func (c *Scheduler) RunJob(ctx context.Context, baseJob *data.JobRecord) error {
 	// 任务实体为空时，无法继续执行。
 	if baseJob == nil {
 		return errorsx.ResourceNotFound("定时任务不存在")
@@ -169,7 +168,7 @@ func (c *Scheduler) RunJob(ctx context.Context, baseJob *models.BaseJob) error {
 }
 
 // startJob 注册一项已完成参数校验的定时任务。
-func (c *Scheduler) startJob(ctx context.Context, baseJob *models.BaseJob) error {
+func (c *Scheduler) startJob(ctx context.Context, baseJob *data.JobRecord) error {
 	invokeTarget, err := c.lookupTaskExec(baseJob.InvokeTarget)
 	if err != nil {
 		return err
@@ -182,8 +181,8 @@ func (c *Scheduler) startJob(ctx context.Context, baseJob *models.BaseJob) error
 	}
 
 	oldEntryID := baseJob.EntryID
-	var currentJob *models.BaseJob
-	currentJob, err = c.baseJobRepo.FindByID(ctx, baseJob.ID)
+	var currentJob data.JobRecord
+	currentJob, err = c.jobStore.FindByID(ctx, baseJob.ID)
 	if err != nil {
 		return err
 	}
@@ -257,19 +256,14 @@ func (c *Scheduler) executeJob(ctx context.Context, jobID int64, args map[string
 
 // reloadJobs 重载数据库中的全部定时任务状态。
 func (c *Scheduler) reloadJobs(ctx context.Context) error {
-	list, err := c.baseJobRepo.List(ctx)
+	list, err := c.jobStore.List(ctx)
 	if err != nil {
 		return err
 	}
 
-	startedJobs := make([]*models.BaseJob, 0)
+	startedJobs := make([]data.JobRecord, 0)
 	for _, item := range list {
-		// 空任务记录不参与后续重载。
-		if item == nil {
-			continue
-		}
-
-		err = c.stopJob(ctx, item)
+		err = c.stopJob(ctx, &item)
 		if err != nil {
 			return err
 		}
@@ -279,16 +273,12 @@ func (c *Scheduler) reloadJobs(ctx context.Context) error {
 			continue
 		}
 
-		err = c.startJob(ctx, item)
+		err = c.startJob(ctx, &item)
 		// 重载启用任务失败时，直接中断启动流程。
 		if err != nil {
 			// 回滚失败时仅记录日志，优先保留原始启动错误。
 			for _, startedJob := range slices.Backward(startedJobs) {
-				// 空任务记录不参与回滚。
-				if startedJob == nil {
-					continue
-				}
-				rollbackErr := c.stopJob(ctx, startedJob)
+				rollbackErr := c.stopJob(ctx, &startedJob)
 				if rollbackErr != nil {
 					log.Error(fmt.Sprintf("cron rollback started jobs failed, err=%v", rollbackErr))
 					break
@@ -318,7 +308,7 @@ func (c *Scheduler) lookupTaskExec(invokeTarget string) (cronTransport.TaskExec,
 
 // updateBaseJobEntryID 更新任务的调度 entryID。
 func (c *Scheduler) updateBaseJobEntryID(ctx context.Context, jobID int64, entryID int32) error {
-	return c.baseJobRepo.UpdateEntryID(ctx, jobID, entryID)
+	return c.jobStore.UpdateEntryID(ctx, jobID, entryID)
 }
 
 // parseJobArgs 解析任务参数 JSON 为执行参数 map。

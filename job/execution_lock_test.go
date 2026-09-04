@@ -8,7 +8,7 @@ import (
 	"time"
 
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
-	cronTransport "github.com/liujitcn/kratos-kit/transport/cron"
+	"github.com/liujitcn/kratos-kit/transport/cron"
 )
 
 // TestMemoryExecutionLockerSerializes 验证同一进程内同一任务只能取得一个租约。
@@ -114,7 +114,7 @@ func TestSchedulerSkipsContendedScheduledExecution(t *testing.T) {
 	task := &blockingTaskExec{started: make(chan struct{}), release: make(chan struct{})}
 	result := make(chan error, 1)
 	go func() {
-		result <- scheduler.executeJob(context.Background(), 1001, nil, cronTransport.TaskExec(task), true)
+		result <- scheduler.executeJob(context.Background(), 1001, nil, cron.TaskExec(task), true)
 	}()
 	select {
 	case <-task.started:

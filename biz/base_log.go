@@ -15,7 +15,6 @@ import (
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/liujitcn/go-utils/id"
 	"github.com/liujitcn/kratos-core/data"
-	"github.com/liujitcn/kratos-core/internal/models"
 	"github.com/liujitcn/kratos-kit/database/gorm"
 	kitQueue "github.com/liujitcn/kratos-kit/queue"
 	queueData "github.com/liujitcn/kratos-kit/queue/data"
@@ -200,25 +199,14 @@ func EmitLog(ctx context.Context, event LogEvent) error {
 	return value.Emit(ctx, event)
 }
 
-type apiLogWriter interface {
-	Create(context.Context, *models.BaseAPILog) error
-	FindByID(context.Context, int64) (*models.BaseAPILog, error)
-}
-
-type policyEvaluationLogWriter interface {
-	Create(context.Context, *models.BasePolicyEvaluationLog) error
-	FindByID(context.Context, int64) (*models.BasePolicyEvaluationLog, error)
-}
-
 // LogPipeline 负责 Core 日志事件的队列投递和异步入库。
 type LogPipeline struct {
-	queue                     kitQueue.Queue
-	apiLogWriter              apiLogWriter
-	policyEvaluationLogWriter policyEvaluationLogWriter
-	events                    chan LogEvent
-	worker                    sync.WaitGroup
-	stateMu                   sync.RWMutex
-	closed                    bool
+	queue   kitQueue.Queue
+	store   data.LogStore
+	events  chan LogEvent
+	worker  sync.WaitGroup
+	stateMu sync.RWMutex
+	closed  bool
 }
 
 var _ LogEmitter = (*LogPipeline)(nil)
@@ -227,10 +215,9 @@ var _ LogSink = (*LogPipeline)(nil)
 // NewLogPipeline 创建 Core 日志流水线并注册为进程级事件接收器。
 func NewLogPipeline(
 	queue kitQueue.Queue,
-	apiLogRepository *data.BaseAPILogRepository,
-	policyEvaluationLogRepository *data.BasePolicyEvaluationLogRepository,
+	store data.LogStore,
 ) (*LogPipeline, func()) {
-	pipeline := newLogPipeline(queue, apiLogRepository, policyEvaluationLogRepository)
+	pipeline := newLogPipeline(queue, store)
 	SetLogEmitter(pipeline)
 	return pipeline, func() {
 		SetLogEmitter(nil)
@@ -303,28 +290,28 @@ func (p *LogPipeline) persist(ctx context.Context, event LogEvent, recordID int6
 	case "api":
 		item := apiLogFromEvent(event)
 		item.ID = recordID
-		err := p.apiLogWriter.Create(ctx, item)
+		err := p.store.CreateAPI(ctx, item)
 		if err == nil || recordID == 0 {
 			return err
 		}
-		var existing *models.BaseAPILog
+		var exists bool
 		var lookupErr error
-		existing, lookupErr = p.apiLogWriter.FindByID(ctx, recordID)
-		if lookupErr == nil && existing != nil {
+		exists, lookupErr = p.store.ExistsAPI(ctx, recordID)
+		if lookupErr == nil && exists {
 			return nil
 		}
 		return err
 	case "policy_evaluation":
 		item := policyEvaluationLogFromEvent(event)
 		item.ID = recordID
-		err := p.policyEvaluationLogWriter.Create(ctx, item)
+		err := p.store.CreatePolicyEvaluation(ctx, item)
 		if err == nil || recordID == 0 {
 			return err
 		}
-		var existing *models.BasePolicyEvaluationLog
+		var exists bool
 		var lookupErr error
-		existing, lookupErr = p.policyEvaluationLogWriter.FindByID(ctx, recordID)
-		if lookupErr == nil && existing != nil {
+		exists, lookupErr = p.store.ExistsPolicyEvaluation(ctx, recordID)
+		if lookupErr == nil && exists {
 			return nil
 		}
 		return err
@@ -351,8 +338,8 @@ func normalizeLogEvent(event LogEvent) LogEvent {
 }
 
 // apiLogFromEvent 将 Core 日志事件转换为 API 访问日志模型。
-func apiLogFromEvent(event LogEvent) *models.BaseAPILog {
-	return &models.BaseAPILog{
+func apiLogFromEvent(event LogEvent) data.APILogRecord {
+	return data.APILogRecord{
 		TenantID: event.TenantID, TenantCode: event.TenantCode, UserID: event.UserID, UserName: event.UserName,
 		RequestID: event.RequestID, TraceID: event.TraceID, ServiceName: serviceName(event.Operation),
 		Operation: event.Operation, Method: event.Method, Path: event.Path, StatusCode: event.StatusCode,
@@ -363,8 +350,8 @@ func apiLogFromEvent(event LogEvent) *models.BaseAPILog {
 }
 
 // policyEvaluationLogFromEvent 将 Core 日志事件转换为策略评估日志模型。
-func policyEvaluationLogFromEvent(event LogEvent) *models.BasePolicyEvaluationLog {
-	return &models.BasePolicyEvaluationLog{
+func policyEvaluationLogFromEvent(event LogEvent) data.PolicyEvaluationLogRecord {
+	return data.PolicyEvaluationLogRecord{
 		TenantID: event.TenantID, TenantCode: event.TenantCode, UserID: event.UserID, UserName: event.UserName,
 		RoleID: event.RoleID, RoleCode: event.RoleCode, RequestID: event.RequestID, TraceID: event.TraceID,
 		ClientIP: event.ClientIP, Engine: event.Engine, EvaluationType: event.EvaluationType,
@@ -397,12 +384,11 @@ func serviceName(operation string) string {
 }
 
 // newLogPipeline 创建并启动 Core 日志事件后台投递器。
-func newLogPipeline(queue kitQueue.Queue, apiWriter apiLogWriter, policyWriter policyEvaluationLogWriter) *LogPipeline {
+func newLogPipeline(queue kitQueue.Queue, store data.LogStore) *LogPipeline {
 	pipeline := &LogPipeline{
-		queue:                     queue,
-		apiLogWriter:              apiWriter,
-		policyEvaluationLogWriter: policyWriter,
-		events:                    make(chan LogEvent, logBufferSize),
+		queue:  queue,
+		store:  store,
+		events: make(chan LogEvent, logBufferSize),
 	}
 	pipeline.worker.Add(1)
 	go pipeline.run()

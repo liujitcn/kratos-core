@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-kratos/kratos/v3/transport"
-	grpcRequestID "github.com/liujitcn/kratos-kit/server/grpc/middleware/requestid"
+	"github.com/liujitcn/kratos-kit/server/grpc/middleware/requestid"
 	httpRequestID "github.com/liujitcn/kratos-kit/server/http/middleware/requestid"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -16,7 +16,7 @@ func RequestID(ctx context.Context) string {
 	if requestID := httpRequestID.FromContext(ctx); requestID != "" {
 		return requestID
 	}
-	if requestID := grpcRequestID.FromContext(ctx); requestID != "" {
+	if requestID := requestid.FromContext(ctx); requestID != "" {
 		return requestID
 	}
 	serverTransport, ok := transport.FromServerContext(ctx)

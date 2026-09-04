@@ -1,6 +1,7 @@
 package biz
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -8,7 +9,6 @@ import (
 
 	_const "github.com/liujitcn/kratos-core/const"
 	"github.com/liujitcn/kratos-core/data"
-	"github.com/liujitcn/kratos-core/internal/models"
 	"github.com/liujitcn/kratos-core/resource/biz/dto"
 	"github.com/liujitcn/kratos-kit/utils"
 	"gopkg.in/yaml.v3"
@@ -16,20 +16,24 @@ import (
 
 // BaseAPICase 接口业务实例。
 type BaseAPICase struct {
-	*data.BaseAPIRepository
-	*data.BaseAPII18NRepository
+	apiStore data.APIStore
 }
 
 // NewBaseAPICase 创建接口业务实例。
-func NewBaseAPICase(baseAPIRepo *data.BaseAPIRepository, baseAPII18NRepo *data.BaseAPII18NRepository) *BaseAPICase {
-	return &BaseAPICase{BaseAPIRepository: baseAPIRepo, BaseAPII18NRepository: baseAPII18NRepo}
+func NewBaseAPICase(apiStore data.APIStore) *BaseAPICase {
+	return &BaseAPICase{apiStore: apiStore}
+}
+
+// Ready 判断接口资源存储是否已经注入。
+func (c *BaseAPICase) Ready() bool {
+	return c != nil && c.apiStore != nil
 }
 
 // OpenAPIDataToBaseAPI 将 OpenAPI 文档转换为待持久化的接口模型。
 //
 // 此方法只负责内存转换，不访问数据库。转换分为两阶段：先按“终端 + 服务名”
 // 推断完整 protobuf 包名，再生成每个 HTTP operation，避免 shop 与 system 的同名服务互相覆盖。
-func (c *BaseAPICase) OpenAPIDataToBaseAPI(openAPIData []byte) ([]*models.BaseAPI, error) {
+func (c *BaseAPICase) OpenAPIDataToBaseAPI(openAPIData []byte) ([]*data.APIRecord, error) {
 	api, err := ParseOpenAPI(openAPIData)
 	if err != nil {
 		return nil, err
@@ -40,10 +44,10 @@ func (c *BaseAPICase) OpenAPIDataToBaseAPI(openAPIData []byte) ([]*models.BaseAP
 	// tag 只提供展示描述，索引键仍使用完整服务名以消除同名 tag 的歧义。
 	tagsMap := buildTagsMap(api.Tags, servicePackages)
 
-	baseAPIList := make([]*models.BaseAPI, 0)
+	baseAPIList := make([]*data.APIRecord, 0)
 	for path, item := range api.Paths {
 		for _, operation := range pathOperations(item) {
-			var baseAPI *models.BaseAPI
+			var baseAPI *data.APIRecord
 			baseAPI, err = parseOperation(path, operation.Method, operation.Operation, tagsMap, servicePackages)
 			if err != nil {
 				return nil, err
@@ -63,7 +67,7 @@ func (c *BaseAPICase) OpenAPIDataToBaseAPI(openAPIData []byte) ([]*models.BaseAP
 }
 
 // OpenAPIDataToBaseAPII18N 将指定语言的 OpenAPI 文档转换为 API 国际化记录。
-func (c *BaseAPICase) OpenAPIDataToBaseAPII18N(openAPIData []byte, locale string) ([]*models.BaseAPII18N, error) {
+func (c *BaseAPICase) OpenAPIDataToBaseAPII18N(openAPIData []byte, locale string) ([]*data.APITranslationRecord, error) {
 	if locale == "" {
 		return nil, nil
 	}
@@ -71,12 +75,12 @@ func (c *BaseAPICase) OpenAPIDataToBaseAPII18N(openAPIData []byte, locale string
 	if err != nil {
 		return nil, err
 	}
-	result := make([]*models.BaseAPII18N, 0, len(items))
+	result := make([]*data.APITranslationRecord, 0, len(items))
 	for _, item := range items {
 		if item == nil || item.Operation == "" {
 			continue
 		}
-		result = append(result, &models.BaseAPII18N{
+		result = append(result, &data.APITranslationRecord{
 			Operation:   item.Operation,
 			Locale:      locale,
 			ToolPrompts: item.ToolPrompts,
@@ -85,6 +89,21 @@ func (c *BaseAPICase) OpenAPIDataToBaseAPII18N(openAPIData []byte, locale string
 		})
 	}
 	return result, nil
+}
+
+// FindAll 查询权限重建所需的接口字段。
+func (c *BaseAPICase) FindAll(ctx context.Context) ([]*data.APIPolicyRecord, error) {
+	return c.apiStore.ListForPolicy(ctx)
+}
+
+// ReplaceAll 替换当前 OpenAPI 接口快照。
+func (c *BaseAPICase) ReplaceAll(ctx context.Context, items []*data.APIRecord) error {
+	return c.apiStore.ReplaceAll(ctx, items)
+}
+
+// ReplaceAllTranslations 替换当前 OpenAPI 接口翻译快照。
+func (c *BaseAPICase) ReplaceAllTranslations(ctx context.Context, items []*data.APITranslationRecord) error {
+	return c.apiStore.ReplaceAllTranslations(ctx, items)
 }
 
 // ParseOpenAPI 解析 OpenAPI YAML 文档。
@@ -319,7 +338,7 @@ func terminalByTagDescription(description string) string {
 //
 // service_name 固定为 {protobuf包}.{operationId服务名}，operation 固定为
 // /{protobuf包}.{operationId服务名}/{operationId方法名}，两者与 Kratos 运行时鉴权值保持一致。
-func parseOperation(path, method string, op *dto.Operation, tagsMap map[string]string, servicePackages map[string]string) (*models.BaseAPI, error) {
+func parseOperation(path, method string, op *dto.Operation, tagsMap map[string]string, servicePackages map[string]string) (*data.APIRecord, error) {
 	// 操作项为空时，当前请求方法无需生成接口权限数据。
 	if op == nil {
 		return nil, nil
@@ -347,7 +366,7 @@ func parseOperation(path, method string, op *dto.Operation, tagsMap map[string]s
 		}
 	}
 
-	baseAPI := &models.BaseAPI{
+	baseAPI := &data.APIRecord{
 		ToolName:    utils.ToolNameFromRPCPath(operation),
 		ServiceName: serviceName,
 		ServiceDesc: serviceDesc,

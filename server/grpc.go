@@ -3,7 +3,6 @@ package server
 import (
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport/grpc"
-	"github.com/liujitcn/kratos-core/data"
 	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-core/resource/i18n"
 	coreMiddleware "github.com/liujitcn/kratos-core/server/middleware"
@@ -11,7 +10,7 @@ import (
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
-	authData "github.com/liujitcn/kratos-kit/auth/data"
+	"github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/cache"
 	servergrpc "github.com/liujitcn/kratos-kit/server/grpc"
@@ -24,9 +23,8 @@ type GRPCMiddlewares []middleware.Middleware
 func NewGRPCMiddleware(
 	ctx *bootstrap.Context,
 	authenticator engine.Authenticator,
-	baseUserRepo *data.BaseUserRepository,
 	authorizer authzEngine.Engine,
-	userToken *authData.UserToken,
+	userToken *data.UserToken,
 	jwtCfg *configv1.Authentication_Jwt,
 	cache cache.Cache,
 	catalog *i18n.I18n,
@@ -38,8 +36,8 @@ func NewGRPCMiddleware(
 		grpcMiddlewares = append(grpcMiddlewares, i18nMiddleware)
 	}
 	// 开启日志中间件时，统一挂载请求日志与操作者解析逻辑。
-	if cfg != nil && cfg.Server != nil && cfg.Server.Grpc != nil && cfg.Server.Grpc.Middleware != nil && cfg.Server.Grpc.Middleware.EnableLogging && baseUserRepo != nil && authenticator != nil {
-		grpcMiddlewares = append(grpcMiddlewares, logging.Server(ctx.GetLogger(), baseUserRepo, authenticator))
+	if cfg != nil && cfg.Server != nil && cfg.Server.Grpc != nil && cfg.Server.Grpc.Middleware != nil && cfg.Server.Grpc.Middleware.EnableLogging && authenticator != nil {
+		grpcMiddlewares = append(grpcMiddlewares, logging.Server(ctx.GetLogger(), authenticator))
 	}
 	if authenticator != nil && authorizer != nil && userToken != nil && jwtCfg != nil {
 		grpcMiddlewares = append(grpcMiddlewares, coreMiddleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))

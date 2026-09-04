@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/liujitcn/kratos-core/data"
-	"github.com/liujitcn/kratos-core/internal/models"
 	"github.com/liujitcn/kratos-core/resource/biz"
 	"github.com/liujitcn/kratos-core/resource/migration"
 	"github.com/liujitcn/kratos-core/resource/openapi"
@@ -40,7 +39,7 @@ func NewSyncResult(
 	if migrations == nil {
 		return nil, fmt.Errorf("数据库迁移资源未初始化")
 	}
-	if transaction == nil || baseAPICase == nil || baseAPICase.BaseAPIRepository == nil || baseAPICase.BaseAPII18NRepository == nil || baseTenantCase == nil || casbinRuleCase == nil {
+	if transaction == nil || !baseAPICase.Ready() || baseTenantCase == nil || casbinRuleCase == nil {
 		return nil, fmt.Errorf("资源同步依赖未初始化")
 	}
 	s := &synchronizer{
@@ -50,14 +49,14 @@ func NewSyncResult(
 		transaction:    transaction,
 	}
 	var documents []openapi.Document
-	var translations []*models.BaseAPII18N
+	var translations []*data.APITranslationRecord
 	var err error
 	if registry != nil {
 		documents = registry.DocumentsByLocale("")
 		locales := registry.Locales()
 		for _, locale := range locales {
 			for _, document := range registry.DocumentsByLocale(locale) {
-				var items []*models.BaseAPII18N
+				var items []*data.APITranslationRecord
 				items, err = baseAPICase.OpenAPIDataToBaseAPII18N(document.Data, locale)
 				if err != nil {
 					return nil, fmt.Errorf("解析 OpenAPI 国际化文档 %q/%q: %w", document.Key, locale, err)
@@ -77,11 +76,11 @@ func NewSyncResult(
 // sync 按 API、租户角色菜单和 Casbin 规则的依赖顺序同步资源。
 //
 // API 快照先清空并重建，再同步租户角色菜单，最后重建数据库规则和内存策略。
-func (s *synchronizer) sync(ctx context.Context, documents []openapi.Document, translations []*models.BaseAPII18N) (int, error) {
-	baseAPIList := make([]*models.BaseAPI, 0)
+func (s *synchronizer) sync(ctx context.Context, documents []openapi.Document, translations []*data.APITranslationRecord) (int, error) {
+	baseAPIList := make([]*data.APIRecord, 0)
 	var err error
 	for _, document := range documents {
-		var items []*models.BaseAPI
+		var items []*data.APIRecord
 		items, err = s.baseAPICase.OpenAPIDataToBaseAPI(document.Data)
 		if err != nil {
 			return 0, fmt.Errorf("解析 OpenAPI 文档 %q: %w", document.Key, err)
@@ -89,11 +88,11 @@ func (s *synchronizer) sync(ctx context.Context, documents []openapi.Document, t
 		baseAPIList = append(baseAPIList, items...)
 	}
 	err = s.transaction.Transaction(ctx, func(transactionContext context.Context) error {
-		err = s.baseAPICase.BaseAPIRepository.ReplaceAll(transactionContext, baseAPIList)
+		err = s.baseAPICase.ReplaceAll(transactionContext, baseAPIList)
 		if err != nil {
 			return fmt.Errorf("同步 OpenAPI 接口: %w", err)
 		}
-		err = s.baseAPICase.BaseAPII18NRepository.ReplaceAll(transactionContext, translations)
+		err = s.baseAPICase.ReplaceAllTranslations(transactionContext, translations)
 		if err != nil {
 			return fmt.Errorf("同步 OpenAPI 国际化接口: %w", err)
 		}

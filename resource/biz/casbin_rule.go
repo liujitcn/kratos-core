@@ -7,7 +7,6 @@ import (
 	_const "github.com/liujitcn/kratos-core/const"
 	"github.com/liujitcn/kratos-core/data"
 	"github.com/liujitcn/kratos-core/errorsx"
-	"github.com/liujitcn/kratos-core/internal/models"
 	"github.com/liujitcn/kratos-kit/auth/authz/engine"
 	"github.com/liujitcn/kratos-kit/auth/authz/engine/casbin"
 	"github.com/liujitcn/kratos-kit/database/gorm"
@@ -15,30 +14,21 @@ import (
 
 // CasbinRuleCase 提供 Casbin 权限规则重建能力。
 type CasbinRuleCase struct {
-	*data.CasbinRuleRepository
-	baseMenuRepo   *data.BaseMenuRepository
-	baseRoleRepo   *data.BaseRoleRepository
-	baseTenantRepo *data.BaseTenantRepository
-	baseAPICase    *BaseAPICase
-	authzEngine    engine.Engine
+	permissionStore data.PermissionStore
+	baseAPICase     *BaseAPICase
+	authzEngine     engine.Engine
 }
 
 // NewCasbinRuleCase 创建权限规则业务实例。
 func NewCasbinRuleCase(
-	casbinRuleRepo *data.CasbinRuleRepository,
-	baseMenuRepo *data.BaseMenuRepository,
-	baseRoleRepo *data.BaseRoleRepository,
-	baseTenantRepo *data.BaseTenantRepository,
+	permissionStore data.PermissionStore,
 	baseAPICase *BaseAPICase,
 	authzEngine engine.Engine,
 ) (*CasbinRuleCase, error) {
 	return &CasbinRuleCase{
-		CasbinRuleRepository: casbinRuleRepo,
-		baseMenuRepo:         baseMenuRepo,
-		baseRoleRepo:         baseRoleRepo,
-		baseTenantRepo:       baseTenantRepo,
-		baseAPICase:          baseAPICase,
-		authzEngine:          authzEngine,
+		permissionStore: permissionStore,
+		baseAPICase:     baseAPICase,
+		authzEngine:     authzEngine,
 	}, nil
 }
 
@@ -53,12 +43,12 @@ func (c *CasbinRuleCase) RebuildPolicy(ctx context.Context) error {
 
 // RebuildPolicyData 按角色、菜单和 API 重建数据库中的 Casbin 规则快照。
 func (c *CasbinRuleCase) RebuildPolicyData(ctx context.Context) error {
-	baseRoleList, err := c.baseRoleRepo.List(ctx)
+	baseRoleList, err := c.permissionStore.ListRoles(ctx)
 	if err != nil {
 		return err
 	}
-	var baseTenantList []*models.BaseTenant
-	baseTenantList, err = c.baseTenantRepo.List(ctx)
+	var baseTenantList []data.TenantRecord
+	baseTenantList, err = c.permissionStore.ListTenants(ctx)
 	if err != nil {
 		return err
 	}
@@ -74,12 +64,12 @@ func (c *CasbinRuleCase) RebuildPolicyData(ctx context.Context) error {
 	for menuID := range menuIDSet {
 		menuIDs = append(menuIDs, menuID)
 	}
-	var baseMenuList []*models.BaseMenu
-	baseMenuList, err = c.baseMenuRepo.ListByIDs(ctx, menuIDs)
+	var baseMenuList []data.MenuRecord
+	baseMenuList, err = c.permissionStore.ListMenusByIDs(ctx, menuIDs)
 	if err != nil {
 		return err
 	}
-	var baseAPIList []*models.BaseAPI
+	var baseAPIList []*data.APIPolicyRecord
 	baseAPIList, err = c.baseAPICase.FindAll(ctx)
 	if err != nil {
 		return err
@@ -87,7 +77,7 @@ func (c *CasbinRuleCase) RebuildPolicyData(ctx context.Context) error {
 
 	// 根据读取到的角色、租户、菜单和 API 数据构造完整规则快照。
 	casbinRuleList := buildCasbinRuleList(baseRoleList, baseTenantList, baseMenuList, baseAPIList)
-	err = c.ReplaceAll(ctx, casbinRuleList)
+	err = c.permissionStore.ReplacePolicies(ctx, casbinRuleList)
 	if err != nil {
 		return err
 	}
@@ -113,8 +103,8 @@ func (c *CasbinRuleCase) RefreshPolicy(ctx context.Context) error {
 		})
 	}
 	// 读取数据库中的租户角色权限规则。
-	var casbinRuleList []*models.CasbinRule
-	casbinRuleList, err = c.FindAll(ctx)
+	var casbinRuleList []data.PolicyRecord
+	casbinRuleList, err = c.permissionStore.ListPolicies(ctx)
 	if err != nil {
 		return err
 	}
@@ -143,7 +133,7 @@ func (c *CasbinRuleCase) RefreshPolicy(ctx context.Context) error {
 }
 
 // buildCasbinRuleList 根据角色菜单、租户和接口关联构造去重后的 Casbin 策略。
-func buildCasbinRuleList(baseRoleList []*models.BaseRole, baseTenantList []*models.BaseTenant, baseMenuList []*models.BaseMenu, baseAPIList []*models.BaseAPI) []*models.CasbinRule {
+func buildCasbinRuleList(baseRoleList []data.RoleRecord, baseTenantList []data.TenantRecord, baseMenuList []data.MenuRecord, baseAPIList []*data.APIPolicyRecord) []data.PolicyRecord {
 	tenantCodeByID := make(map[int64]string, len(baseTenantList))
 	for _, item := range baseTenantList {
 		tenantCodeByID[item.ID] = item.Code
@@ -152,14 +142,14 @@ func buildCasbinRuleList(baseRoleList []*models.BaseRole, baseTenantList []*mode
 	for _, item := range baseMenuList {
 		menuOperationsByID[item.ID] = _string.ConvertJsonStringToStringArray(item.API)
 	}
-	apiByOperation := make(map[string]*models.BaseAPI, len(baseAPIList))
+	apiByOperation := make(map[string]*data.APIPolicyRecord, len(baseAPIList))
 	for _, item := range baseAPIList {
 		if _, ok := apiByOperation[item.Operation]; !ok {
 			apiByOperation[item.Operation] = item
 		}
 	}
 
-	rules := make([]*models.CasbinRule, 0)
+	rules := make([]data.PolicyRecord, 0)
 	ruleSet := make(map[string]struct{})
 	for _, baseRole := range baseRoleList {
 		tenantCode, ok := tenantCodeByID[baseRole.TenantID]
@@ -179,7 +169,7 @@ func buildCasbinRuleList(baseRoleList []*models.BaseRole, baseTenantList []*mode
 					continue
 				}
 				ruleSet[ruleKey] = struct{}{}
-				rules = append(rules, &models.CasbinRule{
+				rules = append(rules, data.PolicyRecord{
 					Ptype: "p",
 					V0:    tenantCode,
 					V1:    baseRole.Code,

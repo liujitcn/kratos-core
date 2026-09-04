@@ -13,7 +13,6 @@ import (
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
 	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
-	"github.com/liujitcn/kratos-core/data"
 	"github.com/liujitcn/kratos-core/mcp"
 	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-core/resource/i18n"
@@ -24,7 +23,7 @@ import (
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
-	authData "github.com/liujitcn/kratos-kit/auth/data"
+	"github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/cache"
 	"github.com/liujitcn/kratos-kit/oss"
@@ -42,9 +41,8 @@ const defaultStaticRootDirectory = "./data"
 func NewHTTPMiddleware(
 	ctx *bootstrap.Context,
 	authenticator engine.Authenticator,
-	baseUserRepo *data.BaseUserRepository,
 	authorizer authzEngine.Engine,
-	userToken *authData.UserToken,
+	userToken *data.UserToken,
 	jwtCfg *configv1.Authentication_Jwt,
 	cache cache.Cache,
 	catalog *i18n.I18n,
@@ -56,8 +54,8 @@ func NewHTTPMiddleware(
 		httpMiddlewares = append(httpMiddlewares, i18nMiddleware)
 	}
 	// 开启日志中间件时，统一挂载请求日志与操作者解析逻辑。
-	if cfg != nil && cfg.Server != nil && cfg.Server.Http != nil && cfg.Server.Http.Middleware != nil && cfg.Server.Http.Middleware.EnableLogging && baseUserRepo != nil && authenticator != nil {
-		httpMiddlewares = append(httpMiddlewares, logging.Server(ctx.GetLogger(), baseUserRepo, authenticator))
+	if cfg != nil && cfg.Server != nil && cfg.Server.Http != nil && cfg.Server.Http.Middleware != nil && cfg.Server.Http.Middleware.EnableLogging && authenticator != nil {
+		httpMiddlewares = append(httpMiddlewares, logging.Server(ctx.GetLogger(), authenticator))
 	}
 	if authenticator != nil && authorizer != nil && userToken != nil && jwtCfg != nil {
 		httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
@@ -76,7 +74,7 @@ func NewHTTPServer(
 	middlewares HTTPMiddlewares,
 	modules module.Modules,
 	authenticator engine.Authenticator,
-	userToken *authData.UserToken,
+	userToken *data.UserToken,
 	openAPIRegistry *openapi.Registry,
 	mcpServer *mcp.Server,
 	sseServer *sse.Server,
@@ -245,7 +243,7 @@ func newSPAHandler(webFS fs.FS, prefix string) http.Handler {
 }
 
 // newOpenAPIAuthorizer 校验 Swagger 文档请求中的 Bearer Token。
-func newOpenAPIAuthorizer(authenticator engine.Authenticator, userToken *authData.UserToken) func(*http.Request) bool {
+func newOpenAPIAuthorizer(authenticator engine.Authenticator, userToken *data.UserToken) func(*http.Request) bool {
 	return func(request *http.Request) bool {
 		if authenticator == nil || userToken == nil {
 			return true
@@ -259,7 +257,7 @@ func newOpenAPIAuthorizer(authenticator engine.Authenticator, userToken *authDat
 			return false
 		}
 		var userID int64
-		userID, err = claims.GetInt64(authData.ClaimFieldUserID)
+		userID, err = claims.GetInt64(data.ClaimFieldUserID)
 		if err != nil {
 			return false
 		}

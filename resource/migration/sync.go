@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/liujitcn/kratos-core/internal/models"
 	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
 	"github.com/liujitcn/kratos-kit/database/gorm/migration"
 	"gorm.io/gorm"
@@ -21,6 +20,27 @@ type i18nRecordKey struct {
 	Locale   string
 }
 
+type migrationHistory struct {
+	ID         int64  `gorm:"column:id"`
+	Module     string `gorm:"column:module"`
+	DataSource string `gorm:"column:data_source"`
+	Version    string `gorm:"column:version"`
+}
+
+// TableName 返回迁移记录表名。
+func (*migrationHistory) TableName() string { return "base_migration" }
+
+type migrationTranslation struct {
+	ID         int64  `gorm:"column:id"`
+	TargetType int32  `gorm:"column:target_type"`
+	TargetID   int64  `gorm:"column:target_id"`
+	Locale     string `gorm:"column:locale"`
+	Name       string `gorm:"column:name"`
+}
+
+// TableName 返回翻译记录表名。
+func (*migrationTranslation) TableName() string { return "base_i18n" }
+
 // syncDescriptionTranslations 将迁移 README 译文写入统一翻译表。
 func syncDescriptionTranslations(ctx context.Context, databases map[string]*databaseGorm.Client, translations []DescriptionTranslation) error {
 	if len(translations) == 0 {
@@ -31,7 +51,7 @@ func syncDescriptionTranslations(ctx context.Context, databases map[string]*data
 		return fmt.Errorf("迁移说明翻译需要默认数据库客户端")
 	}
 	err := centralClient.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		histories := make([]models.BaseMigration, 0)
+		histories := make([]migrationHistory, 0)
 		result := tx.Find(&histories)
 		if result.Error != nil {
 			return fmt.Errorf("读取迁移记录失败: %w", result.Error)
@@ -45,12 +65,12 @@ func syncDescriptionTranslations(ctx context.Context, databases map[string]*data
 			}] = history.ID
 		}
 
-		records := make([]models.BaseI18N, 0)
-		result = tx.Where(&models.BaseI18N{TargetType: DescriptionTargetType}).Find(&records)
+		records := make([]migrationTranslation, 0)
+		result = tx.Where(&migrationTranslation{TargetType: DescriptionTargetType}).Find(&records)
 		if result.Error != nil {
 			return fmt.Errorf("读取迁移说明译文失败: %w", result.Error)
 		}
-		existing := make(map[i18nRecordKey]*models.BaseI18N, len(records))
+		existing := make(map[i18nRecordKey]*migrationTranslation, len(records))
 		for index := range records {
 			record := &records[index]
 			existing[i18nRecordKey{TargetID: record.TargetID, Locale: record.Locale}] = record
@@ -68,7 +88,7 @@ func syncDescriptionTranslations(ctx context.Context, databases map[string]*data
 			key := i18nRecordKey{TargetID: historyID, Locale: translation.Locale}
 			record := existing[key]
 			if record == nil {
-				record = &models.BaseI18N{
+				record = &migrationTranslation{
 					TargetType: DescriptionTargetType,
 					TargetID:   historyID,
 					Locale:     translation.Locale,

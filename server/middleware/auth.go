@@ -13,7 +13,7 @@ import (
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
-	coreBiz "github.com/liujitcn/kratos-core/biz"
+	"github.com/liujitcn/kratos-core/biz"
 	"github.com/liujitcn/kratos-core/server/requestmeta"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth"
@@ -134,7 +134,7 @@ func (a *auditedAuthorizer) emitPolicyEvaluation(ctx context.Context, startedAt 
 		reasonCode = "PERMISSION_DENIED"
 		reason = "权限策略拒绝访问"
 	}
-	event := coreBiz.LogEvent{
+	event := biz.LogEvent{
 		Kind: "policy_evaluation", Engine: a.authorizer.Name(), EvaluationType: 1,
 		RequestID: requestmeta.RequestID(ctx), TraceID: requestmeta.TraceID(ctx),
 		Resource: string(resource), Action: string(action), Project: string(project), Decision: decision,
@@ -164,7 +164,7 @@ func (a *auditedAuthorizer) emitPolicyEvaluation(ctx context.Context, startedAt 
 	if claims, ok := authzEngine.AuthClaimsFromContext(ctx); ok && claims.Tenant != nil {
 		event.TenantCode = string(*claims.Tenant)
 	}
-	if emitErr := coreBiz.EmitLog(ctx, event); emitErr != nil {
+	if emitErr := biz.EmitLog(ctx, event); emitErr != nil {
 		log.Error("发送授权审计事件失败", "error", emitErr, "operation", event.Operation)
 	}
 }

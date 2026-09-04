@@ -23,7 +23,7 @@ Core 不是完整的業務範本。宿主透過一個 `module.Module` 將業務�
 - `api` 是獨立 Go 模組，`api/proto` 保存 Core 的 protobuf 定義，`api/gen/go` 保存產生的 Go 類型。
 - `client` 是獨立 Go 模組，提供基於 `kratos-kit` 設定的 gRPC 連線和行程內 gRPC 連線。
 
-`internal/models` 下的程式碼只屬於 Core 實作，不是跨專案 API。Core 建立的快取、佇列、OSS、翻譯器和多資料源 GORM 用戶端會注入 `biz.BaseCase`，同時寫入 `kratos-kit/sdk.Runtime`，業務程式碼可按需從 BaseCase 或 SDK 取得。
+`data` 套件只公開多資料源用戶端初始化、交易邊界，以及 API、任務、日誌和權限資源的宿主儲存契約；資料庫模型和產生的 Repository 由宿主專案提供。Core 建立的快取、佇列、OSS、翻譯器和多資料源 GORM 用戶端會注入 `biz.BaseCase`，同時寫入 `kratos-kit/sdk.Runtime`，業務程式碼可按需從 BaseCase 或 SDK 取得。
 
 ## Wire 接入
 
@@ -56,6 +56,8 @@ func newHostModules(host *hostModule) []module.Module {
 ```
 
 Core 的 `ProviderSet` 彙總設定、基礎設施、模組資源、資料存取、資源同步和各協議執行時，並包含 `NewApp`。宿主只需補充自己的業務 Provider，並提供 `[]module.Module`，不需要重複加入 Core 的 ProviderSet。Core 根目錄不再維護 `wire.go` 或 `wire_gen.go`；宿主專案應使用自己的 Wire 指令產生組合根和 `wire_gen.go`，也可以使用 `make wire WIRE_DIR=<宿主 Wire 目錄>`。
+
+Core 的任務、日誌和權限資源執行時依賴 `data` 套件中的 `Store`/`Writer` 契約。宿主應在自己的 Wire 組合根提供這些契約的實作；Admin 的實作位於 `backend/internal/adapter/core`。Core 不依賴宿主的資料庫模型或產生的 Repository。
 
 ## 模組契約
 
@@ -159,7 +161,7 @@ client/
 biz/                     基礎上下文、認證授權、日誌事件和公開執行時業務能力
 config/                  啟動設定解析
 const/                   公共常數
-data/                    多資料源用戶端、事務和 Core 資料儲存庫
+data/                    多資料源用戶端、事務和宿主儲存契約
 errorsx/                 統一錯誤建構
 job/                     Cron 註冊、持久化任務和執行時
 mcp/                     MCP 服務與生命週期適配
@@ -178,8 +180,6 @@ resource/                文件、I18n、遷移、OpenAPI 和啟動資源同步
 server/                  HTTP、gRPC 和中介軟體
   middleware/             HTTP/gRPC 共用中介軟體
 sse/                     SSE 流註冊、傳輸和發布
-internal/models/         Core 內部資料庫模型
-
 bootstrap.go             公開 ProviderSet 和應用程式生命週期組裝
 Makefile                 產生、格式化、測試和靜態檢查命令
 ```

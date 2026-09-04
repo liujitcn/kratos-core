@@ -8,7 +8,6 @@ import (
 	"github.com/liujitcn/kratos-core/biz"
 	_const "github.com/liujitcn/kratos-core/const"
 	"github.com/liujitcn/kratos-core/data"
-	"github.com/liujitcn/kratos-core/internal/models"
 	kitQueue "github.com/liujitcn/kratos-kit/queue"
 	queueData "github.com/liujitcn/kratos-kit/queue/data"
 	queueTransport "github.com/liujitcn/kratos-kit/transport/queue"
@@ -33,7 +32,7 @@ type Consumer struct {
 type Consumers []Consumer
 
 // NewServer 创建队列服务，注册 Core 和宿主提供的队列消费者。
-func NewServer(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogRepository, logPipeline *biz.LogPipeline, consumers Consumers) (*Server, error) {
+func NewServer(queue kitQueue.Queue, jobStore data.JobStore, logPipeline *biz.LogPipeline, consumers Consumers) (*Server, error) {
 	if queue == nil {
 		return nil, fmt.Errorf("队列适配器不能为空")
 	}
@@ -50,12 +49,12 @@ func NewServer(queue kitQueue.Queue, baseJobLogRepository *data.BaseJobLogReposi
 		return nil, err
 	}
 	server.Register(_const.JOB_LOG, func(message queueData.Message) error {
-		var entity *models.BaseJobLog
-		entity, err = Decode[models.BaseJobLog](message)
+		var entity *data.JobLogRecord
+		entity, err = Decode[data.JobLogRecord](message)
 		if err != nil {
 			return err
 		}
-		return baseJobLogRepository.Create(context.Background(), entity)
+		return jobStore.CreateLog(context.Background(), *entity)
 	})
 	server.Register(biz.LogEventStream, logPipeline.Consume)
 	for _, consumer := range consumers {

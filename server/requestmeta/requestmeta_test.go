@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	httpRequestID "github.com/liujitcn/kratos-kit/server/http/middleware/requestid"
+	"github.com/liujitcn/kratos-kit/server/http/middleware/requestid"
 	"go.opentelemetry.io/otel/trace"
 )
 
 // TestRequestIDFromHTTPContext 验证请求编号优先复用 HTTP 服务端上下文。
 func TestRequestIDFromHTTPContext(t *testing.T) {
-	ctx := httpRequestID.WithRequestID(context.Background(), "request-1")
+	ctx := requestid.WithRequestID(context.Background(), "request-1")
 	if requestID := RequestID(ctx); requestID != "request-1" {
 		t.Fatalf("unexpected request id: %s", requestID)
 	}

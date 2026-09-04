@@ -3,7 +3,7 @@ package job
 import (
 	"context"
 
-	"github.com/liujitcn/kratos-core/internal/models"
+	"github.com/liujitcn/kratos-core/data"
 )
 
 // Job 实现 Core 的持久化任务能力。
@@ -20,7 +20,7 @@ func NewJob(server *Scheduler) *Job {
 
 // Start 注册持久化任务并返回新的调度入口编号。
 func (s *Job) Start(ctx context.Context, jobID int64, cronExpression string, invokeTarget string, args string, entryID int32) (int32, error) {
-	baseJob := &models.BaseJob{
+	baseJob := &data.JobRecord{
 		ID:             jobID,
 		CronExpression: cronExpression,
 		InvokeTarget:   invokeTarget,
@@ -36,7 +36,7 @@ func (s *Job) Start(ctx context.Context, jobID int64, cronExpression string, inv
 
 // Stop 移除持久化任务的调度并清空持久化入口编号。
 func (s *Job) Stop(ctx context.Context, jobID int64, entryID int32) error {
-	baseJob := &models.BaseJob{
+	baseJob := &data.JobRecord{
 		ID:      jobID,
 		EntryID: entryID,
 	}
@@ -45,7 +45,7 @@ func (s *Job) Stop(ctx context.Context, jobID int64, entryID int32) error {
 
 // Run 立即执行一次持久化任务。
 func (s *Job) Run(ctx context.Context, jobID int64, invokeTarget string, args string) error {
-	baseJob := &models.BaseJob{
+	baseJob := &data.JobRecord{
 		ID:           jobID,
 		InvokeTarget: invokeTarget,
 		Args:         args,

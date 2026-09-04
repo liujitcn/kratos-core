@@ -23,7 +23,7 @@ Core 不是完整的业务模板。宿主通过一个 `module.Module` 把业务�
 - `api` 是独立 Go 模块，`api/proto` 保存 Core 的 protobuf 定义，`api/gen/go` 保存生成的 Go 类型。
 - `client` 是独立 Go 模块，提供基于 `kratos-kit` 配置的 gRPC 连接和进程内 gRPC 连接。
 
-`internal/models` 下的代码只属于 Core 实现，不是跨项目 API。Core 创建的缓存、队列、OSS、翻译器和多数据源 GORM 客户端会注入 `biz.BaseCase`，同时写入 `kratos-kit/sdk.Runtime`，业务代码可以按需从 BaseCase 或 SDK 获取。
+`data` 包只公开多数据源客户端初始化、事务边界以及 API、任务、日志和权限资源的宿主存储契约；数据库模型和生成仓储由宿主项目提供。Core 创建的缓存、队列、OSS、翻译器和多数据源 GORM 客户端会注入 `biz.BaseCase`，同时写入 `kratos-kit/sdk.Runtime`，业务代码可以按需从 BaseCase 或 SDK 获取。
 
 ## Wire 接入
 
@@ -56,6 +56,8 @@ func newHostModules(host *hostModule) []module.Module {
 ```
 
 Core 的 `ProviderSet` 汇总配置、基础设施、模块资源、数据访问、资源同步和各协议运行时，并包含 `NewApp`。宿主只需补充自己的业务 Provider，并提供 `[]module.Module`，不需要重复加入 Core 的 ProviderSet。Core 根目录不再维护 `wire.go` 或 `wire_gen.go`；宿主项目应通过自己的 Wire 命令生成组合根和 `wire_gen.go`，也可以使用 `make wire WIRE_DIR=<宿主 Wire 目录>`。
+
+Core 的任务、日志和权限资源运行时依赖 `data` 包中的 `Store`/`Writer` 契约。宿主应在自己的 Wire 组合根中提供这些契约的实现；Admin 的实现位于 `backend/internal/adapter/core`。Core 不依赖宿主的数据库模型或生成仓储。
 
 ## 模块契约
 
@@ -159,7 +161,7 @@ client/
 biz/                     基础上下文、认证授权、日志事件和公共业务能力
 config/                  启动配置解析
 const/                   公共常量
-data/                    多数据源客户端、事务和 Core 数据仓储
+data/                    多数据源客户端、事务和宿主存储契约
 errorsx/                 统一错误构造
 job/                     Cron 注册、持久化任务和运行时
 mcp/                     MCP 服务与生命周期适配
@@ -178,8 +180,6 @@ resource/                文档、I18n、迁移、OpenAPI 和启动资源同步
 server/                  HTTP、gRPC 和中间件
   middleware/             HTTP/gRPC 通用中间件
 sse/                     SSE 流注册、传输和发布
-internal/models/         Core 内部数据库模型
-
 bootstrap.go             对外 ProviderSet 和应用生命周期装配
 Makefile                 生成、格式化、测试和静态检查命令
 ```

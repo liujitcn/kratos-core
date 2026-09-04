@@ -7,19 +7,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liujitcn/kratos-core/internal/models"
-	"github.com/liujitcn/kratos-kit/queue/data"
+	"github.com/liujitcn/kratos-core/data"
+	queueData "github.com/liujitcn/kratos-kit/queue/data"
 )
 
 type testQueue struct {
 	stream  string
-	message data.Message
+	message queueData.Message
 	started chan struct{}
 	release chan struct{}
 }
 
 // Append 记录测试期间投递的队列消息。
-func (q *testQueue) Append(stream string, message data.Message) error {
+func (q *testQueue) Append(stream string, message queueData.Message) error {
 	q.stream = stream
 	q.message = message
 	if q.started != nil {
@@ -30,7 +30,7 @@ func (q *testQueue) Append(stream string, message data.Message) error {
 }
 
 // Register 忽略测试不需要的消费者注册。
-func (*testQueue) Register(string, data.ConsumerFunc) {}
+func (*testQueue) Register(string, queueData.ConsumerFunc) {}
 
 // Run 忽略测试不需要的队列启动。
 func (*testQueue) Run() {}
@@ -38,52 +38,49 @@ func (*testQueue) Run() {}
 // Shutdown 忽略测试不需要的队列停止。
 func (*testQueue) Shutdown() {}
 
-type testAPILogWriter struct {
-	item *models.BaseAPILog
+type testLogStore struct {
+	apiItem    *data.APILogRecord
+	policyItem *data.PolicyEvaluationLogRecord
 }
 
-// Create 记录测试期间写入的 API 访问日志。
-func (w *testAPILogWriter) Create(_ context.Context, item *models.BaseAPILog) error {
-	if w.item != nil && w.item.ID == item.ID && item.ID != 0 {
+// CreateAPI 记录测试期间写入的 API 访问日志。
+func (s *testLogStore) CreateAPI(_ context.Context, item data.APILogRecord) error {
+	if s.apiItem != nil && s.apiItem.ID == item.ID && item.ID != 0 {
 		return errors.New("duplicate primary key")
 	}
-	w.item = item
+	s.apiItem = &item
 	return nil
 }
 
-// FindByID 返回测试期间已写入的 API 访问日志。
-func (w *testAPILogWriter) FindByID(_ context.Context, id int64) (*models.BaseAPILog, error) {
-	if w.item != nil && w.item.ID == id {
-		return w.item, nil
+// ExistsAPI 判断测试期间是否已经写入指定的 API 访问日志。
+func (s *testLogStore) ExistsAPI(_ context.Context, id int64) (bool, error) {
+	if s.apiItem != nil && s.apiItem.ID == id {
+		return true, nil
 	}
-	return nil, errors.New("not found")
+	return false, nil
 }
 
-type testPolicyEvaluationLogWriter struct {
-	item *models.BasePolicyEvaluationLog
-}
-
-// Create 记录测试期间写入的策略评估日志。
-func (w *testPolicyEvaluationLogWriter) Create(_ context.Context, item *models.BasePolicyEvaluationLog) error {
-	if w.item != nil && w.item.ID == item.ID && item.ID != 0 {
+// CreatePolicyEvaluation 记录测试期间写入的策略评估日志。
+func (s *testLogStore) CreatePolicyEvaluation(_ context.Context, item data.PolicyEvaluationLogRecord) error {
+	if s.policyItem != nil && s.policyItem.ID == item.ID && item.ID != 0 {
 		return errors.New("duplicate primary key")
 	}
-	w.item = item
+	s.policyItem = &item
 	return nil
 }
 
-// FindByID 返回测试期间已写入的策略评估日志。
-func (w *testPolicyEvaluationLogWriter) FindByID(_ context.Context, id int64) (*models.BasePolicyEvaluationLog, error) {
-	if w.item != nil && w.item.ID == id {
-		return w.item, nil
+// ExistsPolicyEvaluation 判断测试期间是否已经写入指定的策略评估日志。
+func (s *testLogStore) ExistsPolicyEvaluation(_ context.Context, id int64) (bool, error) {
+	if s.policyItem != nil && s.policyItem.ID == id {
+		return true, nil
 	}
-	return nil, errors.New("not found")
+	return false, nil
 }
 
 // TestLogPipelineEmitsToCoreStream 验证 Core 流水线会补齐默认值并投递日志事件。
 func TestLogPipelineEmitsToCoreStream(t *testing.T) {
 	queue := &testQueue{}
-	pipeline := newLogPipeline(queue, &testAPILogWriter{}, &testPolicyEvaluationLogWriter{})
+	pipeline := newLogPipeline(queue, &testLogStore{})
 	var err error
 	err = pipeline.Emit(context.Background(), LogEvent{Operation: "/base.v1.TestService/Get"})
 	if err != nil {
@@ -110,7 +107,7 @@ func TestLogPipelineEmitsToCoreStream(t *testing.T) {
 // TestLogPipelineEmitDoesNotWaitForQueueIO 验证 Core 日志投递不会让请求线程等待队列 IO。
 func TestLogPipelineEmitDoesNotWaitForQueueIO(t *testing.T) {
 	queue := &testQueue{started: make(chan struct{}), release: make(chan struct{})}
-	pipeline := newLogPipeline(queue, &testAPILogWriter{}, &testPolicyEvaluationLogWriter{})
+	pipeline := newLogPipeline(queue, &testLogStore{})
 	defer func() {
 		close(queue.release)
 		pipeline.close()
@@ -132,9 +129,8 @@ func TestLogPipelineEmitDoesNotWaitForQueueIO(t *testing.T) {
 
 // TestLogPipelineConsumesAPILog 验证 Core 流水线消费 API 事件并写入 API 日志模型。
 func TestLogPipelineConsumesAPILog(t *testing.T) {
-	apiWriter := &testAPILogWriter{}
-	policyWriter := &testPolicyEvaluationLogWriter{}
-	pipeline := newLogPipeline(&testQueue{}, apiWriter, policyWriter)
+	store := &testLogStore{}
+	pipeline := newLogPipeline(&testQueue{}, store)
 	defer pipeline.close()
 	event := LogEvent{
 		Kind: "api", RequestID: "request", RequestTime: time.Now(), Operation: "/base.v1.TestService/Get",
@@ -144,20 +140,20 @@ func TestLogPipelineConsumesAPILog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = pipeline.Consume(data.Message{ID: "1700000000000-1", Values: map[string]interface{}{"data": string(rawBody)}})
+	err = pipeline.Consume(queueData.Message{ID: "1700000000000-1", Values: map[string]interface{}{"data": string(rawBody)}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if apiWriter.item == nil {
+	if store.apiItem == nil {
 		t.Fatal("expected API log write")
 	}
-	if apiWriter.item.ServiceName != "TestService" || apiWriter.item.Result != logResultSuccess {
-		t.Fatalf("unexpected API log: %+v", apiWriter.item)
+	if store.apiItem.ServiceName != "TestService" || store.apiItem.Result != logResultSuccess {
+		t.Fatalf("unexpected API log: %+v", store.apiItem)
 	}
-	if policyWriter.item != nil {
+	if store.policyItem != nil {
 		t.Fatal("unexpected policy log write")
 	}
-	err = pipeline.Consume(data.Message{ID: "1700000000000-1", Values: map[string]interface{}{"data": string(rawBody)}})
+	err = pipeline.Consume(queueData.Message{ID: "1700000000000-1", Values: map[string]interface{}{"data": string(rawBody)}})
 	if err != nil {
 		t.Fatalf("duplicate delivery must be idempotent: %v", err)
 	}
@@ -165,9 +161,8 @@ func TestLogPipelineConsumesAPILog(t *testing.T) {
 
 // TestLogPipelineConsumesPolicyEvaluationLog 验证 Core 流水线消费策略事件并写入策略评估日志模型。
 func TestLogPipelineConsumesPolicyEvaluationLog(t *testing.T) {
-	apiWriter := &testAPILogWriter{}
-	policyWriter := &testPolicyEvaluationLogWriter{}
-	pipeline := newLogPipeline(&testQueue{}, apiWriter, policyWriter)
+	store := &testLogStore{}
+	pipeline := newLogPipeline(&testQueue{}, store)
 	defer pipeline.close()
 	event := LogEvent{
 		Kind: "policy_evaluation", RequestID: "request", RequestTime: time.Now(),
@@ -177,17 +172,17 @@ func TestLogPipelineConsumesPolicyEvaluationLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = pipeline.Consume(data.Message{ID: "1700000000000-2", Values: map[string]interface{}{"data": string(rawBody)}})
+	err = pipeline.Consume(queueData.Message{ID: "1700000000000-2", Values: map[string]interface{}{"data": string(rawBody)}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if policyWriter.item == nil {
+	if store.policyItem == nil {
 		t.Fatal("expected policy evaluation log write")
 	}
-	if policyWriter.item.Engine != "casbin" || policyWriter.item.Decision != 1 {
-		t.Fatalf("unexpected policy evaluation log: %+v", policyWriter.item)
+	if store.policyItem.Engine != "casbin" || store.policyItem.Decision != 1 {
+		t.Fatalf("unexpected policy evaluation log: %+v", store.policyItem)
 	}
-	if apiWriter.item != nil {
+	if store.apiItem != nil {
 		t.Fatal("unexpected API log write")
 	}
 }

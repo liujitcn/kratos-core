@@ -23,7 +23,7 @@ Cross-project Go code is exposed through four entry points:
 - `api` is an independent Go module. `api/proto` contains Core protobuf definitions and `api/gen/go` contains generated Go types.
 - `client` is an independent Go module that provides gRPC connections based on `kratos-kit` configuration, including in-process gRPC connections.
 
-Everything under `internal/models` is an implementation detail and is not a cross-project API. Core-created cache, queue, OSS, translator, and multi-database GORM clients are injected into `biz.BaseCase` and also stored in `kratos-kit/sdk.Runtime`; host code can use either BaseCase or the SDK as needed.
+The `data` package exposes only multi-database client initialization, transaction boundaries, and host storage contracts for API, job, log, and permission resources; database models and generated repositories remain owned by the host project. Core-created cache, queue, OSS, translator, and multi-database GORM clients are injected into `biz.BaseCase` and also stored in `kratos-kit/sdk.Runtime`; host code can use either BaseCase or the SDK as needed.
 
 ## Wire Integration
 
@@ -56,6 +56,8 @@ func newHostModules(host *hostModule) []module.Module {
 ```
 
 Core's `ProviderSet` combines configuration, infrastructure, module resources, data access, resource synchronization, and all protocol runtimes, and includes `NewApp`. Add the host's own providers and provide a `[]module.Module`; do not add Core's ProviderSets again. Core no longer maintains `wire.go` or `wire_gen.go` at its root. The host project should generate its composition root and `wire_gen.go` with its own Wire command, or use `make wire WIRE_DIR=<host Wire directory>`.
+
+Core's job, log, and permission runtimes depend on the `Store`/`Writer` contracts in `data`. The host must provide their implementations in its Wire composition root; Admin implements them under `backend/internal/adapter/core`. Core does not depend on host database models or generated repositories.
 
 ## Module Contract
 
@@ -159,7 +161,7 @@ client/
 biz/                     Shared context, authentication, log events, and public runtime cases
 config/                  Startup configuration parsing
 const/                   Public constants
-data/                    Multi-database clients, transactions, and Core repositories
+data/                    Multi-database clients, transactions, and host storage contracts
 errorsx/                 Unified error constructors
 job/                     Cron registration, persistent jobs, and runtime
 mcp/                     MCP service and lifecycle adapter
@@ -178,8 +180,6 @@ resource/                Documentation, i18n, migration, OpenAPI, and startup sy
 server/                  HTTP, gRPC, and middleware
   middleware/             Shared HTTP/gRPC middleware
 sse/                     SSE stream registration, transport, and publishing
-internal/models/         Core internal database models
-
 bootstrap.go             Public ProviderSet and application lifecycle assembly
 Makefile                 Generation, formatting, testing, and static checks
 ```
