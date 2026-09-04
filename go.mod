@@ -13,7 +13,7 @@ require (
 	github.com/liujitcn/go-utils/geoip v0.0.5
 	github.com/liujitcn/go-utils/translator v0.0.4
 	github.com/liujitcn/kratos-core/api v0.0.3
-	github.com/liujitcn/kratos-kit v0.0.81
+	github.com/liujitcn/kratos-kit v0.0.82
 	github.com/liujitcn/kratos-kit/api v0.0.35
 	github.com/liujitcn/kratos-kit/auth v0.0.25
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.23
@@ -22,7 +22,7 @@ require (
 	github.com/liujitcn/kratos-kit/auth/authz v0.0.22
 	github.com/liujitcn/kratos-kit/auth/authz/engine/casbin v0.0.20
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.18
-	github.com/liujitcn/kratos-kit/bootstrap v0.0.25
+	github.com/liujitcn/kratos-kit/bootstrap v0.0.27
 	github.com/liujitcn/kratos-kit/cache v0.0.20
 	github.com/liujitcn/kratos-kit/database/gorm v0.0.41
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.13
@@ -181,14 +181,14 @@ require (
 	github.com/liujitcn/go-utils/translator/google v0.0.3 // indirect
 	github.com/liujitcn/go-utils/translator/volc v0.0.2 // indirect
 	github.com/liujitcn/kratos-kit/broker v0.0.9 // indirect
-	github.com/liujitcn/kratos-kit/config v0.0.26 // indirect
+	github.com/liujitcn/kratos-kit/config v0.0.30 // indirect
 	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.17 // indirect
-	github.com/liujitcn/kratos-kit/key v0.0.1 // indirect
-	github.com/liujitcn/kratos-kit/logger v0.0.29 // indirect
+	github.com/liujitcn/kratos-kit/key v0.0.3 // indirect
+	github.com/liujitcn/kratos-kit/logger v0.0.31 // indirect
 	github.com/liujitcn/kratos-kit/oss/s3 v0.0.2 // indirect
 	github.com/liujitcn/kratos-kit/queue/redisqueue v0.0.14 // indirect
-	github.com/liujitcn/kratos-kit/registry v0.0.21 // indirect
-	github.com/liujitcn/kratos-kit/tracer v0.0.15 // indirect
+	github.com/liujitcn/kratos-kit/registry v0.0.22 // indirect
+	github.com/liujitcn/kratos-kit/tracer v0.0.16 // indirect
 	github.com/liujitcn/kratos-kit/tracing v0.0.10 // indirect
 	github.com/liujitcn/kratos-kit/transport v0.0.22 // indirect
 	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.11 // indirect
