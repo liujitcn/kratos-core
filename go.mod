@@ -9,11 +9,11 @@ require (
 	github.com/go-kratos/kratos/v3 v3.0.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/google/wire v0.7.0
-	github.com/liujitcn/go-utils v0.0.38
+	github.com/liujitcn/go-utils v0.0.39
 	github.com/liujitcn/go-utils/geoip v0.0.5
 	github.com/liujitcn/go-utils/translator v0.0.4
 	github.com/liujitcn/kratos-core/api v0.0.3
-	github.com/liujitcn/kratos-kit v0.0.79
+	github.com/liujitcn/kratos-kit v0.0.81
 	github.com/liujitcn/kratos-kit/api v0.0.35
 	github.com/liujitcn/kratos-kit/auth v0.0.25
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.23
@@ -22,7 +22,7 @@ require (
 	github.com/liujitcn/kratos-kit/auth/authz v0.0.22
 	github.com/liujitcn/kratos-kit/auth/authz/engine/casbin v0.0.20
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.18
-	github.com/liujitcn/kratos-kit/bootstrap v0.0.23
+	github.com/liujitcn/kratos-kit/bootstrap v0.0.25
 	github.com/liujitcn/kratos-kit/cache v0.0.20
 	github.com/liujitcn/kratos-kit/database/gorm v0.0.41
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.13
@@ -113,7 +113,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
 	github.com/clipperhouse/displaywidth v0.10.0 // indirect
-	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
+	github.com/clipperhouse/uax29/v2 v2.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
@@ -174,27 +174,28 @@ require (
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/liujitcn/go-utils/crypto v0.0.14 // indirect
 	github.com/liujitcn/go-utils/http v0.0.6 // indirect
 	github.com/liujitcn/go-utils/translator/alibaba v0.0.2 // indirect
 	github.com/liujitcn/go-utils/translator/baidu v0.0.3 // indirect
 	github.com/liujitcn/go-utils/translator/google v0.0.3 // indirect
 	github.com/liujitcn/go-utils/translator/volc v0.0.2 // indirect
-	github.com/liujitcn/kratos-kit/broker v0.0.10 // indirect
-	github.com/liujitcn/kratos-kit/config v0.0.25 // indirect
-	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.18 // indirect
+	github.com/liujitcn/kratos-kit/broker v0.0.9 // indirect
+	github.com/liujitcn/kratos-kit/config v0.0.26 // indirect
+	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.17 // indirect
 	github.com/liujitcn/kratos-kit/key v0.0.1 // indirect
-	github.com/liujitcn/kratos-kit/logger v0.0.31 // indirect
-	github.com/liujitcn/kratos-kit/oss/s3 v0.0.3 // indirect
-	github.com/liujitcn/kratos-kit/queue/redisqueue v0.0.15 // indirect
-	github.com/liujitcn/kratos-kit/registry v0.0.22 // indirect
-	github.com/liujitcn/kratos-kit/tracer v0.0.16 // indirect
-	github.com/liujitcn/kratos-kit/tracing v0.0.11 // indirect
-	github.com/liujitcn/kratos-kit/transport v0.0.23 // indirect
-	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.12 // indirect
+	github.com/liujitcn/kratos-kit/logger v0.0.29 // indirect
+	github.com/liujitcn/kratos-kit/oss/s3 v0.0.2 // indirect
+	github.com/liujitcn/kratos-kit/queue/redisqueue v0.0.14 // indirect
+	github.com/liujitcn/kratos-kit/registry v0.0.21 // indirect
+	github.com/liujitcn/kratos-kit/tracer v0.0.15 // indirect
+	github.com/liujitcn/kratos-kit/tracing v0.0.10 // indirect
+	github.com/liujitcn/kratos-kit/transport v0.0.22 // indirect
+	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.11 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.22 // indirect
-	github.com/mattn/go-runewidth v0.0.23 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/minio-go/v7 v7.1.0 // indirect
@@ -228,7 +229,7 @@ require (
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/swaggest/swgui v1.8.7 // indirect
 	github.com/tinylib/msgp v1.6.1 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
