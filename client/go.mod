@@ -5,17 +5,17 @@ go 1.27.0
 require (
 	github.com/go-kratos/kratos/v3 v3.0.0
 	github.com/liujitcn/go-utils v0.0.41
-	github.com/liujitcn/kratos-kit v0.0.83
+	github.com/liujitcn/kratos-kit v0.0.84
 	github.com/liujitcn/kratos-kit/api v0.0.36
-	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.19
-	github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.20
+	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.20
+	github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.21
 	github.com/liujitcn/kratos-kit/metrics v0.0.3
-	github.com/liujitcn/kratos-kit/metrics/prometheus v0.0.4
+	github.com/liujitcn/kratos-kit/metrics/prometheus v0.0.5
 	github.com/liujitcn/kratos-kit/ratelimit v0.0.2
 	github.com/liujitcn/kratos-kit/ratelimit/tokenbucket v0.0.3
 	github.com/liujitcn/kratos-kit/retry v0.0.3
 	github.com/liujitcn/kratos-kit/tracing v0.0.12
-	github.com/liujitcn/kratos-kit/utils v0.0.22
+	github.com/liujitcn/kratos-kit/utils v0.0.23
 	google.golang.org/grpc v1.83.1
 	google.golang.org/protobuf v1.36.12
 )
@@ -113,18 +113,18 @@ require (
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/liujitcn/go-utils/translator v0.0.4 // indirect
-	github.com/liujitcn/kratos-kit/auth v0.0.26 // indirect
+	github.com/liujitcn/kratos-kit/auth v0.0.27 // indirect
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.24 // indirect
 	github.com/liujitcn/kratos-kit/auth/authz v0.0.23 // indirect
-	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.19 // indirect
-	github.com/liujitcn/kratos-kit/cache v0.0.21 // indirect
-	github.com/liujitcn/kratos-kit/database/gorm v0.0.42 // indirect
+	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.20 // indirect
+	github.com/liujitcn/kratos-kit/cache v0.0.22 // indirect
+	github.com/liujitcn/kratos-kit/database/gorm v0.0.43 // indirect
 	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.19 // indirect
-	github.com/liujitcn/kratos-kit/key v0.0.4 // indirect
-	github.com/liujitcn/kratos-kit/locker v0.0.17 // indirect
-	github.com/liujitcn/kratos-kit/oss v0.0.18 // indirect
+	github.com/liujitcn/kratos-kit/key v0.0.5 // indirect
+	github.com/liujitcn/kratos-kit/locker v0.0.18 // indirect
+	github.com/liujitcn/kratos-kit/oss v0.0.19 // indirect
 	github.com/liujitcn/kratos-kit/oss/s3 v0.0.4 // indirect
-	github.com/liujitcn/kratos-kit/queue v0.0.28 // indirect
+	github.com/liujitcn/kratos-kit/queue v0.0.29 // indirect
 	github.com/liujitcn/kratos-kit/queue/redisqueue v0.0.16 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
