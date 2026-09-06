@@ -126,6 +126,7 @@ func ParseOpenAPI(openAPIData []byte) (*dto.OpenAPI, error) {
 // 也不能把权限 operation 绑定到另一个模块。
 func buildServicePackageMap(paths map[string]dto.PathItem) map[string]string {
 	candidatesByService := make(map[string]map[string]struct{})
+	packagesByTerminal := make(map[string]map[string]struct{})
 	for path, item := range paths {
 		for _, pathOperation := range pathOperations(item) {
 			// 当前 HTTP 方法未声明 operation 时，没有可供推断的 operationId 或 schema。
@@ -138,11 +139,16 @@ func buildServicePackageMap(paths map[string]dto.PathItem) map[string]string {
 			if serviceKey == "" {
 				continue
 			}
+			if candidatesByService[serviceKey] == nil {
+				candidatesByService[serviceKey] = make(map[string]struct{})
+			}
 			// 同一个服务的每个 HTTP operation 都为所属包提供候选，集合自动消除重复引用。
 			for packageName := range operationProtoPackages(path, pathOperation.Operation) {
-				if candidatesByService[serviceKey] == nil {
-					candidatesByService[serviceKey] = make(map[string]struct{})
+				terminal := openAPITerminal(path)
+				if packagesByTerminal[terminal] == nil {
+					packagesByTerminal[terminal] = make(map[string]struct{})
 				}
+				packagesByTerminal[terminal][packageName] = struct{}{}
 				candidatesByService[serviceKey][packageName] = struct{}{}
 			}
 		}
@@ -155,6 +161,23 @@ func buildServicePackageMap(paths map[string]dto.PathItem) map[string]string {
 			continue
 		}
 		for packageName := range candidates {
+			servicePackages[serviceKey] = packageName
+		}
+	}
+	for serviceKey, candidates := range candidatesByService {
+		// 服务自身没有 schema 线索时，只能在当前 HTTP 终端唯一对应一个 protobuf 包的情况下回退。
+		if len(candidates) != 0 {
+			continue
+		}
+		terminal, _, ok := strings.Cut(serviceKey, "\x00")
+		if !ok {
+			continue
+		}
+		terminalPackages := packagesByTerminal[terminal]
+		if len(terminalPackages) != 1 {
+			continue
+		}
+		for packageName := range terminalPackages {
 			servicePackages[serviceKey] = packageName
 		}
 	}
