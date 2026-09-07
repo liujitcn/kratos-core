@@ -91,9 +91,9 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `RegisterQueue` | 註冊佇列消費者；Core 同時註冊內建日誌和任務日誌消費者。 |
 | `RegisterCron` | 註冊資料庫持久化任務執行器，通常呼叫 `server.RegisterTask`。回傳錯誤會中止組裝。 |
 | `RegisterSSE` | 註冊業務 SSE 流，通常呼叫 `server.RegisterStream`。回傳錯誤會中止組裝。 |
-| `Resources` | 回傳模型、遷移、OpenAPI、專案文件和 I18n 等靜態資源。 |
+| `Resources` | 回傳模型、遷移、OpenAPI 和 I18n 等靜態資源。 |
 
-多個業務模組可以由宿主 Wire 組合根作為 `module.Module` 提供。Core 會依提供順序收集資源並轉發協議註冊；重複文件路徑、衝突的 OpenAPI 文件、內容不同的 I18n 訊息鍵或重複 SSE 流標識會在組裝時被拒絕。
+多個業務模組可以由宿主 Wire 組合根作為 `module.Module` 提供。Core 會依提供順序收集資源並轉發協議註冊；衝突的 OpenAPI 文件、內容不同的 I18n 訊息鍵或重複 SSE 流標識會在組裝時被拒絕。
 
 ## 建置期資源
 
@@ -101,12 +101,11 @@ func (*hostModule) Resources() module.Resources                { return module.R
 
 | 欄位 | 內容與約束 |
 | --- | --- |
-| `ProjectKey` | 專案穩定標識，用於文件和 OpenAPI 命名；留空時使用 `kratos-core`。 |
+| `ProjectKey` | 專案穩定標識，用於 OpenAPI 命名；留空時使用 `kratos-core`。 |
 | `ProjectName` | 專案展示名稱；留空時回退到 `ProjectKey`。 |
 | `Models` | 按資料源名稱分組的 GORM 模型。含模型的資料源必須在設定中存在，預設資料源必須配置。 |
 | `Migrations` | 版本化遷移列表。每個 `module.Migration` 宣告 `Name`、`FS`、`Path` 和 `Dependencies`，Core 依賴關係順序執行。 |
 | `OpenAPI` | 包含 `openapi.yaml`、`openapi.yml` 或 `openapi.json`，以及可選的 `openapi.<locale>.yaml` 等語言檔案的 `fs.FS`。啟用 Swagger 後，Core 會按專案和語言掛載原文和 Swagger UI。 |
-| `Docs` | 通常包含 `docs.json` 的 `fs.FS`；文件翻譯由產生器寫入 `locale`，依請求語言查詢並回退到預設正文。 |
 | `I18n` | 包含 `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` 等語言檔案的 `fs.FS`。Core 會與內建文案合併。 |
 
 宿主通常透過 `embed.FS`、程式碼產生器或 `fstest.MapFS` 提供這些資源：
@@ -117,7 +116,6 @@ func NewModuleResources() module.Resources {
 		ProjectKey:  "host",
 		ProjectName: "Host Service",
 		Models:      map[string][]interface{}{defaultDataSource: models.Models()},
-		Docs:        docsFS,
 		OpenAPI:     openAPIFS,
 		I18n:        i18nFS,
 		Migrations: []module.Migration{
@@ -136,7 +134,6 @@ func NewModuleResources() module.Resources {
 Core 還向宿主提供以下具體業務服務：
 
 - `job.Job`：啟動、停止或立即執行資料庫中的持久化任務。
-- `resource/docs.Docs`：查詢合併後的專案文件樹和依請求語言選擇的文件正文。
 - `resource/openapi.OpenAPI`：按請求語言、服務或 HTTP 操作查詢 OpenAPI 資訊。
 - `sse.SSE`：建立 SSE 訂閱並發布 JSON 事件。
 
@@ -175,11 +172,9 @@ job/                     Cron 註冊、持久化任務和執行時
 mcp/                     MCP 服務與生命週期適配
 module/                  宿主模組、資源和協議註冊契約
 queue/                   佇列訊息輔助能力與消費者生命週期
-resource/                文件、I18n、遷移、OpenAPI 和啟動資源同步
+resource/                I18n、遷移、OpenAPI 和啟動資源同步
   biz/                    API、租戶和 Casbin 資源同步業務
     dto/                  資源同步 DTO
-  docs/                   專案文件註冊與查詢
-    dto/                  專案文件查詢 DTO
   i18n/                   國際化資源合併
   locale/                 語言標識解析
   migration/              資料庫遷移

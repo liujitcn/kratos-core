@@ -104,7 +104,7 @@ func (*hostModule) RegisterMCP(*mcpserver.Server)      {}
 | `ProjectKey()` / `ProjectName()` | 项目稳定标识和展示名称；ProjectKey 为空时使用 `kratos-core`，ProjectName 为空时回退到 ProjectKey。 |
 | `Models()` | 按数据源名称分组的 GORM 模型。含模型的数据源必须在配置中存在，默认数据源必须配置。 |
 | `Migrations()` | 版本化迁移列表。每项 `module.Migration` 声明 `Name`、`FS`、`Path` 和 `Dependencies`，Core 按依赖顺序执行；每个数据库类型或命名数据源目录使用 `README.md` 作为主说明，可选的 `README.<locale>.md` 由宿主同步。 |
-| `OpenAPI()` / `Docs()` / `I18n()` | 分别返回 OpenAPI、项目文档和语言 JSON 文件系统；项目文档包含 `docs.json` 和可选的 `docs.<locale>.json`，未提供的资源返回 nil。 |
+| `OpenAPI()` / `I18n()` | 分别返回 OpenAPI 和语言 JSON 文件系统，未提供的资源返回 nil。 |
 
 资源通常由宿主通过 `embed.FS`、代码生成器或 `fstest.MapFS` 提供：
 
@@ -114,7 +114,6 @@ type hostResources struct{}
 func (*hostResources) ProjectKey() string                    { return "host" }
 func (*hostResources) ProjectName() string                   { return "Host Service" }
 func (*hostResources) Models() module.Models                 { return map[string][]interface{}{defaultDataSource: models.Models()} }
-func (*hostResources) Docs() fs.FS                            { return docsFS }
 func (*hostResources) OpenAPI() fs.FS                        { return openAPIFS }
 func (*hostResources) I18n() fs.FS                           { return i18nFS }
 func (*hostResources) Migrations() module.Migrations          { return module.Migrations{{Name: "host", FS: migrationFS, Path: "."}} }
@@ -142,7 +141,6 @@ Core 只把 `README.md` 交给迁移执行器写入 `base_migration.description`
 Core 还向宿主提供以下具体业务服务：
 
 - `job.Job`：启动、停止或立即运行数据库中的持久化任务。
-- `resource/docs.Docs`：按请求语言选择完整的项目文档目录树、文档显示名和正文；稳定路径不随语言变化，语言文件缺失时按基础语言、默认 `docs.json` 依次回退。
 - `resource/openapi.OpenAPI`：按请求语言、服务或 HTTP 操作查询 OpenAPI 信息。
 - `sse.SSE`：建立 SSE 订阅并发布 JSON 事件。
 
@@ -181,11 +179,9 @@ job/                     Cron 注册、持久化任务和运行时
 mcp/                     MCP 服务与生命周期适配
 module/                  宿主模块、资源和协议注册契约
 queue/                   队列消息辅助能力与消费者生命周期
-resource/                文档、I18n、迁移、OpenAPI 和启动资源同步
+resource/                I18n、迁移、OpenAPI 和启动资源同步
   biz/                    API、租户和 Casbin 资源同步业务
     dto/                  资源同步 DTO
-  docs/                   项目文档注册与查询
-    dto/                  项目文档查询 DTO
   i18n/                   国际化资源合并
   locale/                 语言标识解析
   migration/              数据库迁移

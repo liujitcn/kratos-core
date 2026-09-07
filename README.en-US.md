@@ -89,9 +89,9 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `RegisterQueue` | Register queue consumers; Core also registers built-in log and job-log consumers. |
 | `RegisterCron` | Register persistent database task executors, usually with `server.RegisterTask`. An error aborts assembly. |
 | `RegisterSSE` | Register business SSE streams, usually with `server.RegisterStream`. An error aborts assembly. |
-| `Resources` | Return models, migrations, OpenAPI, project documentation, and i18n resources. |
+| `Resources` | Return models, migrations, OpenAPI and i18n resources. |
 
-Multiple business modules can be provided as `module.Module` values by the host's Wire composition root. Core collects resources and forwards protocol registration in provider order. Duplicate documentation paths, conflicting OpenAPI documents, i18n keys with different contents, or duplicate SSE stream IDs are rejected during assembly.
+Multiple business modules can be provided as `module.Module` values by the host's Wire composition root. Core collects resources and forwards protocol registration in provider order. Conflicting OpenAPI documents, i18n keys with different contents, or duplicate SSE stream IDs are rejected during assembly.
 
 ## Build-Time Resources
 
@@ -99,12 +99,11 @@ Multiple business modules can be provided as `module.Module` values by the host'
 
 | Field | Contents and constraints |
 | --- | --- |
-| `ProjectKey` | Stable project identifier used for documentation and OpenAPI namespacing; defaults to `kratos-core`. |
+| `ProjectKey` | Stable project identifier used for OpenAPI namespacing; defaults to `kratos-core`. |
 | `ProjectName` | Display name for the project; falls back to `ProjectKey`. |
 | `Models` | GORM models grouped by data-source name. Every data source containing models must be configured, and the default data source is required. |
 | `Migrations` | Versioned migrations. Each `module.Migration` declares `Name`, `FS`, `Path`, and `Dependencies`; Core runs them in dependency order. |
 | `OpenAPI` | An `fs.FS` containing `openapi.yaml`, `openapi.yml`, or `openapi.json`, plus optional `openapi.<locale>.yaml` language files. When Swagger is enabled, Core mounts raw documents and Swagger UI by project and locale. |
-| `Docs` | An `fs.FS` normally containing `docs.json`; the generator writes translations into `locale`, which are selected by request locale and fall back to the default body. |
 | `I18n` | An `fs.FS` containing locale files such as `zh-CN.json`, `zh-TW.json`, `en-US.json`, and `ja-JP.json`; Core merges them with its built-in messages. |
 
 Hosts commonly provide these resources through `embed.FS`, a code generator, or `fstest.MapFS`:
@@ -115,7 +114,6 @@ func NewModuleResources() module.Resources {
 		ProjectKey:  "host",
 		ProjectName: "Host Service",
 		Models:      map[string][]interface{}{defaultDataSource: models.Models()},
-		Docs:        docsFS,
 		OpenAPI:     openAPIFS,
 		I18n:        i18nFS,
 		Migrations: []module.Migration{
@@ -134,7 +132,6 @@ func NewModuleResources() module.Resources {
 Core also provides these concrete runtime services:
 
 - `job.Job`: start, stop, or immediately run persistent database jobs.
-- `resource/docs.Docs`: query the merged project documentation tree and document bodies selected by request locale.
 - `resource/openapi.OpenAPI`: query OpenAPI information by request locale, service, or HTTP operation.
 - `sse.SSE`: create SSE subscriptions and publish JSON events.
 
@@ -173,11 +170,9 @@ job/                     Cron registration, persistent jobs, and runtime
 mcp/                     MCP service and lifecycle adapter
 module/                  Host module, resource, and protocol contracts
 queue/                   Queue message helpers and consumer lifecycle
-resource/                Documentation, i18n, migration, OpenAPI, and startup sync
+resource/                i18n, migration, OpenAPI, and startup sync
   biz/                    API, tenant, and Casbin resource synchronization
     dto/                  Resource synchronization DTOs
-  docs/                   Project documentation registry and queries
-    dto/                  Project documentation query DTOs
   i18n/                   I18n resource merging
   locale/                 Locale identifier parsing
   migration/              Database migrations

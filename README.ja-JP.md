@@ -91,9 +91,9 @@ func (*hostModule) Resources() module.Resources                { return module.R
 | `RegisterQueue` | キューコンシューマーを登録します。Core は組み込みのログおよびジョブログコンシューマーも登録します。 |
 | `RegisterCron` | 永続データベースタスクの実行器を登録します。通常は `server.RegisterTask` を呼び出します。エラーを返すと組み立てを中止します。 |
 | `RegisterSSE` | 業務 SSE ストリームを登録します。通常は `server.RegisterStream` を呼び出します。エラーを返すと組み立てを中止します。 |
-| `Resources` | モデル、マイグレーション、OpenAPI、プロジェクトドキュメント、i18n リソースを返します。 |
+| `Resources` | モデル、マイグレーション、OpenAPI、プロジェクトi18n リソースを返します。 |
 
-複数の業務モジュールは、ホストの Wire 組み立てルートから `module.Module` として提供できます。Core は提供順にリソースを収集し、プロトコル登録を転送します。同じドキュメントパス、競合する OpenAPI ドキュメント、内容の異なる i18n メッセージキー、重複する SSE ストリーム ID は組み立て時に拒否されます。
+複数の業務モジュールは、ホストの Wire 組み立てルートから `module.Module` として提供できます。Core は提供順にリソースを収集し、プロトコル登録を転送します。競合する OpenAPI ドキュメント、内容の異なる i18n メッセージキー、重複する SSE ストリーム ID は組み立て時に拒否されます。
 
 ## ビルド時リソース
 
@@ -101,12 +101,11 @@ func (*hostModule) Resources() module.Resources                { return module.R
 
 | フィールド | 内容と制約 |
 | --- | --- |
-| `ProjectKey` | ドキュメントと OpenAPI の名前空間に使う安定したプロジェクト識別子です。空の場合は `kratos-core` を使用します。 |
+| `ProjectKey` | OpenAPI の名前空間に使う安定したプロジェクト識別子です。空の場合は `kratos-core` を使用します。 |
 | `ProjectName` | プロジェクトの表示名です。空の場合は `ProjectKey` にフォールバックします。 |
 | `Models` | データソース名ごとにグループ化された GORM モデルです。モデルを含むすべてのデータソースは設定に存在し、デフォルトデータソースは必須です。 |
 | `Migrations` | バージョン管理されたマイグレーションです。各 `module.Migration` は `Name`、`FS`、`Path`、`Dependencies` を宣言し、Core は依存関係の順に実行します。 |
 | `OpenAPI` | `openapi.yaml`、`openapi.yml`、`openapi.json` と、任意の `openapi.<locale>.yaml` などの言語ファイルを含む `fs.FS` です。Swagger が有効な場合、Core はプロジェクトと言語ごとに原文と Swagger UI をマウントします。 |
-| `Docs` | 通常 `docs.json` を含む `fs.FS` です。ジェネレーターが翻訳を `locale` に書き込み、リクエスト言語で選択して既定本文にフォールバックします。 |
 | `I18n` | `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` などの言語ファイルを含む `fs.FS` です。Core は組み込みメッセージとマージします。 |
 
 ホストは通常、`embed.FS`、コードジェネレーター、`fstest.MapFS` を使って次のリソースを提供します。
@@ -117,7 +116,6 @@ func NewModuleResources() module.Resources {
 		ProjectKey:  "host",
 		ProjectName: "Host Service",
 		Models:      map[string][]interface{}{defaultDataSource: models.Models()},
-		Docs:        docsFS,
 		OpenAPI:     openAPIFS,
 		I18n:        i18nFS,
 		Migrations: []module.Migration{
@@ -136,7 +134,6 @@ func NewModuleResources() module.Resources {
 Core は次の具体的なランタイムサービスもホストへ提供します。
 
 - `job.Job`: データベースの永続タスクを開始、停止、即時実行します。
-- `resource/docs.Docs`: マージ済みのプロジェクトドキュメントツリーと、リクエスト言語で選択した本文を検索します。
 - `resource/openapi.OpenAPI`: リクエスト言語、Service、HTTP 操作ごとに OpenAPI 情報を検索します。
 - `sse.SSE`: SSE サブスクリプションを作成し、JSON イベントを発行します。
 
@@ -175,11 +172,9 @@ job/                     Cron 登録、永続ジョブ、ランタイム
 mcp/                     MCP サービスとライフサイクルアダプター
 module/                  ホストモジュール、リソース、プロトコル契約
 queue/                   キューメッセージヘルパーとコンシューマーのライフサイクル
-resource/                ドキュメント、i18n、マイグレーション、OpenAPI、起動同期
+resource/                i18n、マイグレーション、OpenAPI、起動同期
   biz/                    API、テナント、Casbin のリソース同期
     dto/                  リソース同期 DTO
-  docs/                   プロジェクトドキュメントの登録と検索
-    dto/                  プロジェクトドキュメント検索 DTO
   i18n/                   i18n リソースのマージ
   locale/                 ロケール識別子の解析
   migration/              データベースマイグレーション
