@@ -40,9 +40,11 @@ import (
 	core "github.com/liujitcn/kratos-core"
 	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
+	"github.com/liujitcn/kratos-kit/redact"
 )
 
-func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
+// initializeApp 将宿主提供的实例策略解析器交给 Core 各协议入口。
+func initializeApp(ctx *bootstrap.Context, policyResolver redact.PolicyResolver) (*kratos.App, func(), error) {
 	panic(wire.Build(
 		core.ProviderSet,
 		newHostModule,
@@ -57,7 +59,13 @@ func newHostModules(host *hostModule) []module.Module {
 
 Core 的 `ProviderSet` 彙總設定、基礎設施、模組資源、資料存取、資源同步和各協議執行時，並包含 `NewApp`。宿主只需補充自己的業務 Provider，並提供 `[]module.Module`，不需要重複加入 Core 的 ProviderSet。Core 根目錄不再維護 `wire.go` 或 `wire_gen.go`；宿主專案應使用自己的 Wire 指令產生組合根和 `wire_gen.go`，也可以使用 `make wire WIRE_DIR=<宿主 Wire 目錄>`。
 
-Core 的任務、日誌和權限資源執行時依賴 `data` 套件中的 `Store`/`Writer` 契約。宿主應在自己的 Wire 組合根提供這些契約的實作；Admin 的實作位於 `backend/internal/adapter/core`。Core 不依賴宿主的資料庫模型或產生的 Repository。
+Core 的任務、日誌和權限資源執行時依賴 `data` 套件中的 `Store`/`Writer` 契約。宿主應在自己的 Wire 組合根提供這些契約的實作；Admin 的實作位於 `backend/adapter/core`。Core 不依賴宿主的資料庫模型或產生的 Repository。
+
+宿主 Wire 圖必須顯式提供 `redact.PolicyResolver`，它是 `server.NewHTTPServer`、`server.NewGRPCServer` 與 `mcp.NewServer` 的最後一個建構參數。可使用上述組合根參數，或由宿主 Provider 提供介面；具體型別需搭配 `wire.Bind`。Core 不提供預設 Provider、不讀取全域策略，顯式 nil 會遮蔽上游策略，保留 Kit 的靜態規則與預設文字清理。
+
+策略只注入 HTTP 請求（含 middleware、原生 Handler、encoder）、gRPC unary/各類 stream，以及 MCP 各傳輸模式的 SDK 接收上下文。gRPC 使用原生攔截器與前置 Kratos middleware，模組仍收到原始 `*kratosGRPC.Server`，可繼續呼叫 `Use`。Core 不額外執行脫敏，現有包裝器的 `ApplyWith(ctx, nil, value)` 可直接取得請求策略，無需重生成 Proto。MCP 掛載於 HTTP 時仍使用自身建構參數，取消訊號與 deadline 保持傳遞。
+
+宿主需重新生成 Wire，並使用包含 `WithPolicyResolver` / `PolicyResolverFromContext` 的 Kit/redact 與包含 `CreateGrpcServerWithOptions` 的 Kit/server/grpc。未發布的本地版本以臨時 `GOWORK` 聯調，不新增永久 replace。
 
 ## 模組契約
 

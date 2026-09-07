@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport/grpc"
 	"github.com/liujitcn/kratos-core/module"
@@ -13,7 +15,9 @@ import (
 	"github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/cache"
+	"github.com/liujitcn/kratos-kit/redact"
 	servergrpc "github.com/liujitcn/kratos-kit/server/grpc"
+	grpcserver "google.golang.org/grpc"
 )
 
 // GRPCMiddlewares 表示 GRPC 服务中间件链。
@@ -49,11 +53,12 @@ func NewGRPCMiddleware(
 	return grpcMiddlewares
 }
 
-// NewGRPCServer 创建 GRPC Server 并注册已启用业务模块。
+// NewGRPCServer 创建 GRPC Server，并为业务 unary 和 stream 请求注入实例策略解析器。
 func NewGRPCServer(
 	ctx *bootstrap.Context,
 	middlewares GRPCMiddlewares,
 	modules module.Modules,
+	policyResolver redact.PolicyResolver,
 ) (*grpc.Server, error) {
 	cfg := ctx.GetConfig()
 	// 未启用 GRPC 配置时，跳过 GRPC 服务创建。
@@ -61,7 +66,25 @@ func NewGRPCServer(
 		return nil, nil
 	}
 
-	srv, err := servergrpc.CreateGrpcServer(cfg, middlewares...)
+	// 普通 Kratos 中间件先于原生 unary 拦截器执行，策略需在业务中间件之前注入。
+	policyMiddleware := func(next middleware.Handler) middleware.Handler {
+		return func(ctx context.Context, request any) (any, error) {
+			return next(redact.WithPolicyResolver(ctx, policyResolver), request)
+		}
+	}
+	configuredMiddlewares := append([]middleware.Middleware{policyMiddleware}, middlewares...)
+	options := []grpc.ServerOption{
+		grpc.UnaryInterceptor(func(ctx context.Context, request any, _ *grpcserver.UnaryServerInfo, handler grpcserver.UnaryHandler) (any, error) {
+			return handler(redact.WithPolicyResolver(ctx, policyResolver), request)
+		}),
+		grpc.StreamInterceptor(func(service any, stream grpcserver.ServerStream, _ *grpcserver.StreamServerInfo, handler grpcserver.StreamHandler) error {
+			return handler(service, &policyServerStream{
+				ServerStream: stream,
+				ctx:          redact.WithPolicyResolver(stream.Context(), policyResolver),
+			})
+		}),
+	}
+	srv, err := servergrpc.CreateGrpcServerWithOptions(cfg, options, configuredMiddlewares...)
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,7 @@ import (
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/cache"
 	"github.com/liujitcn/kratos-kit/oss"
+	"github.com/liujitcn/kratos-kit/redact"
 	serverhttp "github.com/liujitcn/kratos-kit/server/http"
 	mcpserver "github.com/liujitcn/kratos-kit/transport/mcp"
 	sseServer "github.com/liujitcn/kratos-kit/transport/sse"
@@ -67,7 +68,7 @@ func NewHTTPMiddleware(
 	return httpMiddlewares
 }
 
-// NewHTTPServer 创建 HTTP Server 并注册已启用业务模块与前端静态路由。
+// NewHTTPServer 创建 HTTP Server，将实例策略解析器注入请求并注册业务模块与前端静态路由。
 func NewHTTPServer(
 	ctx *bootstrap.Context,
 	appInfo *configv1.AppInfo,
@@ -78,6 +79,7 @@ func NewHTTPServer(
 	openAPIRegistry *openapi.Registry,
 	mcpServer *mcp.Server,
 	sseServer *sse.Server,
+	policyResolver redact.PolicyResolver,
 ) (transport.Server, error) {
 	cfg := ctx.GetConfig()
 	httpConfigured := cfg != nil && cfg.Server != nil && cfg.Server.Http != nil
@@ -95,6 +97,11 @@ func NewHTTPServer(
 	if err != nil {
 		return nil, err
 	}
+	// 在传输层最外侧注入，确保业务中间件、原生路由和响应编码器共享请求策略。
+	handler := srv.Handler
+	srv.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		handler.ServeHTTP(writer, request.WithContext(redact.WithPolicyResolver(request.Context(), policyResolver)))
+	})
 	serverReturned := false
 	defer func() {
 		if serverReturned {

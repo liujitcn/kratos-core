@@ -40,9 +40,11 @@ import (
 	core "github.com/liujitcn/kratos-core"
 	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
+	"github.com/liujitcn/kratos-kit/redact"
 )
 
-func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
+// initializeApp 将宿主提供的实例策略解析器交给 Core 各协议入口。
+func initializeApp(ctx *bootstrap.Context, policyResolver redact.PolicyResolver) (*kratos.App, func(), error) {
 	panic(wire.Build(
 		core.ProviderSet,
 		newHostModule,
@@ -57,7 +59,11 @@ func newHostModules(host *hostModule) []module.Module {
 
 Core's `ProviderSet` combines configuration, infrastructure, module resources, data access, resource synchronization, and all protocol runtimes, and includes `NewApp`. Add the host's own providers and provide a `[]module.Module`; do not add Core's ProviderSets again. Core no longer maintains `wire.go` or `wire_gen.go` at its root. The host project should generate its composition root and `wire_gen.go` with its own Wire command, or use `make wire WIRE_DIR=<host Wire directory>`.
 
-Core's job, log, and permission runtimes depend on the `Store`/`Writer` contracts in `data`. The host must provide their implementations in its Wire composition root; Admin implements them under `backend/internal/adapter/core`. Core does not depend on host database models or generated repositories.
+Core's job, log, and permission runtimes depend on the `Store`/`Writer` contracts in `data`. The host must provide their implementations in its Wire composition root; Admin implements them under `backend/adapter/core`. Core does not depend on host database models or generated repositories.
+
+Core requires an explicit `redact.PolicyResolver` in the host Wire graph. It is the final constructor argument of `server.NewHTTPServer`, `server.NewGRPCServer`, and `mcp.NewServer`; use an injector argument as above or a host provider with `wire.Bind` for a concrete implementation. Core has no default provider or process-global resolver. An explicit nil retains static rules and default text sanitization when redaction is invoked.
+
+The resolver is attached to HTTP request contexts (including middleware, raw handlers and encoders), business gRPC unary and all streaming contexts, and MCP SDK receiving contexts across HTTP, Legacy SSE, STDIO and in-process modes. gRPC uses native interceptors plus a leading Kratos middleware; modules still receive the original `*kratosGRPC.Server` and can attach middleware with `Use`. Core only injects context: existing wrappers call `ApplyWith(ctx, nil, value)` without regenerating Proto or applying redaction twice. MCP uses its own constructor argument even when mounted on HTTP. Nil masks an inherited resolver; cancellation and deadlines are preserved. The host must regenerate Wire code and use Kit/redact with `WithPolicyResolver` / `PolicyResolverFromContext` and Kit/server/grpc with `CreateGrpcServerWithOptions`; use a temporary `GOWORK` for unreleased local APIs, not a permanent replace.
 
 ## Module Contract
 

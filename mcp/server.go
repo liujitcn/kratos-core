@@ -10,8 +10,10 @@ import (
 	"github.com/liujitcn/kratos-core/module"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/bootstrap"
+	"github.com/liujitcn/kratos-kit/redact"
 	servermcp "github.com/liujitcn/kratos-kit/server/mcp"
 	"github.com/liujitcn/kratos-kit/transport/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Server 描述 Core MCP 服务及其传输模式。
@@ -25,8 +27,8 @@ type Server struct {
 var _ transport.Server = (*Server)(nil)
 var _ transport.Endpointer = (*Server)(nil)
 
-// NewServer 按 Server_Mcp 配置创建 MCP 服务、注册全部模块工具，并返回进程内服务清理函数。
-func NewServer(ctx *bootstrap.Context, modules module.Modules) (*Server, func(), error) {
+// NewServer 按配置创建 MCP 服务，为各传输模式注入实例策略并注册模块工具。
+func NewServer(ctx *bootstrap.Context, modules module.Modules, policyResolver redact.PolicyResolver) (*Server, func(), error) {
 	cfg := ctx.GetConfig()
 	if cfg == nil || cfg.Server == nil || cfg.Server.Mcp == nil {
 		return nil, func() {}, nil
@@ -53,6 +55,12 @@ func NewServer(ctx *bootstrap.Context, modules module.Modules) (*Server, func(),
 	}
 	if server != nil {
 		modules.RegisterMCP(server)
+		// SDK 接收中间件统一覆盖独立 HTTP、SSE、STDIO 和挂载模式，且先于模块中间件执行。
+		server.MCPServer().AddReceivingMiddleware(func(next mcpsdk.MethodHandler) mcpsdk.MethodHandler {
+			return func(ctx context.Context, method string, request mcpsdk.Request) (mcpsdk.Result, error) {
+				return next(redact.WithPolicyResolver(ctx, policyResolver), method, request)
+			}
+		})
 	}
 	return runtime, cleanup, nil
 }

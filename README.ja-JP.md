@@ -40,9 +40,11 @@ import (
 	core "github.com/liujitcn/kratos-core"
 	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
+	"github.com/liujitcn/kratos-kit/redact"
 )
 
-func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
+// initializeApp 将宿主提供的实例策略解析器交给 Core 各协议入口。
+func initializeApp(ctx *bootstrap.Context, policyResolver redact.PolicyResolver) (*kratos.App, func(), error) {
 	panic(wire.Build(
 		core.ProviderSet,
 		newHostModule,
@@ -57,7 +59,13 @@ func newHostModules(host *hostModule) []module.Module {
 
 Core の `ProviderSet` は設定、インフラストラクチャ、モジュールリソース、データアクセス、リソース同期、各プロトコルランタイムをまとめ、`NewApp` を含みます。ホスト固有の Provider と `[]module.Module` を追加し、Core の ProviderSet を重複して追加しないでください。Core のルートでは `wire.go` と `wire_gen.go` を管理しません。ホストプロジェクト自身の Wire コマンドで組み立てルートと `wire_gen.go` を生成するか、`make wire WIRE_DIR=<ホストの Wire ディレクトリ>` を使用してください。
 
-Core のジョブ、ログ、権限リソースのランタイムは、`data` パッケージの `Store`/`Writer` 契約に依存します。ホストは Wire の合成ルートで実装を提供してください。Admin の実装は `backend/internal/adapter/core` にあります。Core はホストのデータベースモデルや生成 Repository に依存しません。
+Core のジョブ、ログ、権限リソースのランタイムは、`data` パッケージの `Store`/`Writer` 契約に依存します。ホストは Wire の合成ルートで実装を提供してください。Admin の実装は `backend/adapter/core` にあります。Core はホストのデータベースモデルや生成 Repository に依存しません。
+
+ホストの Wire グラフは `redact.PolicyResolver` を明示的に提供する必要があります。これは `server.NewHTTPServer`、`server.NewGRPCServer`、`mcp.NewServer` の最後のコンストラクター引数です。上記の引数、またはホストの Provider と `wire.Bind` を使用してください。Core はデフォルト Provider やプロセス全体の resolver を持ちません。明示的な nil は上流の resolver を遮断し、Kit の静的ルールとデフォルトのテキスト処理を維持します。
+
+resolver は HTTP リクエスト（middleware、通常の Handler、encoder を含む）、gRPC unary と全 stream、および全 MCP トランスポートの SDK 受信コンテキストに注入されます。gRPC はネイティブ interceptor と先頭の Kratos middleware を使い、モジュールには元の `*kratosGRPC.Server` を渡すため、`Use` は引き続き利用できます。Core は追加のマスキングを実行せず、既存 wrapper の `ApplyWith(ctx, nil, value)` がリクエストの resolver を取得します。Proto の再生成は不要です。HTTP にマウントした MCP も自身のコンストラクター引数を使い、キャンセルと deadline は保持されます。
+
+ホストは Wire を再生成し、`WithPolicyResolver` / `PolicyResolverFromContext` を含む Kit/redact と `CreateGrpcServerWithOptions` を含む Kit/server/grpc を使用してください。未リリースのローカル版は一時的な `GOWORK` で検証し、永続的な replace は追加しません。
 
 ## モジュール契約
 

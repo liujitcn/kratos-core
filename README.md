@@ -40,9 +40,11 @@ import (
 	core "github.com/liujitcn/kratos-core"
 	"github.com/liujitcn/kratos-core/module"
 	"github.com/liujitcn/kratos-kit/bootstrap"
+	"github.com/liujitcn/kratos-kit/redact"
 )
 
-func initializeApp(ctx *bootstrap.Context) (*kratos.App, func(), error) {
+// initializeApp 将宿主提供的实例策略解析器交给 Core 各协议入口。
+func initializeApp(ctx *bootstrap.Context, policyResolver redact.PolicyResolver) (*kratos.App, func(), error) {
 	panic(wire.Build(
 		core.ProviderSet,
 		newHostModule,
@@ -57,7 +59,19 @@ func newHostModules(host *hostModule) []module.Module {
 
 Core 的 `ProviderSet` 汇总配置、基础设施、模块资源、数据访问、资源同步和各协议运行时，并包含 `NewApp`。宿主只需补充自己的业务 Provider，并提供 `[]module.Module`，不需要重复加入 Core 的 ProviderSet。Core 根目录不再维护 `wire.go` 或 `wire_gen.go`；宿主项目应通过自己的 Wire 命令生成组合根和 `wire_gen.go`，也可以使用 `make wire WIRE_DIR=<宿主 Wire 目录>`。
 
-Core 的任务、日志和权限资源运行时依赖 `data` 包中的 `Store`/`Writer` 契约。宿主应在自己的 Wire 组合根中提供这些契约的实现；Admin 的实现位于 `backend/internal/adapter/core`。Core 不依赖宿主的数据库模型或生成仓储。
+Core 的任务、日志和权限资源运行时依赖 `data` 包中的 `Store`/`Writer` 契约。宿主应在自己的 Wire 组合根中提供这些契约的实现；Admin 的实现位于 `backend/adapter/core`。Core 不依赖宿主的数据库模型或生成仓储。
+
+### 请求脱敏策略
+
+`server.NewHTTPServer`、`server.NewGRPCServer` 和 `mcp.NewServer` 的最后一个构造参数为 `redact.PolicyResolver`。宿主必须在 Wire 图中显式提供该接口，可使用上例的组合根参数，或由宿主 Provider 返回接口；具体类型 Provider 需要 `wire.Bind(new(redact.PolicyResolver), new(*HostPolicyResolver))`。Core 不注册默认 Provider、不读取进程全局策略，也不改变 `module.Module` 的注册接口。即使协议未启用，Wire 仍需解析该依赖；仅使用静态规则的宿主可显式传入 nil。
+
+- HTTP 在最外层 Handler 注入请求上下文，覆盖业务中间件、原生路由和响应 encoder；原有编码、静态资源、SSE 和超时行为保持不变。
+- gRPC 通过原生 `UnaryInterceptor` / `StreamInterceptor` 注入 unary 和 server/client/bidi stream 上下文，并使用前置 Kratos middleware 让日志、会话等中间件也可读取策略；模块仍收到原始 `*kratosGRPC.Server`，可继续通过 `Use` 挂载中间件。现有生成包装器可从 `stream.Context()` 获取解析器，无需重生成 Proto。
+- MCP 使用 SDK 接收中间件，在模块中间件之前注入，覆盖独立 HTTP、Legacy SSE、STDIO 和挂载 HTTP 模式；挂载时以 MCP 自身的构造参数为准。
+
+Core 只传递策略，不额外执行 `ApplyWith` 或修改响应，避免与生成包装器重复脱敏。业务调用 `redact.ApplyWith(ctx, nil, value)` 时读取当前请求策略；显式非 nil resolver 优先。构造参数为 nil 时会屏蔽上游上下文策略，保留 Kit 的静态规则与默认文本清理，不等同于禁用脱敏。原有 `redact.Apply(value)` 和日志脱敏接口保持不变，取消信号与 deadline 随请求上下文传递。
+
+本次接口需要包含 `WithPolicyResolver` / `PolicyResolverFromContext` 的 Kit/redact 版本，以及支持 `CreateGrpcServerWithOptions` 的 Kit/server/grpc 版本。新版本发布前，使用临时 `GOWORK` 同时包含 Core 与这两个本地 Kit 模块联调，不向仓库 `go.mod` 写入本地 replace；宿主还需重新生成 Wire 装配代码。
 
 ## 模块契约
 
