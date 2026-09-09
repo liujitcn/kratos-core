@@ -144,6 +144,7 @@ func (t *Server) Resolver() sse.StreamIDResolver {
 	return t.resolver
 }
 
+// requestUserID 校验当前请求令牌，并提取 SSE 用户和租户范围。
 func requestUserID(request *http.Request, streamID string, authenticator engine.Authenticator, userToken *data.UserToken) (int64, int64, error) {
 	if authenticator == nil {
 		return 0, 0, nil
@@ -177,7 +178,7 @@ func requestUserID(request *http.Request, streamID string, authenticator engine.
 	}
 	var tenantID int64
 	tenantID, _ = claims.GetInt64(data.ClaimFieldTenantID)
-	if userID != 0 && userToken != nil && !userToken.IsExistAccessToken(userID) {
+	if userID != 0 && userToken != nil && !userToken.IsAccessTokenValid(userID, parts[1]) {
 		return 0, 0, fmt.Errorf("SSE 访问令牌已失效")
 	}
 	return userID, tenantID, nil

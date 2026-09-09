@@ -15,7 +15,7 @@ require (
 	github.com/liujitcn/kratos-core/api v0.0.4
 	github.com/liujitcn/kratos-kit v0.0.85
 	github.com/liujitcn/kratos-kit/api v0.0.36
-	github.com/liujitcn/kratos-kit/auth v0.0.27
+	github.com/liujitcn/kratos-kit/auth v0.0.28
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.24
 	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.20
 	github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.21

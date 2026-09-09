@@ -268,6 +268,6 @@ func newOpenAPIAuthorizer(authenticator engine.Authenticator, userToken *data.Us
 		if err != nil {
 			return false
 		}
-		return userID == 0 || userToken.IsExistAccessToken(userID)
+		return userID == 0 || userToken.IsAccessTokenValid(userID, parts[1])
 	}
 }

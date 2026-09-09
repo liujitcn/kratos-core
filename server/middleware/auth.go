@@ -184,7 +184,7 @@ func authClaimsMiddleware(userToken *data.UserToken) middleware.Middleware {
 			}
 
 			var err error
-			err = verifyAccessToken(userToken, authnClaims)
+			err = verifyAccessToken(ctx, userToken, authnClaims)
 			if err != nil {
 				return nil, err
 			}
@@ -232,7 +232,7 @@ func requestAction(serverTransport transport.Transporter) authzEngine.Action {
 }
 
 // verifyAccessToken 校验访问令牌仍在缓存有效期内。
-func verifyAccessToken(userToken *data.UserToken, authnClaims *engine.AuthClaims) error {
+func verifyAccessToken(ctx context.Context, userToken *data.UserToken, authnClaims *engine.AuthClaims) error {
 	userID, err := authnClaims.GetInt64(data.ClaimFieldUserID)
 	if err != nil {
 		return auth.ErrExtractUserInfoFailed
@@ -241,7 +241,12 @@ func verifyAccessToken(userToken *data.UserToken, authnClaims *engine.AuthClaims
 	if userID == 0 {
 		return nil
 	}
-	if !userToken.IsExistAccessToken(userID) {
+	tr, ok := transport.FromServerContext(ctx)
+	if !ok {
+		return auth.ErrWrongContext
+	}
+	parts := strings.Fields(tr.RequestHeader().Get("Authorization"))
+	if len(parts) != 2 || !strings.EqualFold(parts[0], engine.BearerWord) || !userToken.IsAccessTokenValid(userID, parts[1]) {
 		return auth.ErrAccessTokenExpired
 	}
 	return nil

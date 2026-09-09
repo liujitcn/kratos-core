@@ -121,7 +121,7 @@ func (r *SSE) authenticate(request *http.Request) (*data.UserTokenPayload, error
 	if err = userToken.ExtractAuthClaims(authClaims); err != nil || userToken.UserId == 0 {
 		return nil, errorsx.Unauthenticated("SSE访问令牌无效").WithCause(err)
 	}
-	if !r.userToken.IsExistAccessToken(userToken.UserId) {
+	if !r.userToken.IsAccessTokenValid(userToken.UserId, token) {
 		return nil, errorsx.Unauthenticated("SSE访问令牌已失效")
 	}
 	return userToken, nil

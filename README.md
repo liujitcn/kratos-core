@@ -238,3 +238,5 @@ MODULE=api EXACT=1 make tag      # 只处理 api 模块
 项目要求 Go `1.27.0`。`api` 和 `client` 是独立 Go 模块，修改它们时还应分别执行 `cd api && go test ./...`、`cd client && go test ./...`。修改公共模块契约后，应额外编译依赖 Core 的宿主项目。
 
 客户端连接的独立说明见 [client/README.md](client/README.md)。
+
+HTTP、SSE 和 OpenAPI 文档入口均校验实际请求令牌所属会话；同账号其他设备在线不会使已撤销的令牌重新获得访问权限。
