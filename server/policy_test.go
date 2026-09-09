@@ -20,7 +20,7 @@ import (
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/bootstrap"
 	"github.com/liujitcn/kratos-kit/redact"
-	mcpserver "github.com/liujitcn/kratos-kit/transport/mcp"
+	"github.com/liujitcn/kratos-kit/transport/mcp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
@@ -61,7 +61,7 @@ func (m policyTestModule) RegisterGRPC(server grpc.ServiceRegistrar) {
 }
 
 // RegisterMCP 保持测试模块的 MCP 能力为空。
-func (policyTestModule) RegisterMCP(*mcpserver.Server) {}
+func (policyTestModule) RegisterMCP(*mcp.Server) {}
 
 // checkContext 验证业务处理器拿到实例策略以及原有传输元数据。
 func (s *policyTestService) checkContext(ctx context.Context, operation string) {

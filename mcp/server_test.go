@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-kratos/kratos/v3/transport"
 	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
-	coremcp "github.com/liujitcn/kratos-core/mcp"
+	"github.com/liujitcn/kratos-core/mcp"
 	"github.com/liujitcn/kratos-core/module"
 	coreserver "github.com/liujitcn/kratos-core/server"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
@@ -79,7 +79,7 @@ func TestMCPPolicyContext(t *testing.T) {
 					Mcp:  &configv1.Server_Mcp{Transport: mode, EnableKeepalive: new(bool)},
 				}}
 				bootstrapContext := bootstrap.NewContextWithParam(context.Background(), nil, cfg, nil)
-				server, cleanup, err := coremcp.NewServer(bootstrapContext, module.Modules{policyTestModule{t: t, resolver: resolver}}, resolver)
+				server, cleanup, err := mcp.NewServer(bootstrapContext, module.Modules{policyTestModule{t: t, resolver: resolver}}, resolver)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -174,7 +174,7 @@ func TestMCPPolicyContext(t *testing.T) {
 // TestMCPPolicyDisabled 验证未启用 MCP 时仍允许显式传入 nil 解析器。
 func TestMCPPolicyDisabled(t *testing.T) {
 	ctx := bootstrap.NewContextWithParam(context.Background(), nil, nil, nil)
-	server, cleanup, err := coremcp.NewServer(ctx, nil, nil)
+	server, cleanup, err := mcp.NewServer(ctx, nil, nil)
 	if err != nil || server != nil {
 		t.Fatalf("未启用 MCP 时应跳过创建: server=%v err=%v", server, err)
 	}
