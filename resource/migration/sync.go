@@ -41,7 +41,7 @@ type migrationTranslation struct {
 // TableName 返回翻译记录表名。
 func (*migrationTranslation) TableName() string { return "base_i18n" }
 
-// syncDescriptionTranslations 将迁移 README 译文写入统一翻译表。
+// syncDescriptionTranslations 将迁移 README 文件引用写入统一翻译表。
 func syncDescriptionTranslations(ctx context.Context, databases map[string]*databaseGorm.Client, translations []DescriptionTranslation) error {
 	if len(translations) == 0 {
 		return nil

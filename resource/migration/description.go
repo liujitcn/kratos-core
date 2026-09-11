@@ -18,7 +18,7 @@ var localizedReadmePattern = regexp.MustCompile(`^README\.([A-Za-z]{2,3}(?:-[A-Z
 // DescriptionTargetType 是迁移说明在 base_i18n 中使用的目标类型。
 const DescriptionTargetType int32 = 7
 
-// DescriptionTranslation 表示一个模块迁移版本说明的单语言译文。
+// DescriptionTranslation 表示一个模块迁移版本说明的单语言文件引用。
 type DescriptionTranslation struct {
 	Module      string
 	Version     string
@@ -27,7 +27,7 @@ type DescriptionTranslation struct {
 	Description string
 }
 
-// loadDescriptionTranslations 读取迁移资源路径中的 README 语言说明。
+// loadDescriptionTranslations 读取迁移资源路径中的 README 语言文件引用。
 func loadDescriptionTranslations(moduleName string, files fs.FS, root string) ([]DescriptionTranslation, error) {
 	translations := make([]DescriptionTranslation, 0)
 	cleanRoot := path.Clean(root)
@@ -54,8 +54,8 @@ func loadDescriptionTranslations(moduleName string, files fs.FS, root string) ([
 		if len(parts) == 4 {
 			dataSource = parts[2]
 		}
-		var content []byte
-		content, walkErr = fs.ReadFile(files, name)
+		var reference string
+		reference, walkErr = migration.EncodeFileReferences(files, []string{name})
 		if walkErr != nil {
 			return walkErr
 		}
@@ -64,7 +64,7 @@ func loadDescriptionTranslations(moduleName string, files fs.FS, root string) ([
 			Version:     parts[0],
 			DataSource:  dataSource,
 			Locale:      matches[1],
-			Description: string(content),
+			Description: reference,
 		})
 		return nil
 	})

@@ -130,7 +130,9 @@ assets/<version>/<database-type>/<data-source>/README.md
 assets/<version>/<database-type>/<data-source>/README.<locale>.md
 ```
 
-Core 只把 `README.md` 交给迁移执行器写入 `base_migration.description`；迁移执行完成后，将现有 `README.<locale>.md` 按 `target_type=7`、迁移记录 ID 写入 `base_i18n`。宿主需要通过模型自动迁移提供该表；缺少某个 `README.<locale>.md` 时不会生成该语言记录。
+迁移记录的 `up_files`、`down_files`、`description_files` 使用 JSON 数组保存相对文件路径和 SHA-256，不再保存 SQL 或 Markdown 正文。Core 将本地化 README 的文件引用按 `target_type=7`、迁移记录 ID 同步到 `base_i18n`，缺少对应语言时由调用方回退到主说明。`Migration.ReadFiles(module, version, dataSource, references)` 从已注册模块文件系统按需读取，按原顺序返回每个文件的路径和独立内容，不合并正文，并校验目录归属和内容摘要；缺失、越界或修改过的文件返回错误。SQL 摘要对应执行时去注释后的内容。
+
+宿主可通过 `os.DirFS` 注册部署目录，不必嵌入迁移文件。发布时必须携带并保留历史版本文件，迁移资源目录不应作为公开静态目录挂载。旧版正文记录不做隐式兼容；GORM 自动迁移不会删除旧列，也不会将正文转换为文件引用，存量库需另行备份转换，开发环境可按既有流程重建。发布依赖使用 kratos-kit/database/gorm/migration 的正式 tag。
 
 ## 运行时能力
 

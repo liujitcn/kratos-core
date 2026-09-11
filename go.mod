@@ -24,8 +24,8 @@ require (
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.20
 	github.com/liujitcn/kratos-kit/bootstrap v0.0.29
 	github.com/liujitcn/kratos-kit/cache v0.0.22
-	github.com/liujitcn/kratos-kit/database/gorm v0.0.43
-	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.15
+	github.com/liujitcn/kratos-kit/database/gorm v0.0.44
+	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.16
 	github.com/liujitcn/kratos-kit/locker v0.0.18
 	github.com/liujitcn/kratos-kit/oss v0.0.19
 	github.com/liujitcn/kratos-kit/pprof v0.0.16

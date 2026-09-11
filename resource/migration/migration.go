@@ -16,6 +16,7 @@ type Migration struct {
 	registry  *migration.Registry
 	names     []migration.ModuleName
 	databases map[string]*gorm.Client
+	sources   module.Migrations
 }
 
 // NewMigration 创建迁移注册表，注册资源后立即执行数据库迁移。
@@ -43,7 +44,7 @@ func NewMigration(ctx *bootstrap.Context, databases map[string]*gorm.Client, mig
 		names = append(names, name)
 	}
 	sortDescriptionTranslations(descriptionTranslations)
-	registry := &Migration{names: names, databases: databases}
+	registry := &Migration{names: names, databases: databases, sources: append(module.Migrations(nil), migrations...)}
 	if len(contributors) == 0 {
 		return registry, nil
 	}
