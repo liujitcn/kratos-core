@@ -46,6 +46,7 @@ func NewGRPCMiddleware(
 	if authenticator != nil && authorizer != nil && userToken != nil && jwtCfg != nil {
 		grpcMiddlewares = append(grpcMiddlewares, coreMiddleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
 	}
+	grpcMiddlewares = append(grpcMiddlewares, coreMiddleware.NewTenantScopeMiddleware())
 	// 按 gRPC 服务配置挂载 Core 的校验错误转换，避免未启用时处理校验错误。
 	if cfg != nil && cfg.Server != nil && cfg.Server.Grpc != nil && cfg.Server.Grpc.Middleware != nil && cfg.Server.Grpc.Middleware.GetEnableValidate() {
 		grpcMiddlewares = append(grpcMiddlewares, coreMiddleware.NewValidateMiddleware())

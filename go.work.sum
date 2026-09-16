@@ -551,6 +551,8 @@ github.com/liujitcn/kratos-kit/api v0.0.35/go.mod h1:DVRd76dXC0xH2h1qxgY3WqWlxef
 github.com/liujitcn/kratos-kit/auth v0.0.24/go.mod h1:cE6pQEAUeEc0MfwWxXJ1sszE/OP1vVGRnV+4f9wJ3l0=
 github.com/liujitcn/kratos-kit/auth v0.0.25/go.mod h1:lrHwfdwo4PGtDRXyazRpb4u+80fOrrSZ5HzNsrvXfv4=
 github.com/liujitcn/kratos-kit/auth v0.0.26/go.mod h1:Y2t/ntq5AmMi9z8hmXC75yPSts+XhOVDXfA+QfRu8DQ=
+github.com/liujitcn/kratos-kit/auth v0.0.29 h1:83p4iOjcg0vETEON3JaJUP84XULB1ONuB2PxbG8Iiz0=
+github.com/liujitcn/kratos-kit/auth v0.0.29/go.mod h1:Y2t/ntq5AmMi9z8hmXC75yPSts+XhOVDXfA+QfRu8DQ=
 github.com/liujitcn/kratos-kit/auth/authn v0.0.22/go.mod h1:JXjwYbu2RSNxktAMJQvglDxxROrsrtk8pcAR4Hpnkb8=
 github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.18/go.mod h1:BFiuStUDvgbFfUoFOpg+rsdh73QPJG1gkMVgaFy4X24=
 github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.20/go.mod h1:SShl7NyflTV1k0uiin4BzS1/ZYRokkdMJBn6Ooq+N8A=
@@ -565,9 +567,9 @@ github.com/liujitcn/kratos-kit/cache v0.0.21/go.mod h1:2kXaQantBLp8NIgrtz74gCqYU
 github.com/liujitcn/kratos-kit/database/gorm v0.0.39/go.mod h1:olNg1ugY7XmutfnIK7VmK0M3mcR9kM0h740DDR0z1vg=
 github.com/liujitcn/kratos-kit/database/gorm v0.0.41/go.mod h1:nJOPsqdbrIeAi+t0dafwY5ErTmG5Ev8u4q6c9/68o2c=
 github.com/liujitcn/kratos-kit/database/gorm v0.0.42/go.mod h1:vXskgdI9piNvIu+2QYZkH510AukpK8930Uq9wcCDINs=
-github.com/liujitcn/kratos-kit/database/gorm v0.0.44/go.mod h1:vXskgdI9piNvIu+2QYZkH510AukpK8930Uq9wcCDINs=
+github.com/liujitcn/kratos-kit/database/gorm v0.0.47 h1:lavNh9CgC949QZ2cBhywxnP/KWtYiTLlu15Fppz0vno=
+github.com/liujitcn/kratos-kit/database/gorm v0.0.47/go.mod h1:3t25QMGkNp1v2aMnRTbECtJ5S5fFphqog+lVoalHxXs=
 github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.17/go.mod h1:SxICbbQWoLaJUuMqGYMvg5evIa+knKpLoosxaTV55u8=
-github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.16/go.mod h1:KeOMS4kacpLKNtOPyivu/r1ZJAlqT+8aYPAxe+keYng=
 github.com/liujitcn/kratos-kit/key v0.0.3/go.mod h1:3bifyJXF3VfMvNz0OT2C2dNzArjPwz7hnVg9PoZ1130=
 github.com/liujitcn/kratos-kit/locker v0.0.14/go.mod h1:5qCek01Bul3NcPclNmeBBsclbBahqfzPFnzmW2xJpg0=
 github.com/liujitcn/kratos-kit/locker v0.0.16/go.mod h1:BYzE0Gxw7s6XdMY897Cf0eRYR+qst32gBhgG7hIDPzc=

@@ -35,10 +35,7 @@ func validationError(err error) error {
 		if message == "" {
 			message = "请求参数错误"
 		}
-		messageKey := violation.GetRuleId()
-		if messageKey == "" {
-			messageKey = standardValidationMessageKey(violation.GetRule().GetElements())
-		}
+		messageKey := standardValidationMessageKey(violation.GetRuleId(), violation.GetRule().GetElements())
 		messageArgs := map[string]string{"Field": validationFieldPath(violation.GetField().GetElements())}
 		return errorsx.WithMessageKey(errorsx.InvalidArgument(message), messageKey, messageArgs).WithCause(err)
 	}
@@ -46,11 +43,35 @@ func validationError(err error) error {
 }
 
 // standardValidationMessageKey 将标准 Proto 校验规则映射到公共消息键。
-func standardValidationMessageKey(elements []*validate.FieldPathElement) string {
+func standardValidationMessageKey(ruleID string, elements []*validate.FieldPathElement) string {
 	if len(elements) > 0 && elements[len(elements)-1].GetFieldName() == "required" {
 		return "common.validation.required"
 	}
+	if isStandardValidationRule(ruleID, elements) {
+		return "common.validation.invalid"
+	}
+	if ruleID != "" {
+		return ruleID
+	}
 	return "common.validation.invalid"
+}
+
+// isStandardValidationRule 判断规则是否由 Protovalidate 内置规则生成。
+func isStandardValidationRule(ruleID string, elements []*validate.FieldPathElement) bool {
+	if len(elements) > 0 {
+		switch elements[0].GetFieldName() {
+		case "bytes", "double", "duration", "enum", "fixed32", "fixed64", "float", "int32", "int64", "map", "message", "repeated", "required", "sfixed32", "sfixed64", "sint32", "sint64", "string", "timestamp", "uint32", "uint64":
+			return true
+		}
+	}
+	for _, prefix := range []string{
+		"bytes.", "double.", "duration.", "enum.", "fixed32.", "fixed64.", "float.", "int32.", "int64.", "map.", "message.", "repeated.", "required.", "sfixed32.", "sfixed64.", "sint32.", "sint64.", "string.", "timestamp.", "uint32.", "uint64.",
+	} {
+		if strings.HasPrefix(ruleID, prefix) {
+			return true
+		}
+	}
+	return ruleID == "required"
 }
 
 // validationFieldPath 将 Proto 字段路径转换为可展示的稳定路径。

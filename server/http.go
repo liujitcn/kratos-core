@@ -61,6 +61,7 @@ func NewHTTPMiddleware(
 	if authenticator != nil && authorizer != nil && userToken != nil && jwtCfg != nil {
 		httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewAuthMiddleware(authenticator, authorizer, userToken, jwtCfg))
 	}
+	httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewTenantScopeMiddleware())
 	// 按 HTTP 服务配置挂载 Core 的校验错误转换，避免未启用时处理校验错误。
 	if cfg != nil && cfg.Server != nil && cfg.Server.Http != nil && cfg.Server.Http.Middleware != nil && cfg.Server.Http.Middleware.GetEnableValidate() {
 		httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewValidateMiddleware())

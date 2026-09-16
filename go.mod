@@ -15,7 +15,7 @@ require (
 	github.com/liujitcn/kratos-core/api v0.0.4
 	github.com/liujitcn/kratos-kit v0.0.85
 	github.com/liujitcn/kratos-kit/api v0.0.36
-	github.com/liujitcn/kratos-kit/auth v0.0.28
+	github.com/liujitcn/kratos-kit/auth v0.0.29
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.24
 	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.20
 	github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.21
@@ -24,7 +24,7 @@ require (
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.20
 	github.com/liujitcn/kratos-kit/bootstrap v0.0.29
 	github.com/liujitcn/kratos-kit/cache v0.0.22
-	github.com/liujitcn/kratos-kit/database/gorm v0.0.44
+	github.com/liujitcn/kratos-kit/database/gorm v0.0.47
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.16
 	github.com/liujitcn/kratos-kit/locker v0.0.18
 	github.com/liujitcn/kratos-kit/oss v0.0.19
