@@ -61,6 +61,21 @@ func messageHasTenantField(message protoreflect.Message, visited map[protoreflec
 		if field.Kind() != protoreflect.MessageKind && field.Kind() != protoreflect.GroupKind {
 			continue
 		}
+		if field.IsMap() {
+			if field.MapValue().Kind() != protoreflect.MessageKind && field.MapValue().Kind() != protoreflect.GroupKind {
+				continue
+			}
+			values := message.Get(field).Map()
+			found := false
+			values.Range(func(_ protoreflect.MapKey, value protoreflect.Value) bool {
+				found = messageHasTenantField(value.Message(), visited)
+				return !found
+			})
+			if found {
+				return true
+			}
+			continue
+		}
 		if field.IsList() {
 			items := message.Get(field).List()
 			for itemIndex := 0; itemIndex < items.Len(); itemIndex++ {
@@ -101,6 +116,21 @@ func applyTenantScope(message protoreflect.Message, authInfo *data.UserTokenPayl
 			continue
 		}
 		if field.Kind() != protoreflect.MessageKind && field.Kind() != protoreflect.GroupKind {
+			continue
+		}
+		if field.IsMap() {
+			if field.MapValue().Kind() != protoreflect.MessageKind && field.MapValue().Kind() != protoreflect.GroupKind {
+				continue
+			}
+			values := message.Get(field).Map()
+			var mapErr error
+			values.Range(func(_ protoreflect.MapKey, value protoreflect.Value) bool {
+				mapErr = applyTenantScope(value.Message(), authInfo, visited)
+				return mapErr == nil
+			})
+			if mapErr != nil {
+				return mapErr
+			}
 			continue
 		}
 		if field.IsList() {

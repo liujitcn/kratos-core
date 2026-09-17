@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/liujitcn/kratos-kit/auth/data"
+	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -27,6 +28,21 @@ func TestTenantScopeMiddlewareFillsNestedTenantIDs(t *testing.T) {
 	if got := nested.Get(nested.Descriptor().Fields().ByName("tenant_id")).Int(); got != 7 {
 		t.Fatalf("嵌套租户ID = %d, want 7", got)
 	}
+	nestedMap := request.Get(request.Descriptor().Fields().ByName("nested_map")).Map()
+	nestedMap.Range(func(key protoreflect.MapKey, value protoreflect.Value) bool {
+		if got := value.Message().Get(value.Message().Descriptor().Fields().ByName("tenant_id")).Int(); got != 7 {
+			t.Fatalf("map[%s] 租户ID = %d, want 7", key.String(), got)
+		}
+		return true
+	})
+}
+
+// TestTenantScopeMiddlewareFindsTenantFieldInMessageMap 验证 map 中的消息字段可被租户中间件识别。
+func TestTenantScopeMiddlewareFindsTenantFieldInMessageMap(t *testing.T) {
+	request := newTenantScopeTestRequest(t)
+	if !messageHasTenantField(request.ProtoReflect(), make(map[protoreflect.FullName]struct{})) {
+		t.Fatal("messageHasTenantField() = false, want true")
+	}
 }
 
 // TestTenantScopeMiddlewareRejectsCrossTenantInput 验证普通租户不能伪造其他租户。
@@ -44,7 +60,7 @@ func TestTenantScopeMiddlewareRejectsCrossTenantInput(t *testing.T) {
 // TestTenantScopeMiddlewareKeepsDefaultTenantZero 验证默认租户不会自动改写零值。
 func TestTenantScopeMiddlewareKeepsDefaultTenantZero(t *testing.T) {
 	request := newTenantScopeTestRequest(t)
-	if err := applyTenantScope(request.ProtoReflect(), &data.UserTokenPayload{TenantCode: defaultTenantCode}, make(map[protoreflect.FullName]struct{})); err != nil {
+	if err := applyTenantScope(request.ProtoReflect(), &data.UserTokenPayload{TenantCode: databaseGorm.DefaultTenantCode}, make(map[protoreflect.FullName]struct{})); err != nil {
 		t.Fatalf("applyTenantScope() error = %v", err)
 	}
 	field := request.Descriptor().Fields().ByName("tenant_id")
@@ -53,12 +69,15 @@ func TestTenantScopeMiddlewareKeepsDefaultTenantZero(t *testing.T) {
 	}
 }
 
-// newTenantScopeTestRequest 创建带有顶层和嵌套 tenant_id 的动态 Proto 请求。
+// newTenantScopeTestRequest 创建带有顶层、嵌套和 map tenant_id 的动态 Proto 请求。
 func newTenantScopeTestRequest(t *testing.T) *dynamicpb.Message {
 	t.Helper()
 	optional := descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL
+	repeated := descriptorpb.FieldDescriptorProto_LABEL_REPEATED
 	int64Type := descriptorpb.FieldDescriptorProto_TYPE_INT64
+	stringType := descriptorpb.FieldDescriptorProto_TYPE_STRING
 	nestedType := descriptorpb.FieldDescriptorProto_TYPE_MESSAGE
+	mapEntry := true
 	descriptor, err := protodesc.NewFile(&descriptorpb.FileDescriptorProto{
 		Name:    proto.String("tenant_scope_test.proto"),
 		Package: proto.String("tenant.scope.test"),
@@ -69,6 +88,19 @@ func newTenantScopeTestRequest(t *testing.T) *dynamicpb.Message {
 				Field: []*descriptorpb.FieldDescriptorProto{
 					{Name: proto.String("tenant_id"), Number: proto.Int32(1), Label: &optional, Type: &int64Type},
 					{Name: proto.String("nested"), Number: proto.Int32(2), Label: &optional, Type: &nestedType, TypeName: proto.String(".tenant.scope.test.Nested")},
+					{Name: proto.String("nested_map"), Number: proto.Int32(3), Label: &repeated, Type: &nestedType, TypeName: proto.String(".tenant.scope.test.Request.NestedMapEntry")},
+				},
+				NestedType: []*descriptorpb.DescriptorProto{
+					{
+						Name: proto.String("NestedMapEntry"),
+						Options: &descriptorpb.MessageOptions{
+							MapEntry: &mapEntry,
+						},
+						Field: []*descriptorpb.FieldDescriptorProto{
+							{Name: proto.String("key"), Number: proto.Int32(1), Label: &optional, Type: &stringType},
+							{Name: proto.String("value"), Number: proto.Int32(2), Label: &optional, Type: &nestedType, TypeName: proto.String(".tenant.scope.test.Nested")},
+						},
+					},
 				},
 			},
 			{
@@ -87,5 +119,10 @@ func newTenantScopeTestRequest(t *testing.T) *dynamicpb.Message {
 	request := dynamicpb.NewMessage(requestDescriptor)
 	nested := dynamicpb.NewMessage(nestedDescriptor)
 	request.Set(requestDescriptor.Fields().ByName("nested"), protoreflect.ValueOfMessage(nested))
+	nestedMapValue := dynamicpb.NewMessage(nestedDescriptor)
+	request.Mutable(requestDescriptor.Fields().ByName("nested_map")).Map().Set(
+		protoreflect.ValueOfString("zh-CN").MapKey(),
+		protoreflect.ValueOfMessage(nestedMapValue),
+	)
 	return request
 }
