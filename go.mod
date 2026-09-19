@@ -14,7 +14,7 @@ require (
 	github.com/liujitcn/go-utils/translator v0.0.4
 	github.com/liujitcn/kratos-core/api v0.0.4
 	github.com/liujitcn/kratos-kit v0.0.85
-	github.com/liujitcn/kratos-kit/api v0.0.36
+	github.com/liujitcn/kratos-kit/api v0.0.39
 	github.com/liujitcn/kratos-kit/auth v0.0.29
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.24
 	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.20

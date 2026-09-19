@@ -36,7 +36,11 @@ import (
 // HTTPMiddlewares 表示 HTTP 服务中间件链。
 type HTTPMiddlewares []middleware.Middleware
 
-const defaultStaticRootDirectory = "./data"
+// oss默认上传路径
+const defaultOssRootDirectory = "./data"
+
+// 静态资源默认路径
+const defaultStaticRootDirectory = "./web"
 
 // NewHTTPMiddleware 创建 HTTP 服务统一中间件链。
 func NewHTTPMiddleware(
@@ -113,7 +117,7 @@ func NewHTTPServer(
 		}
 	}()
 
-	ossRootDirectory := defaultStaticRootDirectory
+	ossRootDirectory := defaultOssRootDirectory
 	// 配置了本地 OSS 根目录时，优先使用配置值覆盖默认目录。
 	if cfg.GetOss() != nil && cfg.GetOss().GetRootDirectory() != "" {
 		ossRootDirectory = cfg.GetOss().GetRootDirectory()
@@ -123,8 +127,12 @@ func NewHTTPServer(
 		// OSS 本地对象统一通过 /data/ 暴露，业务模块不参与静态资源路由注册。
 		registerDataStaticRoute(srv, ossRootDirectory)
 	}
+	staticRootDirectory := defaultStaticRootDirectory
+	if cfg.GetServer().GetHttp().GetStaticRootDirectory() != "" {
+		staticRootDirectory = cfg.GetServer().GetHttp().GetStaticRootDirectory()
+	}
 	// 先注册可回退到 index.html 的 SPA 路由，避免通用项目静态路由提前截获前端客户端路由。
-	registerLocalSPARoutes(srv, defaultStaticRootDirectory)
+	registerLocalSPARoutes(srv, staticRootDirectory)
 	modules.RegisterHTTP(srv)
 	if mcpServer != nil && mcpServer.Server != nil && mcpServer.InProcess {
 		var mcpHandler http.Handler
@@ -207,7 +215,7 @@ func serveSSEHTTP(request *http.Request, handler func(*http.Request)) {
 	handler(streamRequest)
 }
 
-// registerLocalSPARoutes 为固定静态根目录下的前端目录注册单页应用路由。
+// registerLocalSPARoutes 为静态根目录下的前端目录注册单页应用路由。
 func registerLocalSPARoutes(srv *kratosHTTP.Server, rootDirectory string) {
 	entries, err := os.ReadDir(rootDirectory)
 	if err != nil {

@@ -77,10 +77,10 @@ func TestRegisterLocalSPARoutes(t *testing.T) {
 	}
 }
 
-// TestStaticAndOSSRootsRemainSeparate 验证自定义本地 OSS 根目录不影响固定 H5 静态目录。
+// TestStaticAndOSSRootsRemainSeparate 验证本地 OSS 根目录与独立静态目录互不影响。
 func TestStaticAndOSSRootsRemainSeparate(t *testing.T) {
 	rootDirectory := t.TempDir()
-	staticRootDirectory := filepath.Join(rootDirectory, "data")
+	staticRootDirectory := filepath.Join(rootDirectory, "web")
 	adminDirectory := filepath.Join(staticRootDirectory, "admin")
 	if err := os.MkdirAll(adminDirectory, 0o755); err != nil {
 		t.Fatalf("创建 H5 测试目录失败: %v", err)
