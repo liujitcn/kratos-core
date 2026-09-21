@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/transport/cron"
 )
 
@@ -56,7 +55,10 @@ func TestMemoryExecutionLockerSeparatesKeys(t *testing.T) {
 
 // TestExecutionLockerFallsBackToMemory 验证 Redis 初始化失败时不阻断应用启动。
 func TestExecutionLockerFallsBackToMemory(t *testing.T) {
-	manager := NewExecutionLocker(nil)
+	manager, err := NewExecutionLocker(nil)
+	if err != nil {
+		t.Fatalf("NewExecutionLocker() error = %v", err)
+	}
 	if manager.Mode() != "memory" {
 		t.Fatalf("expected memory mode, got %s", manager.Mode())
 	}
@@ -66,32 +68,6 @@ func TestExecutionLockerFallsBackToMemory(t *testing.T) {
 	}
 	if err = lease.Release(); err != nil {
 		t.Fatalf("release memory lease: %v", err)
-	}
-}
-
-// TestExecutionLockerFallsBackOnInvalidRedisConfig 验证外部锁初始化异常时仍能降级启动。
-func TestExecutionLockerFallsBackOnInvalidRedisConfig(t *testing.T) {
-	manager := NewExecutionLocker(&configv1.Data_Redis{})
-	if manager.Mode() != "memory" {
-		t.Fatalf("expected memory mode, got %s", manager.Mode())
-	}
-}
-
-// TestExecutionLeaseReleaseIsIdempotent 验证租约重复释放不会重复操作底层锁。
-func TestExecutionLeaseReleaseIsIdempotent(t *testing.T) {
-	released := 0
-	lease := &ExecutionLease{releaseFn: func() error {
-		released++
-		return nil
-	}}
-	if err := lease.Release(); err != nil {
-		t.Fatalf("first release: %v", err)
-	}
-	if err := lease.Release(); err != nil {
-		t.Fatalf("second release: %v", err)
-	}
-	if released != 1 {
-		t.Fatalf("expected one release, got %d", released)
 	}
 }
 

@@ -41,18 +41,18 @@ func ParseOSS(cfg *configv1.Bootstrap) (*configv1.Oss, error) {
 	return cfg.GetOss(), nil
 }
 
-// ParseQueue 解析队列配置。
+// ParseQueue 解析可选队列配置；未配置时由队列组件使用内存实现。
 func ParseQueue(cfg *configv1.Bootstrap) (*configv1.Data_Queue, error) {
-	if cfg == nil || cfg.GetData() == nil || cfg.GetData().GetQueue() == nil {
-		return nil, errors.New("队列配置不能为空")
+	if cfg == nil {
+		return nil, errors.New("配置不能为空")
 	}
 	return cfg.GetData().GetQueue(), nil
 }
 
-// ParseRedis 解析 Redis 配置。
+// ParseRedis 解析可选 Redis 配置；未配置时缓存和锁组件使用内存实现。
 func ParseRedis(cfg *configv1.Bootstrap) (*configv1.Data_Redis, error) {
-	if cfg == nil || cfg.GetData() == nil || cfg.GetData().GetRedis() == nil {
-		return nil, errors.New("Redis配置不能为空")
+	if cfg == nil {
+		return nil, errors.New("配置不能为空")
 	}
 	return cfg.GetData().GetRedis(), nil
 }
