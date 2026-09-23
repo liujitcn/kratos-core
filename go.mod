@@ -28,7 +28,7 @@ require (
 	github.com/liujitcn/kratos-kit/locker v0.0.19
 	github.com/liujitcn/kratos-kit/oss v0.0.19
 	github.com/liujitcn/kratos-kit/pprof v0.0.16
-	github.com/liujitcn/kratos-kit/queue v0.0.29
+	github.com/liujitcn/kratos-kit/queue v0.0.30
 	github.com/liujitcn/kratos-kit/redact v0.0.10
 	github.com/liujitcn/kratos-kit/server/grpc v0.0.5
 	github.com/liujitcn/kratos-kit/server/http v0.0.6
@@ -142,6 +142,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.14 // indirect
 	github.com/googleapis/gax-go/v2 v2.20.0 // indirect
+	github.com/gorhill/cronexpr v0.0.0-20180427100037-88b0669f7d75 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
@@ -191,6 +192,7 @@ require (
 	github.com/liujitcn/kratos-kit/tracer v0.0.17 // indirect
 	github.com/liujitcn/kratos-kit/tracing v0.0.12 // indirect
 	github.com/liujitcn/kratos-kit/transport v0.0.24 // indirect
+	github.com/liujitcn/kratos-kit/transport/hptimer v0.0.7 // indirect
 	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.13 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
