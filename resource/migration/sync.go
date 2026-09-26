@@ -31,11 +31,11 @@ type migrationHistory struct {
 func (*migrationHistory) TableName() string { return "base_migration" }
 
 type migrationTranslation struct {
-	ID         int64  `gorm:"column:id"`
-	TargetType int32  `gorm:"column:target_type"`
-	TargetID   int64  `gorm:"column:target_id"`
-	Locale     string `gorm:"column:locale"`
-	Name       string `gorm:"column:name"`
+	ID        int64  `gorm:"column:id"`
+	TargetKey string `gorm:"column:target_key"`
+	TargetID  int64  `gorm:"column:target_id"`
+	Locale    string `gorm:"column:locale"`
+	Name      string `gorm:"column:name"`
 }
 
 // TableName 返回翻译记录表名。
@@ -66,7 +66,7 @@ func syncDescriptionTranslations(ctx context.Context, databases map[string]*data
 		}
 
 		records := make([]migrationTranslation, 0)
-		result = tx.Where(&migrationTranslation{TargetType: DescriptionTargetType}).Find(&records)
+		result = tx.Where(&migrationTranslation{TargetKey: DescriptionTargetKey}).Find(&records)
 		if result.Error != nil {
 			return fmt.Errorf("读取迁移说明译文失败: %w", result.Error)
 		}
@@ -89,10 +89,10 @@ func syncDescriptionTranslations(ctx context.Context, databases map[string]*data
 			record := existing[key]
 			if record == nil {
 				record = &migrationTranslation{
-					TargetType: DescriptionTargetType,
-					TargetID:   historyID,
-					Locale:     translation.Locale,
-					Name:       translation.Description,
+					TargetKey: DescriptionTargetKey,
+					TargetID:  historyID,
+					Locale:    translation.Locale,
+					Name:      translation.Description,
 				}
 				result = tx.Create(record)
 				if result.Error != nil {

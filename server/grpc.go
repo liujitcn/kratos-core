@@ -9,6 +9,7 @@ import (
 	"github.com/liujitcn/kratos-core/resource/i18n"
 	coreMiddleware "github.com/liujitcn/kratos-core/server/middleware"
 	"github.com/liujitcn/kratos-core/server/middleware/logging"
+	"github.com/liujitcn/kratos-core/server/middleware/ratelimit"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	authzEngine "github.com/liujitcn/kratos-kit/auth/authz/engine"
@@ -32,6 +33,7 @@ func NewGRPCMiddleware(
 	jwtCfg *configv1.Authentication_Jwt,
 	cache cache.Cache,
 	catalog *i18n.I18n,
+	rateLimitResolver ratelimit.PolicyResolver,
 ) GRPCMiddlewares {
 	var grpcMiddlewares GRPCMiddlewares
 	cfg := ctx.GetConfig()
@@ -51,6 +53,7 @@ func NewGRPCMiddleware(
 	if cfg != nil && cfg.Server != nil && cfg.Server.Grpc != nil && cfg.Server.Grpc.Middleware != nil && cfg.Server.Grpc.Middleware.GetEnableValidate() {
 		grpcMiddlewares = append(grpcMiddlewares, coreMiddleware.NewValidateMiddleware())
 	}
+	grpcMiddlewares = append(grpcMiddlewares, ratelimit.NewMiddleware(cache, rateLimitResolver))
 	return grpcMiddlewares
 }
 

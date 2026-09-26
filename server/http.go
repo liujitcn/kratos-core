@@ -19,6 +19,7 @@ import (
 	"github.com/liujitcn/kratos-core/resource/openapi"
 	coreMiddleware "github.com/liujitcn/kratos-core/server/middleware"
 	"github.com/liujitcn/kratos-core/server/middleware/logging"
+	"github.com/liujitcn/kratos-core/server/middleware/ratelimit"
 	"github.com/liujitcn/kratos-core/sse"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
@@ -51,6 +52,7 @@ func NewHTTPMiddleware(
 	jwtCfg *configv1.Authentication_Jwt,
 	cache cache.Cache,
 	catalog *i18n.I18n,
+	rateLimitResolver ratelimit.PolicyResolver,
 ) HTTPMiddlewares {
 	var httpMiddlewares HTTPMiddlewares
 	cfg := ctx.GetConfig()
@@ -70,6 +72,7 @@ func NewHTTPMiddleware(
 	if cfg != nil && cfg.Server != nil && cfg.Server.Http != nil && cfg.Server.Http.Middleware != nil && cfg.Server.Http.Middleware.GetEnableValidate() {
 		httpMiddlewares = append(httpMiddlewares, coreMiddleware.NewValidateMiddleware())
 	}
+	httpMiddlewares = append(httpMiddlewares, ratelimit.NewMiddleware(cache, rateLimitResolver))
 	return httpMiddlewares
 }
 

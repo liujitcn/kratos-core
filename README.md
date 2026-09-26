@@ -130,7 +130,7 @@ assets/<version>/<database-type>/<data-source>/README.md
 assets/<version>/<database-type>/<data-source>/README.<locale>.md
 ```
 
-迁移记录的 `up_files`、`down_files`、`description_files` 使用 JSON 数组保存相对文件路径和 SHA-256，不再保存 SQL 或 Markdown 正文。Core 将本地化 README 的文件引用按 `target_type=7`、迁移记录 ID 同步到 `base_i18n`，缺少对应语言时由调用方回退到主说明。`Migration.ReadFiles(module, version, dataSource, references)` 从已注册模块文件系统按需读取，按原顺序返回每个文件的路径和独立内容，不合并正文，并校验目录归属和内容摘要；缺失、越界或修改过的文件返回错误。SQL 摘要对应执行时去注释后的内容。
+迁移记录的 `up_files`、`down_files`、`description_files` 使用 JSON 数组保存相对文件路径和 SHA-256，不再保存 SQL 或 Markdown 正文。Core 将本地化 README 的文件引用按 `target_key=base_migration.description`、迁移记录 ID 同步到 `base_i18n`，缺少对应语言时由调用方回退到主说明。`Migration.ReadFiles(module, version, dataSource, references)` 从已注册模块文件系统按需读取，按原顺序返回每个文件的路径和独立内容，不合并正文，并校验目录归属和内容摘要；缺失、越界或修改过的文件返回错误。SQL 摘要对应执行时去注释后的内容。
 
 宿主可通过 `os.DirFS` 注册部署目录，不必嵌入迁移文件。发布时必须携带并保留历史版本文件，迁移资源目录不应作为公开静态目录挂载。旧版正文记录不做隐式兼容；GORM 自动迁移不会删除旧列，也不会将正文转换为文件引用，存量库需另行备份转换，开发环境可按既有流程重建。发布依赖使用 kratos-kit/database/gorm/migration 的正式 tag。
 
@@ -148,7 +148,7 @@ Core 还向宿主提供以下具体业务服务：
 
 ### 服务与中间件
 
-HTTP 和 gRPC 服务会按配置挂载 request ID、I18n、日志、认证授权和参数校验中间件。HTTP 还支持本地 OSS 静态文件、SPA 回退和 Swagger；启用进程内 MCP 或 SSE 时，对应端点会挂载到 HTTP 服务，因此必须同时配置 HTTP。
+HTTP 和 gRPC 服务会按配置挂载 request ID、I18n、日志、认证授权、参数校验和接口限流中间件。接口限流通过宿主提供的策略解析器读取策略，并使用共享缓存执行多维度令牌桶扣减。HTTP 还支持本地 OSS 静态文件、SPA 回退和 Swagger；启用进程内 MCP 或 SSE 时，对应端点会挂载到 HTTP 服务，因此必须同时配置 HTTP。
 
 队列运行时负责消费任务日志消息并转发宿主通过 `queue.Consumers` 提供的业务事件消费者；Core 审计流水线负责投递并异步写入 API 访问和策略评估日志，完整模型注册与自动迁移仍由宿主提供。Cron 运行时从数据库重载启用的 `BaseJob`，按 `job.Tasks` 中的执行器执行任务，并在执行入口按任务编号取得 Redis 分布式锁；Redis 锁初始化失败时自动降级为进程内内存锁，仅保证单实例互斥。
 
