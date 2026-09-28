@@ -46,6 +46,22 @@ type Registry struct {
 	documents         []Document
 	documentsByKey    map[string]Document
 	documentKeysByAPI map[string]string
+	parsedDocuments   map[string]*cachedOpenAPIDocument
+}
+
+type cachedOpenAPIDocument struct {
+	data     []byte
+	once     sync.Once
+	document *openAPIDocument
+	err      error
+}
+
+// load 解析并缓存 OpenAPI 文档，后续查询复用同一份只读结构。
+func (d *cachedOpenAPIDocument) load() (*openAPIDocument, error) {
+	d.once.Do(func() {
+		d.document, d.err = parseOpenAPIDocument(d.data)
+	})
+	return d.document, d.err
 }
 
 // Register 注册 OpenAPI 文档，重复 key 仅允许名称和内容完全一致。
@@ -61,6 +77,10 @@ func (r *Registry) Register(documents ...Document) error {
 	documentKeysByAPI := maps.Clone(r.documentKeysByAPI)
 	if documentKeysByAPI == nil {
 		documentKeysByAPI = make(map[string]string)
+	}
+	parsedDocuments := maps.Clone(r.parsedDocuments)
+	if parsedDocuments == nil {
+		parsedDocuments = make(map[string]*cachedOpenAPIDocument)
 	}
 	var err error
 	for _, document := range documents {
@@ -96,11 +116,13 @@ func (r *Registry) Register(documents ...Document) error {
 		document.Data = append([]byte(nil), document.Data...)
 		registeredDocuments = append(registeredDocuments, document)
 		documentsByKey[documentKey] = document
+		parsedDocuments[documentKey] = &cachedOpenAPIDocument{data: document.Data}
 	}
 
 	r.documents = registeredDocuments
 	r.documentsByKey = documentsByKey
 	r.documentKeysByAPI = documentKeysByAPI
+	r.parsedDocuments = parsedDocuments
 	return nil
 }
 
@@ -190,6 +212,47 @@ func (r *Registry) DocumentByOperationForLocale(locale, path, method string) (Do
 		return document, true
 	}
 	return Document{}, false
+}
+
+// parsedDocumentByOperationForLocale 按语言查找接口对应的缓存文档，不复制原始文档内容。
+func (r *Registry) parsedDocumentByOperationForLocale(locale, path, method string) (*openAPIDocument, bool, error) {
+	r.mu.RLock()
+	apiKey := newAPIKey(path, method)
+	locales := append(resourceLocale.Candidates(locale), "")
+	var cached *cachedOpenAPIDocument
+	for _, currentLocale := range locales {
+		documentKey, exists := r.documentKeysByAPI[newLocaleAPIKey(currentLocale, apiKey)]
+		if !exists {
+			continue
+		}
+		cached = r.parsedDocuments[documentKey]
+		break
+	}
+	r.mu.RUnlock()
+	if cached == nil {
+		return nil, false, nil
+	}
+	document, err := cached.load()
+	if err != nil {
+		return nil, true, err
+	}
+	return document, true, nil
+}
+
+// hasDocumentsForLocale 判断指定语言是否存在可用文档，不复制文档内容。
+func (r *Registry) hasDocumentsForLocale(locale string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	locales := append(resourceLocale.Candidates(locale), "")
+	for _, document := range r.documents {
+		for _, currentLocale := range locales {
+			if document.Locale == currentLocale {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // validateDocument 校验 OpenAPI 文档注册信息。

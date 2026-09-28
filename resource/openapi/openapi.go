@@ -56,18 +56,16 @@ func (o *OpenAPI) Service(ctx context.Context, path, method string) (dto.OpenAPI
 
 // GetOperation 按 HTTP 操作查询 OpenAPI 接口文档。
 func (o *OpenAPI) GetOperation(ctx context.Context, path, method string) (*dto.OpenAPIOperationDocument, error) {
-	if len(o.registry.DocumentsForLocale(biz.LocaleFromContext(ctx))) == 0 {
-		return nil, errorsx.ResourceNotFound("OpenAPI文档不存在")
-	}
-	document, found := o.registry.DocumentByOperationForLocale(biz.LocaleFromContext(ctx), path, method)
-	if !found {
-		return nil, errorsx.ResourceNotFound("OpenAPI文档不存在").WithCause(fmt.Errorf("%s %s", method, path))
-	}
-	var api *openAPIDocument
-	var err error
-	api, err = parseOpenAPIDocument(document.Data)
+	locale := biz.LocaleFromContext(ctx)
+	api, found, err := o.registry.parsedDocumentByOperationForLocale(locale, path, method)
 	if err != nil {
 		return nil, errorsx.Internal("解析OpenAPI文档失败").WithCause(err)
+	}
+	if !found {
+		if !o.registry.hasDocumentsForLocale(locale) {
+			return nil, errorsx.ResourceNotFound("OpenAPI文档不存在")
+		}
+		return nil, errorsx.ResourceNotFound("OpenAPI文档不存在").WithCause(fmt.Errorf("%s %s", method, path))
 	}
 	operation := api.operation(path, method)
 	if operation == nil {
