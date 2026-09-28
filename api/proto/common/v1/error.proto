@@ -16,4 +16,5 @@ enum ErrorReason {
   RESOURCE_NOT_FOUND = 3 [(errors.code) = 404]; // 资源不存在
   CONFLICT = 4 [(errors.code) = 409]; // 当前状态冲突
   INTERNAL_ERROR = 5 [(errors.code) = 500]; // 服务内部异常
+  RATE_LIMITED = 6 [(errors.code) = 429]; // 请求频率受限
 }
