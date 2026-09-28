@@ -3,6 +3,7 @@
   "common.error.internal": {"other": "An internal error occurred"},
   "common.error.invalid_argument": {"other": "The request parameters are invalid"},
   "common.error.permission_denied": {"other": "You do not have permission to perform this operation"},
+  "common.error.rate_limited": {"other": "Too many requests. Please try again later."},
   "common.error.resource_not_found": {"other": "The requested resource was not found"},
   "common.error.unauthenticated": {"other": "Your session has expired. Please sign in again"},
   "common.validation.invalid": {"other": "Field {{.Field}} is invalid"},

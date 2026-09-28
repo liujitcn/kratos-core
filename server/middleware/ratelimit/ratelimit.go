@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
@@ -22,7 +23,7 @@ import (
 type Dimension string
 
 const (
-	// DimensionGlobal 将同一接口的所有请求共享一个令牌桶。
+	// DimensionGlobal 将同一接口的所有请求共享一个限流状态。
 	DimensionGlobal Dimension = "GLOBAL"
 	// DimensionIP 按网络对端 IP 地址分别限流。
 	DimensionIP Dimension = "IP"
@@ -34,22 +35,49 @@ const (
 	DimensionOauthClient Dimension = "OAUTH_CLIENT"
 )
 
-// Policy 描述一个接口限流维度及其令牌桶参数。
+// Algorithm 标识接口限流算法。
+type Algorithm = cache.RateLimitAlgorithm
+
+const (
+	// AlgorithmTokenBucket 表示令牌桶算法。
+	AlgorithmTokenBucket = cache.RateLimitAlgorithmTokenBucket
+	// AlgorithmFixedWindow 表示固定窗口算法。
+	AlgorithmFixedWindow = cache.RateLimitAlgorithmFixedWindow
+	// AlgorithmSlidingWindowCounter 表示滑动窗口计数算法。
+	AlgorithmSlidingWindowCounter = cache.RateLimitAlgorithmSlidingWindowCounter
+	// AlgorithmSlidingWindowLog 表示滑动窗口日志算法。
+	AlgorithmSlidingWindowLog = cache.RateLimitAlgorithmSlidingWindowLog
+	// AlgorithmLeakyBucket 表示漏桶算法。
+	AlgorithmLeakyBucket = cache.RateLimitAlgorithmLeakyBucket
+)
+
+// Policy 描述一个接口限流身份维度、算法及算法专属参数。
 type Policy struct {
 	// Dimension 是限流身份维度。
 	Dimension Dimension
-	// TokensPerSecond 是令牌生成速率。
+	// Algorithm 是限流算法；空值按令牌桶处理以兼容旧策略提供者。
+	Algorithm Algorithm
+	// TokensPerSecond 是令牌桶补充速率。
 	TokensPerSecond float64
-	// Burst 是允许的突发请求数。
+	// Burst 是令牌桶容量。
 	Burst int
+	// Limit 是窗口算法在一个窗口内允许的请求数。
+	Limit int
+	// Window 是固定或滑动窗口的时长。
+	Window time.Duration
+	// LeakRatePerSecond 是漏桶每秒漏出量。
+	LeakRatePerSecond float64
+	// Capacity 是漏桶容量。
+	Capacity int
 }
 
 // PolicyResolver 按完整 RPC 操作名读取当前启用的限流策略。
 type PolicyResolver interface {
+	// Resolve 按操作名返回当前启用的限流策略。
 	Resolve(context.Context, string) ([]Policy, error)
 }
 
-// NewMiddleware 创建按接口策略执行原子令牌桶限流的服务端中间件。
+// NewMiddleware 创建按接口策略执行共享原子限流的服务端中间件。
 func NewMiddleware(store cache.Cache, resolver PolicyResolver) middleware.Middleware {
 	return func(next middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, request any) (any, error) {
@@ -67,19 +95,37 @@ func NewMiddleware(store cache.Cache, resolver PolicyResolver) middleware.Middle
 			if len(policies) == 0 {
 				return next(ctx, request)
 			}
-			buckets := make([]cache.TokenBucketRequest, 0, len(policies))
+			stateStore, ok := store.(cache.RateLimitStore)
+			if !ok {
+				return nil, status.Error(codes.Unavailable, "rate limit storage does not support atomic policies")
+			}
+			requests := make([]cache.RateLimitRequest, 0, len(policies))
 			for _, policy := range policies {
-				identity, identityErr := policyIdentity(ctx, request, serverTransport, policy.Dimension)
-				if identityErr != nil || policy.TokensPerSecond <= 0 || math.IsNaN(policy.TokensPerSecond) || math.IsInf(policy.TokensPerSecond, 0) || policy.Burst <= 0 {
+				var identity string
+				identity, err = policyIdentity(ctx, request, serverTransport, policy.Dimension)
+				if err != nil {
 					return nil, status.Error(codes.Unavailable, "rate limit policy cannot be evaluated")
 				}
-				buckets = append(buckets, cache.TokenBucketRequest{
-					Key:             bucketKey(serverTransport.Operation(), policy.Dimension, identity),
-					TokensPerSecond: policy.TokensPerSecond,
-					Burst:           policy.Burst,
+				algorithm := policy.Algorithm
+				if algorithm == "" {
+					algorithm = AlgorithmTokenBucket
+				}
+				key := bucketKey(serverTransport.Operation(), policy.Dimension, identity)
+				if algorithm != AlgorithmTokenBucket {
+					key += ":" + string(algorithm)
+				}
+				requests = append(requests, cache.RateLimitRequest{
+					Key:               key,
+					Algorithm:         algorithm,
+					TokensPerSecond:   policy.TokensPerSecond,
+					Burst:             policy.Burst,
+					Limit:             policy.Limit,
+					Window:            policy.Window,
+					LeakRatePerSecond: policy.LeakRatePerSecond,
+					Capacity:          policy.Capacity,
 				})
 			}
-			allowed, retryAfter, err := store.TakeTokenBuckets(buckets)
+			allowed, retryAfter, err := stateStore.TakeRateLimits(requests)
 			if err != nil {
 				return nil, status.Error(codes.Unavailable, "rate limit storage is unavailable")
 			}

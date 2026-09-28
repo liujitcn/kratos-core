@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-kratos/kratos/v3/transport"
 	"github.com/liujitcn/kratos-kit/cache"
@@ -17,8 +18,8 @@ type testResolver struct {
 }
 
 // Resolve 返回测试策略集合。
-func (r testResolver) Resolve(context.Context, string) ([]Policy, error) {
-	return r.policies, r.err
+func (resolver testResolver) Resolve(context.Context, string) ([]Policy, error) {
+	return resolver.policies, resolver.err
 }
 
 type testTransport struct {
@@ -47,10 +48,10 @@ type testHeader map[string]string
 func (headers testHeader) Get(key string) string { return headers[key] }
 
 // Set 写入测试传输头。
-func (headers testHeader) Set(key string, value string) { headers[key] = value }
+func (headers testHeader) Set(key, value string) { headers[key] = value }
 
 // Add 追加测试传输头。
-func (headers testHeader) Add(key string, value string) { headers[key] = value }
+func (headers testHeader) Add(key, value string) { headers[key] = value }
 
 // Keys 返回测试传输头名称。
 func (headers testHeader) Keys() []string {
@@ -61,7 +62,7 @@ func (headers testHeader) Keys() []string {
 	return keys
 }
 
-// Values 返回测试传输头值。
+// Values 返回指定测试传输头的值。
 func (headers testHeader) Values(key string) []string {
 	if value, ok := headers[key]; ok {
 		return []string{value}
@@ -69,16 +70,61 @@ func (headers testHeader) Values(key string) []string {
 	return nil
 }
 
-// TestMiddlewareLimitsRequestsByOperation 验证接口级策略达到突发容量后返回 RESOURCE_EXHAUSTED。
+// TestMiddlewareSupportsRateLimitAlgorithms 验证五种算法都能在超限时拒绝请求。
+func TestMiddlewareSupportsRateLimitAlgorithms(t *testing.T) {
+	store, cleanup, err := cache.NewCache(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+
+	tests := []struct {
+		name   string
+		policy Policy
+	}{
+		{name: "token bucket", policy: Policy{Dimension: DimensionGlobal, TokensPerSecond: 0.001, Burst: 1}},
+		{name: "fixed window", policy: Policy{Dimension: DimensionGlobal, Algorithm: AlgorithmFixedWindow, Limit: 1, Window: time.Second}},
+		{name: "sliding window counter", policy: Policy{Dimension: DimensionGlobal, Algorithm: AlgorithmSlidingWindowCounter, Limit: 1, Window: time.Second}},
+		{name: "sliding window log", policy: Policy{Dimension: DimensionGlobal, Algorithm: AlgorithmSlidingWindowLog, Limit: 1, Window: time.Second}},
+		{name: "leaky bucket", policy: Policy{Dimension: DimensionGlobal, Algorithm: AlgorithmLeakyBucket, LeakRatePerSecond: 0.001, Capacity: 1}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			operation := "/example.v1.ExampleService/" + test.name
+			serverTransport := &testTransport{operation: operation, headers: make(testHeader)}
+			ctx := transport.NewServerContext(context.Background(), serverTransport)
+			called := 0
+			handler := NewMiddleware(store, testResolver{policies: []Policy{test.policy}})(func(context.Context, any) (any, error) {
+				called++
+				return "ok", nil
+			})
+			if _, err := handler(ctx, nil); err != nil {
+				t.Fatalf("first request error = %v", err)
+			}
+			_, err := handler(ctx, nil)
+			if status.Code(err) != codes.ResourceExhausted {
+				t.Fatalf("second request code = %s, want %s", status.Code(err), codes.ResourceExhausted)
+			}
+			if serverTransport.headers["Retry-After"] == "" {
+				t.Fatal("limited response is missing Retry-After")
+			}
+			if called != 1 {
+				t.Fatalf("next handler calls = %d, want 1", called)
+			}
+		})
+	}
+}
+
+// TestMiddlewareLimitsRequestsByOperation 验证令牌桶突发容量耗尽后返回 RESOURCE_EXHAUSTED。
 func TestMiddlewareLimitsRequestsByOperation(t *testing.T) {
 	store, cleanup, err := cache.NewCache(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup()
+	t.Cleanup(cleanup)
 	resolver := testResolver{policies: []Policy{{Dimension: DimensionGlobal, TokensPerSecond: 0.001, Burst: 2}}}
-	transportContext := &testTransport{operation: "/example.v1.ExampleService/Call", headers: make(testHeader)}
-	ctx := transport.NewServerContext(context.Background(), transportContext)
+	serverTransport := &testTransport{operation: "/example.v1.ExampleService/Call", headers: make(testHeader)}
+	ctx := transport.NewServerContext(context.Background(), serverTransport)
 	called := 0
 	handler := NewMiddleware(store, resolver)(func(context.Context, any) (any, error) {
 		called++
@@ -96,20 +142,20 @@ func TestMiddlewareLimitsRequestsByOperation(t *testing.T) {
 	if called != 2 {
 		t.Fatalf("next handler calls = %d, want 2", called)
 	}
-	if transportContext.headers["Retry-After"] == "" {
+	if serverTransport.headers["Retry-After"] == "" {
 		t.Fatal("limited response is missing Retry-After")
 	}
 }
 
-// TestMiddlewareFailsClosedWhenPolicyCannotLoad 验证策略读取失败时受保护请求 fail-closed。
+// TestMiddlewareFailsClosedWhenPolicyCannotLoad 验证策略加载失败时中间件拒绝继续执行。
 func TestMiddlewareFailsClosedWhenPolicyCannotLoad(t *testing.T) {
 	store, cleanup, err := cache.NewCache(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup()
-	transportContext := &testTransport{operation: "/example.v1.ExampleService/Call", headers: make(testHeader)}
-	ctx := transport.NewServerContext(context.Background(), transportContext)
+	t.Cleanup(cleanup)
+	serverTransport := &testTransport{operation: "/example.v1.ExampleService/Call", headers: make(testHeader)}
+	ctx := transport.NewServerContext(context.Background(), serverTransport)
 	handler := NewMiddleware(store, testResolver{err: context.DeadlineExceeded})(func(context.Context, any) (any, error) {
 		t.Fatal("handler must not run when policy loading fails")
 		return nil, nil

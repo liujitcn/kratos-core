@@ -46,11 +46,12 @@ func LocalizeError(catalog *I18n, localeValue string, fallbackLocale string, err
 	return result.WithMetadata(metadata).WithCause(err)
 }
 
+// normalizeStructuredError 按冻结错误原因规范化 HTTP 错误码。
 func normalizeStructuredError(err *errors.Error) *errors.Error {
 	result := errors.Clone(err)
 	switch result.Reason {
 	case errorsx.ReasonInvalidArgument, errorsx.ReasonUnauthenticated, errorsx.ReasonPermissionDenied,
-		errorsx.ReasonResourceNotFound, errorsx.ReasonConflict, errorsx.ReasonInternalError:
+		errorsx.ReasonResourceNotFound, errorsx.ReasonConflict, errorsx.ReasonRateLimited, errorsx.ReasonInternalError:
 		return result
 	}
 	switch result.Code {
@@ -64,6 +65,8 @@ func normalizeStructuredError(err *errors.Error) *errors.Error {
 		result.Reason = errorsx.ReasonResourceNotFound
 	case 409:
 		result.Reason = errorsx.ReasonConflict
+	case 429:
+		result.Reason = errorsx.ReasonRateLimited
 	default:
 		result.Code = 500
 		result.Reason = errorsx.ReasonInternalError
@@ -71,6 +74,7 @@ func normalizeStructuredError(err *errors.Error) *errors.Error {
 	return result
 }
 
+// defaultMessageKey 返回错误原因对应的通用国际化键。
 func defaultMessageKey(reason string) string {
 	switch reason {
 	case errorsx.ReasonInvalidArgument:
@@ -83,6 +87,8 @@ func defaultMessageKey(reason string) string {
 		return "common.error.resource_not_found"
 	case errorsx.ReasonConflict:
 		return "common.error.conflict"
+	case errorsx.ReasonRateLimited:
+		return "common.error.rate_limited"
 	default:
 		return "common.error.internal"
 	}

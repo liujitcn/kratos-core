@@ -11,36 +11,36 @@ require (
 	github.com/liujitcn/go-utils v0.0.41
 	github.com/liujitcn/go-utils/geoip v0.0.5
 	github.com/liujitcn/go-utils/translator v0.0.4
-	github.com/liujitcn/kratos-core/api v0.0.4
-	github.com/liujitcn/kratos-kit v0.0.88
-	github.com/liujitcn/kratos-kit/api v0.0.40
-	github.com/liujitcn/kratos-kit/auth v0.0.30
+	github.com/liujitcn/kratos-core/api v0.0.5
+	github.com/liujitcn/kratos-kit v0.0.89
+	github.com/liujitcn/kratos-kit/api v0.0.41
+	github.com/liujitcn/kratos-kit/auth v0.0.31
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.24
 	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.20
 	github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.21
 	github.com/liujitcn/kratos-kit/auth/authz v0.0.23
 	github.com/liujitcn/kratos-kit/auth/authz/engine/casbin v0.0.22
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.20
-	github.com/liujitcn/kratos-kit/bootstrap v0.0.31
-	github.com/liujitcn/kratos-kit/cache v0.0.23
-	github.com/liujitcn/kratos-kit/database/gorm v0.0.49
+	github.com/liujitcn/kratos-kit/bootstrap v0.0.32
+	github.com/liujitcn/kratos-kit/cache v0.0.24
+	github.com/liujitcn/kratos-kit/database/gorm v0.0.50
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.16
-	github.com/liujitcn/kratos-kit/locker v0.0.20
-	github.com/liujitcn/kratos-kit/oss v0.0.21
-	github.com/liujitcn/kratos-kit/pprof v0.0.16
-	github.com/liujitcn/kratos-kit/queue v0.0.32
+	github.com/liujitcn/kratos-kit/locker v0.0.21
+	github.com/liujitcn/kratos-kit/oss v0.0.22
+	github.com/liujitcn/kratos-kit/pprof v0.0.17
+	github.com/liujitcn/kratos-kit/queue v0.0.33
 	github.com/liujitcn/kratos-kit/redact v0.0.12
-	github.com/liujitcn/kratos-kit/server/grpc v0.0.7
-	github.com/liujitcn/kratos-kit/server/http v0.0.6
-	github.com/liujitcn/kratos-kit/server/mcp v0.0.4
-	github.com/liujitcn/kratos-kit/server/sse v0.0.4
+	github.com/liujitcn/kratos-kit/server/grpc v0.0.8
+	github.com/liujitcn/kratos-kit/server/http v0.0.7
+	github.com/liujitcn/kratos-kit/server/mcp v0.0.5
+	github.com/liujitcn/kratos-kit/server/sse v0.0.5
 	github.com/liujitcn/kratos-kit/swagger-ui v0.0.15
-	github.com/liujitcn/kratos-kit/translator v0.0.7
+	github.com/liujitcn/kratos-kit/translator v0.0.8
 	github.com/liujitcn/kratos-kit/transport/cron v0.0.18
 	github.com/liujitcn/kratos-kit/transport/mcp v0.0.16
-	github.com/liujitcn/kratos-kit/transport/queue v0.0.5
+	github.com/liujitcn/kratos-kit/transport/queue v0.0.6
 	github.com/liujitcn/kratos-kit/transport/sse v0.0.15
-	github.com/liujitcn/kratos-kit/utils v0.0.23
+	github.com/liujitcn/kratos-kit/utils v0.0.24
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/nicksnyder/go-i18n/v2 v2.0.2
 	github.com/robfig/cron/v3 v3.0.1
@@ -182,14 +182,14 @@ require (
 	github.com/liujitcn/go-utils/translator/google v0.0.5 // indirect
 	github.com/liujitcn/go-utils/translator/volc v0.0.4 // indirect
 	github.com/liujitcn/kratos-kit/broker v0.0.12 // indirect
-	github.com/liujitcn/kratos-kit/config v0.0.35 // indirect
+	github.com/liujitcn/kratos-kit/config v0.0.36 // indirect
 	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.19 // indirect
-	github.com/liujitcn/kratos-kit/key v0.0.6 // indirect
-	github.com/liujitcn/kratos-kit/logger v0.0.33 // indirect
+	github.com/liujitcn/kratos-kit/key v0.0.7 // indirect
+	github.com/liujitcn/kratos-kit/logger v0.0.34 // indirect
 	github.com/liujitcn/kratos-kit/oss/s3 v0.0.4 // indirect
 	github.com/liujitcn/kratos-kit/queue/redisqueue v0.0.16 // indirect
-	github.com/liujitcn/kratos-kit/registry v0.0.24 // indirect
-	github.com/liujitcn/kratos-kit/tracer v0.0.18 // indirect
+	github.com/liujitcn/kratos-kit/registry v0.0.25 // indirect
+	github.com/liujitcn/kratos-kit/tracer v0.0.19 // indirect
 	github.com/liujitcn/kratos-kit/tracing v0.0.12 // indirect
 	github.com/liujitcn/kratos-kit/transport v0.0.25 // indirect
 	github.com/liujitcn/kratos-kit/transport/hptimer v0.0.7 // indirect

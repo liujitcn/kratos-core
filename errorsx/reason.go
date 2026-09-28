@@ -13,6 +13,8 @@ const (
 	ReasonResourceNotFound = "RESOURCE_NOT_FOUND"
 	// ReasonConflict 表示资源状态冲突。
 	ReasonConflict = "CONFLICT"
+	// ReasonRateLimited 表示请求触发限流。
+	ReasonRateLimited = "RATE_LIMITED"
 	// ReasonInternalError 表示服务内部错误。
 	ReasonInternalError = "INTERNAL_ERROR"
 )
@@ -40,6 +42,11 @@ func ResourceNotFound(message string) *errors.Error {
 // Conflict 构造状态冲突错误。
 func Conflict(message string) *errors.Error {
 	return newStructuredError(409, ReasonConflict, message)
+}
+
+// RateLimited 构造请求触发限流错误。
+func RateLimited(message string) *errors.Error {
+	return newStructuredError(429, ReasonRateLimited, message)
 }
 
 // Internal 构造内部错误。
