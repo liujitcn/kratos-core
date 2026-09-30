@@ -644,10 +644,10 @@ github.com/liujitcn/kratos-kit/cache v0.0.26 h1:2kuBS6gszq90+qT9mhX64XSzHO7he/4u
 github.com/liujitcn/kratos-kit/cache v0.0.26/go.mod h1:QXSvwMxpoe5p7WA4VFL3aglCFMubWuN7E6odPI0rHpk=
 github.com/liujitcn/kratos-kit/config v0.0.37 h1:dORb3/Prv/u1Q8BQfaaFIfpUVplxWnrL1qZtKpNF/wA=
 github.com/liujitcn/kratos-kit/config v0.0.37/go.mod h1:PL+4hEelSPy/V3HIoBks6uJhCaPoxXrfA2j90//ZtNg=
-github.com/liujitcn/kratos-kit/database/gorm v0.0.52 h1:arSVabNd0KsaaMgcHz/MBVpwwDEsMOyWWZ89ALYaei0=
-github.com/liujitcn/kratos-kit/database/gorm v0.0.52/go.mod h1:6JcNVKOTBEjSkNYNKri9uKaEOOu+05fhYIfw7/WUnvw=
-github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.20 h1:QeE/j6Chm+07erHiesN54MGFAVg3t8AzD/+U4/+pkzs=
-github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.20/go.mod h1:o8yW8lcmcz2evAQaCjeXjX2WMOFwmElz5S74bngDlb8=
+github.com/liujitcn/kratos-kit/database/gorm v0.0.54 h1:SHva4Bt51xDJX7RgA5JvobDcCMjncqVliiY21JdEQnI=
+github.com/liujitcn/kratos-kit/database/gorm v0.0.54/go.mod h1:X+QAraj69VO0ohfDpp1/FNJpOWlzrUM9Btwjf6ErunQ=
+github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.22 h1:yFMRg09fgWOnrf0oCBEd0D1/7eAaxudae0x/2R0P07c=
+github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.22/go.mod h1:o8yW8lcmcz2evAQaCjeXjX2WMOFwmElz5S74bngDlb8=
 github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.17 h1:e1Bf8qKvqUbvgmbXKLJwqJ5ZqHodHKOfSDVJVHwLfe4=
 github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.17/go.mod h1:vG7rD+itLbTx1i633meZmrTPQAAskdlmWUz5EEtredw=
 github.com/liujitcn/kratos-kit/key v0.0.8 h1:oVJcItx2HioP50NDzAmIUiUSbvTJGrX7Ki7uJxucldY=

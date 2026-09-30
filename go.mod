@@ -23,7 +23,7 @@ require (
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.20
 	github.com/liujitcn/kratos-kit/bootstrap v0.0.33
 	github.com/liujitcn/kratos-kit/cache v0.0.26
-	github.com/liujitcn/kratos-kit/database/gorm v0.0.52
+	github.com/liujitcn/kratos-kit/database/gorm v0.0.54
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.17
 	github.com/liujitcn/kratos-kit/locker v0.0.22
 	github.com/liujitcn/kratos-kit/oss v0.0.22
@@ -183,7 +183,7 @@ require (
 	github.com/liujitcn/go-utils/translator/volc v0.0.4 // indirect
 	github.com/liujitcn/kratos-kit/broker v0.0.12 // indirect
 	github.com/liujitcn/kratos-kit/config v0.0.37 // indirect
-	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.20 // indirect
+	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.22 // indirect
 	github.com/liujitcn/kratos-kit/key v0.0.8 // indirect
 	github.com/liujitcn/kratos-kit/logger v0.0.35 // indirect
 	github.com/liujitcn/kratos-kit/oss/s3 v0.0.4 // indirect
