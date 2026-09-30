@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-kratos/kratos/v3/middleware"
 	"github.com/go-kratos/kratos/v3/transport"
-	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
+	"github.com/go-kratos/kratos/v3/transport/http"
 	"github.com/liujitcn/kratos-kit/auth"
 	"github.com/liujitcn/kratos-kit/cache"
 	"google.golang.org/grpc/codes"
@@ -185,7 +185,7 @@ func policyIdentity(ctx context.Context, request any, serverTransport transport.
 
 // remoteIP 读取 HTTP 或 gRPC 网络对端地址，不信任转发请求头。
 func remoteIP(ctx context.Context) string {
-	if request, ok := kratosHTTP.RequestFromServerContext(ctx); ok && request != nil {
+	if request, ok := http.RequestFromServerContext(ctx); ok && request != nil {
 		return hostIP(request.RemoteAddr)
 	}
 	if remote, ok := peer.FromContext(ctx); ok && remote.Addr != nil {

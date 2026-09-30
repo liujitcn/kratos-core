@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/liujitcn/kratos-kit/auth/data"
-	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
+	"github.com/liujitcn/kratos-kit/database/gorm"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -60,7 +60,7 @@ func TestTenantScopeMiddlewareRejectsCrossTenantInput(t *testing.T) {
 // TestTenantScopeMiddlewareKeepsDefaultTenantZero 验证默认租户不会自动改写零值。
 func TestTenantScopeMiddlewareKeepsDefaultTenantZero(t *testing.T) {
 	request := newTenantScopeTestRequest(t)
-	if err := applyTenantScope(request.ProtoReflect(), &data.UserTokenPayload{TenantCode: databaseGorm.DefaultTenantCode}, make(map[protoreflect.FullName]struct{})); err != nil {
+	if err := applyTenantScope(request.ProtoReflect(), &data.UserTokenPayload{TenantCode: gorm.DefaultTenantCode}, make(map[protoreflect.FullName]struct{})); err != nil {
 		t.Fatalf("applyTenantScope() error = %v", err)
 	}
 	field := request.Descriptor().Fields().ByName("tenant_id")

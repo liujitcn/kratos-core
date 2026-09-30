@@ -7,7 +7,7 @@ import (
 	"github.com/liujitcn/kratos-core/errorsx"
 	"github.com/liujitcn/kratos-kit/auth"
 	"github.com/liujitcn/kratos-kit/auth/data"
-	databaseGorm "github.com/liujitcn/kratos-kit/database/gorm"
+	"github.com/liujitcn/kratos-kit/database/gorm"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -154,7 +154,7 @@ func applyTenantScope(message protoreflect.Message, authInfo *data.UserTokenPayl
 // applyTenantID 处理单个租户字段的默认填充和越权输入。
 func applyTenantID(message protoreflect.Message, field protoreflect.FieldDescriptor, authInfo *data.UserTokenPayload) error {
 	requestedTenantID := message.Get(field).Int()
-	if authInfo.TenantCode == databaseGorm.DefaultTenantCode {
+	if authInfo.TenantCode == gorm.DefaultTenantCode {
 		return nil
 	}
 	if authInfo.TenantId <= 0 {

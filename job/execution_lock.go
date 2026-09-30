@@ -7,7 +7,7 @@ import (
 	"time"
 
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
-	kitlocker "github.com/liujitcn/kratos-kit/locker"
+	"github.com/liujitcn/kratos-kit/locker"
 )
 
 const (
@@ -17,22 +17,22 @@ const (
 
 var (
 	// ErrExecutionLockNotObtained 表示本次任务没有取得执行锁。
-	ErrExecutionLockNotObtained = kitlocker.ErrNotObtained
+	ErrExecutionLockNotObtained = locker.ErrNotObtained
 )
 
 // ExecutionLocker 为定时任务封装统一锁能力。
 type ExecutionLocker struct {
-	locker kitlocker.Locker
+	locker locker.Locker
 }
 
 // ExecutionLease 表示一次已经取得的任务执行租约。
 type ExecutionLease struct {
-	kitlocker.Lease
+	locker.Lease
 }
 
 // NewExecutionLocker 根据 Redis 配置创建任务执行锁；未配置时使用进程内锁。
 func NewExecutionLocker(cfg *configv1.Data_Redis) (*ExecutionLocker, error) {
-	manager, err := kitlocker.NewLocker(cfg)
+	manager, err := locker.NewLocker(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("初始化任务执行锁失败: %w", err)
 	}
@@ -41,7 +41,7 @@ func NewExecutionLocker(cfg *configv1.Data_Redis) (*ExecutionLocker, error) {
 
 // NewMemoryExecutionLocker 创建只使用进程内锁的任务执行锁。
 func NewMemoryExecutionLocker() *ExecutionLocker {
-	manager, err := kitlocker.NewLocker(nil)
+	manager, err := locker.NewLocker(nil)
 	if err != nil {
 		panic(err)
 	}
@@ -49,9 +49,9 @@ func NewMemoryExecutionLocker() *ExecutionLocker {
 }
 
 // Mode 返回当前任务执行锁模式。
-func (l *ExecutionLocker) Mode() kitlocker.Mode {
+func (l *ExecutionLocker) Mode() locker.Mode {
 	if l == nil || l.locker == nil {
-		return kitlocker.ModeMemory
+		return locker.ModeMemory
 	}
 	return l.locker.Mode()
 }
