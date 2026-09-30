@@ -44,14 +44,15 @@ func (r *Migration) ReadFiles(moduleName, version, dataSource, references string
 				relative = strings.TrimPrefix(relative, root+"/")
 			}
 			parts := strings.Split(relative, "/")
-			if !fs.ValidPath(file.Path) || (len(parts) != 3 && len(parts) != 4) || parts[0] != version {
+			// 三段/四段路径是数据库类型目录下的脚本，两段路径是版本级公用说明文件。
+			if !fs.ValidPath(file.Path) || (len(parts) != 2 && len(parts) != 3 && len(parts) != 4) || parts[0] != version {
 				return nil, fmt.Errorf("迁移文件路径无效: %s", file.Path)
 			}
 			target := migration.DefaultTarget
 			if len(parts) == 4 {
 				target = parts[2]
 			}
-			if target != dataSource {
+			if len(parts) >= 3 && target != dataSource {
 				return nil, fmt.Errorf("迁移文件数据源不匹配: %s", file.Path)
 			}
 			var content []byte

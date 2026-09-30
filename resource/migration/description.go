@@ -47,7 +47,8 @@ func loadDescriptionTranslations(moduleName string, files fs.FS, root string) ([
 			relativeName = strings.TrimPrefix(name, cleanRoot+"/")
 		}
 		parts := strings.Split(relativeName, "/")
-		if len(parts) != 3 && len(parts) != 4 {
+		// 三段/四段路径是数据库类型目录下的说明，两段路径是版本级公用说明（归属默认数据源）。
+		if len(parts) != 2 && len(parts) != 3 && len(parts) != 4 {
 			return fmt.Errorf("迁移说明路径无效: %s", name)
 		}
 		dataSource := migration.DefaultTarget
