@@ -31,7 +31,7 @@ require (
 	github.com/liujitcn/kratos-kit/queue v0.0.37
 	github.com/liujitcn/kratos-kit/redact v0.0.17
 	github.com/liujitcn/kratos-kit/server/grpc v0.0.12
-	github.com/liujitcn/kratos-kit/server/http v0.0.12
+	github.com/liujitcn/kratos-kit/server/http v0.0.13
 	github.com/liujitcn/kratos-kit/server/mcp v0.0.9
 	github.com/liujitcn/kratos-kit/server/sse v0.0.9
 	github.com/liujitcn/kratos-kit/swagger-ui v0.0.18
