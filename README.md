@@ -2,126 +2,70 @@
 
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en-US.md) | [日本語](README.ja-JP.md)
 
-`kratos-core` 是 Kratos 服务的通用运行时。宿主项目负责业务 Case、Service、API 和进程入口；Core 负责基础设施、传输层、资源注册以及应用生命周期。
+`kratos-core` 是 Kratos 服务的通用运行时。它负责基础设施装配、协议服务、公共资源同步和应用生命周期；业务项目负责业务 Case、Service、API、模型以及进程入口。Core 只描述和实现本仓库提供的能力，不包含具体业务模块。
 
-Core 不是完整的业务模板。宿主通过一个 `module.Module` 把业务服务和构建期资源交给 Core，再由 `NewApp` 统一装配并交给宿主启动。
+## 功能概览
 
-## Core 负责什么
+- 解析启动配置，创建多数据源数据库客户端、缓存、队列、对象存储、翻译器、认证授权和性能分析运行时。
+- 通过 `module.Module` 注册 HTTP、gRPC 和 MCP 服务，通过独立的 `job.Tasks`、`queue.Consumers`、`sse.Streams` 注入定时任务、队列消费者和 SSE 流。
+- 按配置创建 HTTP、gRPC、MCP、SSE、队列和持久化 Cron 服务，并由 Kratos 统一启动、停止和传播服务错误。
+- 在应用组装阶段执行数据库迁移、OpenAPI 接口同步、接口国际化、租户角色菜单同步和权限策略重建。
+- 提供通用业务上下文、事务边界、日志流水线、错误原因、OpenAPI 查询、SSE 发布和持久化任务控制能力。
+- 提供 `api` 公共 protobuf 模块和 `client` gRPC 客户端模块，支持远程、服务发现和进程内调用。
 
-- 从 `bootstrap.Context` 解析数据库、Redis、队列、OSS、JWT、翻译器和性能分析配置。
-- 按模块资源创建多数据源 GORM 客户端、缓存、队列、OSS、翻译器和共享 `biz.BaseCase`。
-- 按配置创建 HTTP、gRPC、MCP、SSE、队列和持久化定时任务运行时，并把模块服务注册到对应传输层；任务、SSE 流和队列消费者分别作为独立集合注入。
-- 装配时按顺序执行数据库迁移、OpenAPI 接口同步、租户角色菜单同步和 Casbin 策略重建。
-- 统一装配可选服务并交给 Kratos 管理生命周期；基础资源由 Wire 生成的清理函数释放。
+## 公共入口
 
-## 公共边界
+| 入口 | 当前职责 |
+| --- | --- |
+| 根包 | 提供 `ProviderSet` 和 `NewApp`，汇总配置、资源、数据访问和协议运行时。 |
+| `biz` | 提供 `BaseCase`、认证授权、日志流水线、基础设施客户端和运行时公共上下文。 |
+| `config` | 从启动上下文解析应用、数据库、Redis、队列、对象存储、JWT、翻译器和性能分析配置。 |
+| `data` | 创建多数据源客户端，并定义 API、任务、日志、权限和事务的存储契约。 |
+| `errorsx` | 统一构造参数错误、认证失败、无权限、冲突、限流和内部错误。 |
+| `job` / `queue` / `sse` / `mcp` | 提供持久化任务、队列、SSE 和 MCP 的注册、运行时与生命周期适配。 |
+| `module` / `resource` | 定义业务模块、模型、迁移、OpenAPI、国际化资源以及启动期同步流程。 |
+| `server` | 创建 HTTP、gRPC 服务和请求中间件，包括认证、租户范围、校验、日志、限流和策略上下文。 |
+| `api` | 独立 Go 模块，保存公共 protobuf 定义和生成代码。 |
+| `client` | 独立 Go 模块，统一创建远程、服务发现或进程内 gRPC 客户端连接。 |
 
-跨项目可以依赖的 Go 代码分为四类入口：
+## 接入方式
 
-- 根包提供 `ProviderSet` 和 `NewApp`。宿主通常只需要把 `ProviderSet` 放入自己的 Wire 图。
-- 根目录的 `biz`、`config`、`const`、`data`、`errorsx`、`job`、`mcp`、`module`、`queue`、`resource`、`server` 和 `sse` 提供跨项目公共包。
-- `api` 是独立 Go 模块，`api/proto` 保存 Core 的 protobuf 定义，`api/gen/go` 保存生成的 Go 类型。
-- `client` 是独立 Go 模块，提供基于 `kratos-kit` 配置的 gRPC 连接和进程内 gRPC 连接。
+Core 根目录不维护业务项目的 Wire 组合根。业务项目在自己的 Wire 入口中注入 `core.ProviderSet`，并提供以下依赖：
 
-`data` 包只公开多数据源客户端初始化、事务边界以及 API、任务、日志和权限资源的宿主存储契约；数据库模型和生成仓储由宿主项目提供。Core 创建的缓存、队列、OSS、翻译器和多数据源 GORM 客户端会注入 `biz.BaseCase`，同时写入 `kratos-kit/sdk.Runtime`，业务代码可以按需从 BaseCase 或 SDK 获取。
+1. 一个或多个 `module.Module`，用于注册 HTTP、gRPC 和 MCP 服务。
+2. `module.Resource`，用于提供模型、迁移、OpenAPI 和国际化文件系统。
+3. 可选的 `job.Tasks`、`queue.Consumers` 和 `sse.Streams` 集合；没有对应能力时提供空集合。
+4. `data` 包声明的存储接口实现，用于启动同步、任务、日志和权限资源。
 
-## Wire 接入
-
-宿主在自己的 Wire 组合根中提供一个实现 `module.Module` 的业务模块，并使用 Core 唯一公开的 `ProviderSet`：
-
-```go
-//go:build wireinject
-
-package main
-
-import (
-	"github.com/go-kratos/kratos/v3"
-	"github.com/google/wire"
-	core "github.com/liujitcn/kratos-core"
-	"github.com/liujitcn/kratos-core/module"
-	"github.com/liujitcn/kratos-kit/bootstrap"
-	"github.com/liujitcn/kratos-kit/redact"
-)
-
-// initializeApp 将宿主提供的实例策略解析器交给 Core 各协议入口。
-func initializeApp(ctx *bootstrap.Context, policyResolver redact.PolicyResolver) (*kratos.App, func(), error) {
-	panic(wire.Build(
-		core.ProviderSet,
-		newHostModule,
-		newHostModules,
-	))
-}
-
-func newHostModules(host *hostModule) []module.Module {
-	return []module.Module{host}
-}
-```
-
-Core 的 `ProviderSet` 汇总配置、基础设施、模块资源、数据访问、资源同步和各协议运行时，并包含 `NewApp`。宿主只需补充自己的业务 Provider，并提供 `[]module.Module`，不需要重复加入 Core 的 ProviderSet。Core 根目录不再维护 `wire.go` 或 `wire_gen.go`；宿主项目应通过自己的 Wire 命令生成组合根和 `wire_gen.go`，也可以使用 `make wire WIRE_DIR=<宿主 Wire 目录>`。
-
-Core 的任务、日志和权限资源运行时依赖 `data` 包中的 `Store`/`Writer` 契约。宿主应在自己的 Wire 组合根中提供这些契约的实现；Admin 的实现位于 `backend/adapter/core`。Core 不依赖宿主的数据库模型或生成仓储。
-
-### 请求脱敏策略
-
-`server.NewHTTPServer`、`server.NewGRPCServer` 和 `mcp.NewServer` 的最后一个构造参数为 `redact.PolicyResolver`。宿主必须在 Wire 图中显式提供该接口，可使用上例的组合根参数，或由宿主 Provider 返回接口；具体类型 Provider 需要 `wire.Bind(new(redact.PolicyResolver), new(*HostPolicyResolver))`。Core 不注册默认 Provider、不读取进程全局策略，也不改变 `module.Module` 的注册接口。即使协议未启用，Wire 仍需解析该依赖；仅使用静态规则的宿主可显式传入 nil。
-
-- HTTP 在最外层 Handler 注入请求上下文，覆盖业务中间件、原生路由和响应 encoder；原有编码、静态资源、SSE 和超时行为保持不变。
-- gRPC 通过原生 `UnaryInterceptor` / `StreamInterceptor` 注入 unary 和 server/client/bidi stream 上下文，并使用前置 Kratos middleware 让日志、会话等中间件也可读取策略；模块仍收到原始 `*kratosGRPC.Server`，可继续通过 `Use` 挂载中间件。现有生成包装器可从 `stream.Context()` 获取解析器，无需重生成 Proto。
-- MCP 使用 SDK 接收中间件，在模块中间件之前注入，覆盖独立 HTTP、Legacy SSE、STDIO 和挂载 HTTP 模式；挂载时以 MCP 自身的构造参数为准。
-
-Core 只传递策略，不额外执行 `ApplyWith` 或修改响应，避免与生成包装器重复脱敏。业务调用 `redact.ApplyWith(ctx, nil, value)` 时读取当前请求策略；显式非 nil resolver 优先。构造参数为 nil 时会屏蔽上游上下文策略，保留 Kit 的静态规则与默认文本清理，不等同于禁用脱敏。原有 `redact.Apply(value)` 和日志脱敏接口保持不变，取消信号与 deadline 随请求上下文传递。
-
-本次接口需要包含 `WithPolicyResolver` / `PolicyResolverFromContext` 的 Kit/redact 版本，以及支持 `CreateGrpcServerWithOptions` 的 Kit/server/grpc 版本。新版本发布前，使用临时 `GOWORK` 同时包含 Core 与这两个本地 Kit 模块联调，不向仓库 `go.mod` 写入本地 replace；宿主还需重新生成 Wire 装配代码。
+`NewApp` 会收集这些依赖并创建最终的 Kratos 应用。HTTP、gRPC、独立 MCP、独立 SSE、队列和 Cron 均为可选服务；没有对应配置时不会创建监听器，空集合不会阻止服务启动。进程内 MCP 和 SSE 由 HTTP 服务承载，因此启用进程内模式时必须同时配置 HTTP。
 
 ## 模块契约
 
-业务模块实现 `module.Module`。模块自己持有业务 Service，并在协议注册方法中完成 HTTP、gRPC 和 MCP 注册：
+业务模块只需要实现当前版本的三个协议注册方法：
 
 ```go
-type hostModule struct{}
-
-func (*hostModule) RegisterGRPC(grpc.ServiceRegistrar) {}
-func (*hostModule) RegisterHTTP(*kratosHTTP.Server)    {}
-func (*hostModule) RegisterMCP(*mcpserver.Server)      {}
+type Module interface {
+	RegisterGRPC(grpc.ServiceRegistrar)
+	RegisterHTTP(*http.Server)
+	RegisterMCP(*mcp.Server)
+}
 ```
 
-各方法的职责如下：
-
-| 方法 | 作用 |
-| --- | --- |
-| `RegisterGRPC` | 注册生成的 gRPC Service。未配置 gRPC 服务时不会创建 Core gRPC Server。 |
-| `RegisterHTTP` | 注册 HTTP Service 和路由。未配置 HTTP 服务时不会创建 Core HTTP Server。 |
-| `RegisterMCP` | 注册 MCP 工具。MCP 可以独立监听，也可以挂载到 HTTP。 |
-
-多个业务模块可以由宿主 Wire 组合根作为 `module.Module` 提供。任务通过 `job.Tasks` 提供，SSE 流通过 `sse.Streams` 提供，队列消费者通过 `queue.Consumers` 提供；没有对应能力时提供空集合。Core 会按提供顺序转发协议注册，并在装配时校验重复资源和重复 SSE 流标识。
+Core 按模块提供顺序转发注册调用。模块可以只实现实际使用的协议；未配置的协议不会创建服务。多个模块的 OpenAPI 文档、国际化键和 SSE 流标识必须保持唯一，冲突会在应用组装时返回错误。
 
 ## 构建期资源
 
-`module.Resource` 是宿主提供的一组资源接口，`module.Resources` 聚合多个资源实现：
+`module.Resource` 由业务模块实现：
 
-| 方法 | 内容与约束 |
+| 方法 | 约束 |
 | --- | --- |
-| `ProjectKey()` / `ProjectName()` | 项目稳定标识和展示名称；ProjectKey 为空时使用 `kratos-core`，ProjectName 为空时回退到 ProjectKey。 |
-| `Models()` | 按数据源名称分组的 GORM 模型。含模型的数据源必须在配置中存在，默认数据源必须配置。 |
-| `Migrations()` | 版本化迁移列表。每项 `module.Migration` 声明 `Name`、`FS`、`Path` 和 `Dependencies`，Core 按依赖顺序执行；每个数据库类型或命名数据源目录使用 `README.md` 作为主说明，可选的 `README.<locale>.md` 由宿主同步。 |
-| `OpenAPI()` / `I18n()` | 分别返回 OpenAPI 和语言 JSON 文件系统，未提供的资源返回 nil。 |
+| `ProjectKey()` / `ProjectName()` | 项目标识和展示名称；为空时分别回退到 `kratos-core` 和项目标识。 |
+| `Models()` | 按数据源名称返回 GORM 模型。使用模型的数据源必须存在，默认数据源必须配置。 |
+| `Migrations()` | 返回带名称、文件系统根路径和依赖关系的版本化迁移集合。 |
+| `OpenAPI()` | 返回包含 `openapi.yaml`、`openapi.yml` 或 `openapi.json` 的文件系统，可附带语言版本。 |
+| `I18n()` | 返回以 locale 文件名保存的 JSON 文案文件系统。相同语言的重复键必须具有相同内容。 |
 
-资源通常由宿主通过 `embed.FS`、代码生成器或 `fstest.MapFS` 提供：
-
-```go
-type hostResources struct{}
-
-func (*hostResources) ProjectKey() string                    { return "host" }
-func (*hostResources) ProjectName() string                   { return "Host Service" }
-func (*hostResources) Models() module.Models                 { return map[string][]interface{}{defaultDataSource: models.Models()} }
-func (*hostResources) OpenAPI() fs.FS                        { return openAPIFS }
-func (*hostResources) I18n() fs.FS                           { return i18nFS }
-func (*hostResources) Migrations() module.Migrations          { return module.Migrations{{Name: "host", FS: migrationFS, Path: "."}} }
-
-func NewModuleResources() module.Resources { return module.Resources{&hostResources{}} }
-```
-
-迁移说明目录结构：
+迁移资源使用以下目录约定，Core 按 `Dependencies` 拓扑顺序执行：
 
 ```text
 assets/<version>/<database-type>/README.md
@@ -130,115 +74,108 @@ assets/<version>/<database-type>/<data-source>/README.md
 assets/<version>/<database-type>/<data-source>/README.<locale>.md
 ```
 
-迁移记录的 `up_files`、`down_files`、`description_files` 使用 JSON 数组保存相对文件路径和 SHA-256，不再保存 SQL 或 Markdown 正文。Core 将本地化 README 的文件引用按 `target_key=base_migration.description`、迁移记录 ID 同步到 `base_i18n`，缺少对应语言时由调用方回退到主说明。`Migration.ReadFiles(module, version, dataSource, references)` 从已注册模块文件系统按需读取，按原顺序返回每个文件的路径和独立内容，不合并正文，并校验目录归属和内容摘要；缺失、越界或修改过的文件返回错误。SQL 摘要对应执行时去注释后的内容。
-
-宿主可通过 `os.DirFS` 注册部署目录，不必嵌入迁移文件。发布时必须携带并保留历史版本文件，迁移资源目录不应作为公开静态目录挂载。旧版正文记录不做隐式兼容；GORM 自动迁移不会删除旧列，也不会将正文转换为文件引用，存量库需另行备份转换，开发环境可按既有流程重建。发布依赖使用 kratos-kit/database/gorm/migration 的正式 tag。
+迁移记录保存文件引用和 SHA-256 摘要。`resource/migration.Migration.ReadFiles` 会按记录顺序读取文件，校验路径归属、数据源、文件存在性和内容摘要；SQL 校验使用执行器去除注释后的内容。部署时必须保留历史迁移文件，迁移资源目录不应直接作为公开静态目录。
 
 ## 运行时能力
 
-### 基础上下文
+### 基础上下文与数据访问
 
-`biz.BaseCase` 是宿主业务共用的基础上下文，包含 `bootstrap.Context`、缓存、队列、OSS、翻译器和多数据源 GORM 客户端，并提供 `GetAuthInfo` 读取当前认证用户。
+`biz.BaseCase` 聚合启动上下文、缓存、队列、对象存储、翻译器和多数据源数据库客户端，并提供 `GetAuthInfo` 读取当前认证主体。`data.Transaction` 统一事务边界；API、任务、日志和权限存储由业务项目实现，Core 只依赖这些接口。
 
-Core 还向宿主提供以下具体业务服务：
+Core 还提供：
 
-- `job.Job`：启动、停止或立即运行数据库中的持久化任务。
-- `resource/openapi.OpenAPI`：按请求语言、服务或 HTTP 操作查询 OpenAPI 信息。
-- `sse.SSE`：建立 SSE 订阅并发布 JSON 事件。
+- `errorsx`：统一错误原因和消息包装，HTTP/gRPC 可映射为标准状态码。
+- `biz.LogPipeline`：将 API 访问、策略评估和任务日志异步写入队列与存储，并在缓冲关闭或满载时返回明确错误。
+- `api/common/v1`：状态、通用错误、分析图表、树形/下拉选项、数组包装和敏感字段传输消息。
 
-### 服务与中间件
+### HTTP 与 gRPC
 
-HTTP 和 gRPC 服务会按配置挂载 request ID、I18n、日志、认证授权、参数校验和接口限流中间件。接口限流通过宿主提供的策略解析器读取策略，并使用共享缓存执行多维度、多算法原子限流。HTTP 还支持本地 OSS 静态文件、SPA 回退和 Swagger；启用进程内 MCP 或 SSE 时，对应端点会挂载到 HTTP 服务，因此必须同时配置 HTTP。
+服务按配置挂载请求标识、国际化、日志、认证授权、租户范围、参数校验和接口限流中间件。HTTP 还支持：
 
-队列运行时负责消费任务日志消息并转发宿主通过 `queue.Consumers` 提供的业务事件消费者；Core 审计流水线负责投递并异步写入 API 访问和策略评估日志，完整模型注册与自动迁移仍由宿主提供。Cron 运行时从数据库重载启用的 `BaseJob`，按 `job.Tasks` 中的执行器执行任务，并在执行入口按任务编号取得 Redis 分布式锁；Redis 锁初始化失败时自动降级为进程内内存锁，仅保证单实例互斥。
+- 本地对象存储只读目录 `/data/`；根目录可由对象存储配置覆盖。
+- `web` 下按子目录注册 SPA，找不到静态文件时回退到 `index.html`。
+- Swagger/OpenAPI 文档：`/api/docs/openapi` 和 `/api/docs/swagger`。
+- 进程内 MCP 与 SSE 路由挂载；路径可由服务配置覆盖。
 
-## 装配与启动顺序
+HTTP、gRPC 和 MCP 构造时可注入策略解析器。Core 将解析器放入请求上下文，业务包装器可以读取当前请求策略；Core 不重复修改业务响应。取消信号和 deadline 会随请求上下文传递。
 
-`ProviderSet` 与 `NewApp` 的主要装配顺序如下：
+### MCP
 
-1. 解析启动配置并收集模块资源，根据模块模型创建数据源和迁移注册表。
-2. 执行数据库迁移，随后在同一事务中同步 OpenAPI 接口、`base_api_i18n` 语言快照、租户角色菜单和 Casbin 数据库规则；接口语言记录使用 `operation + locale` 唯一键，不关联会变化的 `base_api.id`；事务提交后刷新内存策略。
-3. 创建共享基础服务、认证授权、HTTP/gRPC/MCP/SSE、队列和 Cron 运行时，并注册独立的任务、SSE 流和队列消费者集合。
-4. 组装 Kratos App；Kratos 统一启动和停止传输服务，Wire 生成的清理函数负责释放其余基础资源。
+模块通过 `RegisterMCP` 注册工具。MCP 支持独立 HTTP、Legacy SSE、STDIO 和挂载到 Core HTTP 的进程内模式。进程内模式复用 HTTP 监听器，独立模式由 Kratos 单独管理生命周期。
+
+### SSE
+
+`sse.Streams` 注册业务流，Core 根据 `stream`、`channel`、用户和租户解析实际传输流。请求会校验 Bearer 令牌、用户角色、租户范围以及缓存中的令牌有效性；失效令牌不会因为同账号其他设备在线而恢复访问。`sse.SSE` 提供 `Serve` 建立订阅、`PublishJSON` 发布 JSON 事件和 `PublishEnabled` 状态查询。HTTP 订阅会移除服务级 deadline，但保留客户端断开产生的取消信号。
+
+### 队列
+
+`queue.Server` 管理 Core 日志、任务日志和业务消费者。业务代码可使用：
+
+- `queue.AddQueue` 投递 JSON 消息。
+- `queue.ScheduleQueue` 投递延迟消息，`queue.CancelQueue` 取消尚未触发的消息。
+- `queue.Decode[T]` 从消息的 `data` 字段解码业务对象，并校验空消息和 JSON 格式。
+
+### 持久化任务
+
+`job.Tasks` 注册任务执行器；调度器启动时从存储重新加载启用的 `BaseJob`。`job.Job` 提供 `Start`、`Stop` 和 `Run`，分别用于创建调度入口、移除调度和立即执行一次任务。任务入口优先使用 Redis 分布式锁；Redis 不可用时降级为进程内锁，只保证单实例互斥。启动失败会清理已注册任务和执行上下文。
+
+### OpenAPI、国际化与启动同步
+
+OpenAPI 注册表按项目、语言和接口操作保存文档，重复 key 只允许名称和内容完全一致；同语言下重复接口会被拒绝。查询 API 支持按请求语言回退默认文档，并可返回接口对应文档和 schema 字段树。
+
+`resource/openapi.OpenAPI` 提供按请求语言、服务名、HTTP 路径和方法查询文档的运行时入口。
+
+国际化目录会合并 Core 与模块 JSON；同一语言文件出现内容不同的重复键时，应用组装失败。启动同步在迁移完成后执行：
+
+1. 将 OpenAPI 文档转换为接口权限和接口国际化快照。
+2. 同步租户管理员角色菜单到普通租户角色副本。
+3. 根据角色、租户、菜单和接口重建数据库权限规则，并刷新内存策略。
+
+## 组装与启动顺序
+
+1. 解析启动配置，收集模块资源，按数据源创建数据库客户端。
+2. 注册并执行迁移，校验迁移文件和依赖顺序。
+3. 在事务中同步 OpenAPI、国际化、租户角色菜单和权限规则；提交后刷新内存策略。
+4. 创建公共上下文、认证授权、协议服务、队列和 Cron，并注册模块及独立集合。
+5. 组装 Kratos App。Kratos 管理传输服务的启动和停止，Wire 生成的清理函数释放其余基础资源。
 
 ## 目录职责
 
 ```text
-api/
-  proto/common/v1/      Core 公共 protobuf 定义
-  gen/go/common/v1/     protobuf 生成的 Go 代码
-
-client/
-  connection.go         远程或进程内 gRPC 连接适配
-  localgrpc/             进程内 gRPC 服务注册与调用
-
-biz/                     基础上下文、认证授权、日志事件和公共业务能力
+api/                     公共 protobuf 定义和生成代码
+client/                  gRPC 客户端、客户端中间件和进程内连接
+biz/                     BaseCase、认证授权、日志流水线和公共业务能力
 config/                  启动配置解析
 const/                   公共常量
-data/                    多数据源客户端、事务和宿主存储契约
+data/                    多数据源客户端、事务和存储契约
 errorsx/                 统一错误构造
-job/                     Cron 注册、持久化任务和运行时
-mcp/                     MCP 服务与生命周期适配
-module/                  宿主模块、资源和协议注册契约
-queue/                   队列消息辅助能力与消费者生命周期
-resource/                I18n、迁移、OpenAPI 和启动资源同步
-  biz/                    API、租户和 Casbin 资源同步业务
-    dto/                  资源同步 DTO
-  i18n/                   国际化资源合并
-  locale/                 语言标识解析
-  migration/              数据库迁移
-  openapi/                OpenAPI 注册、查询和 HTTP 挂载
-    dto/                  OpenAPI 查询 DTO
-server/                  HTTP、gRPC 和中间件
-  middleware/             HTTP/gRPC 通用中间件
-sse/                     SSE 流注册、传输和发布
-bootstrap.go             对外 ProviderSet 和应用生命周期装配
-Makefile                 生成、格式化、测试和静态检查命令
+job/                     Cron 注册、持久化任务和调度生命周期
+mcp/                     MCP 服务和生命周期适配
+module/                  模块、资源和协议注册契约
+queue/                   队列投递、解码和消费者生命周期
+resource/                OpenAPI、国际化、迁移和启动同步
+server/                  HTTP、gRPC、请求元数据和中间件
+sse/                     SSE 流注册、订阅和发布
+bootstrap.go             ProviderSet 和应用生命周期组装
+Makefile                 生成、格式化、测试、检查和版本脚本入口
 ```
 
 ## 开发命令
 
-```bash
-make tools     # 安装并锁定代码生成与格式化工具
-make api       # 生成 api/gen/go
-make wire      # 在 WIRE_DIR 指定的宿主目录生成 Wire 代码
-make fmt       # goimports 格式化 Go 代码
-make test      # 检查根、api、client 三个 Go 模块
-make vet       # 检查根、api、client 三个 Go 模块
-make lint      # 当前等同于 make vet
-```
-
-## 发布版本 tag
-
-`scripts/tag_release.py` 参照 `kratos-kit` 按 Go module 独立发布版本。执行前先提交并推送代码，脚本只检查远程默认分支上的提交，不会提交工作区改动：
+项目要求 Go `1.27.0`。根模块、`api` 和 `client` 是三个独立 Go 模块，修改任一模块后都应执行对应测试。
 
 ```bash
-git add -A
-git commit -m "提交说明"
-git push origin main
-
-make tag
+make init                         # 安装生成、格式化和 Wire 工具
+make api                          # 由 proto 生成 api/gen/go
+make wire WIRE_DIR=<目录>         # 在指定组合根生成 Wire 代码
+make fmt                          # 格式化 Go 源码和导入
+make test                         # 测试根、api、client 三个模块
+make vet                          # 对三个模块执行 go vet
+make lint                         # 当前等同于 make vet
+make buf-push                     # 生成并推送 protobuf schema（需登录）
+make tag                          # 按模块创建已提交代码的 patch tag
 ```
 
-默认扫描根模块、`api` 和 `client`，只有模块自上一个 tag 后存在已推送的代码更新时才创建并推送下一个 patch tag：
-
-| 模块 | tag 格式 |
-| --- | --- |
-| 根模块 | `vX.Y.Z` |
-| `api` | `api/vX.Y.Z` |
-| `client` | `client/vX.Y.Z` |
-
-也可以只处理指定模块：
-
-```bash
-MODULE=api make tag              # 从 api 目录开始递归扫描
-MODULE=api EXACT=1 make tag      # 只处理 api 模块
-```
-
-脚本会自动跳过没有代码更新或 tag 已存在的模块；根模块的变更检测会排除 `api` 和 `client` 子模块，避免子模块改动重复触发根模块 tag。
-
-项目要求 Go `1.27.0`。`api` 和 `client` 是独立 Go 模块，修改它们时还应分别执行 `cd api && go test ./...`、`cd client && go test ./...`。修改公共模块契约后，应额外编译依赖 Core 的宿主项目。
+`make tag` 默认处理根模块、`api` 和 `client`：根模块使用 `vX.Y.Z`，子模块分别使用 `api/vX.Y.Z` 和 `client/vX.Y.Z`。可用 `MODULE=api make tag` 指定起始模块，或使用 `EXACT=1` 只处理该模块。脚本不会提交工作区改动。
 
 客户端连接的独立说明见 [client/README.md](client/README.md)。
-
-HTTP、SSE 和 OpenAPI 文档入口均校验实际请求令牌所属会话；同账号其他设备在线不会使已撤销的令牌重新获得访问权限。

@@ -1,233 +1,164 @@
 # kratos-core
 
-[簡体字中国語](README.md) | [繁体字中国語](README.zh-TW.md) | [English](README.en-US.md) | [日本語](README.ja-JP.md)
+[简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en-US.md) | [日本語](README.ja-JP.md)
 
-`kratos-core` は Kratos サービス向けの共通ランタイムです。ホストプロジェクトは業務 Case、Service、API、プロセスのエントリーポイントを担当し、Core はインフラストラクチャ、トランスポート、リソース登録、アプリケーションのライフサイクルを担当します。
+`kratos-core` は Kratos サービスの共通ランタイムです。インフラ、プロトコルサーバー、リソース同期、アプリケーションのライフサイクルを組み立てます。業務プロジェクトは Case、Service、API、モデル、プロセスのエントリーポイントを管理します。Core はこのリポジトリの機能だけを提供し、具体的な業務モジュールは含みません。
 
-Core は完全な業務テンプレートではありません。ホストは業務サービスとビルド時リソースを `module.Module` として Core に渡し、`NewApp` がまとめて組み立ててホストに渡し、起動します。
+## 機能
 
-## Core の責務
+- 起動設定を解析し、複数データベース、キャッシュ、キュー、オブジェクトストレージ、翻訳、認証・認可、プロファイリングを初期化します。
+- `module.Module` で HTTP、gRPC、MCP を登録し、`job.Tasks`、`queue.Consumers`、`sse.Streams` でジョブ、キューコンシューマー、SSE ストリームを注入します。
+- 設定に応じて HTTP、gRPC、MCP、SSE、キュー、永続 Cron を作成し、Kratos がライフサイクルとエラーを管理します。
+- 組み立て時にデータベースマイグレーション、OpenAPI、API ローカライズ、テナントのロール・メニュー、権限ポリシーを同期します。
+- 共通コンテキスト、トランザクション境界、ログパイプライン、エラー理由、OpenAPI 検索、SSE 発行、永続ジョブ制御を提供します。
+- `api` の共通 protobuf モジュールと、リモート・サービスディスカバリー・プロセス内呼び出しに対応する `client` を提供します。
 
-- `bootstrap.Context` からデータベース、Redis、キュー、OSS、JWT、翻訳、プロファイリングの設定を解析します。
-- モジュールのリソースに基づいて、複数データベースの GORM クライアント、キャッシュ、キュー、OSS、翻訳器、共有 `biz.BaseCase` を構築します。
-- 設定に従って HTTP、gRPC、MCP、SSE、キュー、永続 Cron のランタイムを作成し、ホストサービスを対応するトランスポートへ登録します。
-- 組み立て時にデータベースマイグレーション、OpenAPI 同期、テナントのロール・メニュー同期、Casbin ポリシー再構築を実行します。
-- オプションのサービスを組み立ててライフサイクルを Kratos に委ね、Wire が生成するクリーンアップ関数で残りの基盤リソースを解放します。
+## 公開パッケージ
 
-## 公開境界
+| パッケージ | 役割 |
+| --- | --- |
+| ルートパッケージ | `ProviderSet` と `NewApp` を公開し、設定、リソース、データ、プロトコルをまとめます。 |
+| `biz` | `BaseCase`、認証・認可、ログパイプライン、インフラクライアント、共通ランタイム。 |
+| `config` | アプリ、データベース、Redis、キュー、ストレージ、JWT、翻訳、プロファイリング設定の解析。 |
+| `data` | 複数データベースクライアントと API、ジョブ、ログ、権限、トランザクションの契約。 |
+| `errorsx` | 引数、認証、権限、競合、レート制限、内部エラーの統一生成。 |
+| `job` / `queue` / `sse` / `mcp` | 永続ジョブ、キュー、SSE、MCP の登録、実行、ライフサイクル。 |
+| `module` / `resource` | モジュール、モデル、マイグレーション、OpenAPI、ローカライズ、起動同期。 |
+| `server` | HTTP、gRPC と認証、テナント、検証、ログ、レート制限、ポリシー middleware。 |
+| `api` | 共通 protobuf 定義と生成コードを持つ独立 Go モジュール。 |
+| `client` | リモート、ディスカバリー、プロセス内 gRPC 接続を作る独立 Go モジュール。 |
 
-プロジェクト間で依存できる Go コードは、次の 4 つの入口から提供されます。
+## 組み込み
 
-- ルートパッケージは `ProviderSet` と `NewApp` を提供します。ホストは通常、自身の Wire グラフに `ProviderSet` を追加するだけです。
-- ルートの `biz`、`config`、`const`、`data`、`errorsx`、`job`、`mcp`、`module`、`queue`、`resource`、`server`、`sse` ディレクトリがプロジェクト間の公開パッケージを提供します。
-- `api` は独立した Go モジュールです。`api/proto` に Core の protobuf 定義、`api/gen/go` に生成済みの Go 型を保存します。
-- `client` は独立した Go モジュールで、`kratos-kit` の設定に基づく gRPC 接続とプロセス内 gRPC 接続を提供します。
+Core のルートには業務プロジェクトの Wire 合成ルートを置きません。業務プロジェクト自身の Wire グラフに `core.ProviderSet` を追加し、次を提供します。
 
-`data` パッケージは、複数データベースクライアントの初期化、トランザクション境界、および API、ジョブ、ログ、権限リソースのホスト側ストレージ契約だけを公開します。データベースモデルと生成 Repository はホストプロジェクトが管理します。Core が作成したキャッシュ、キュー、OSS、翻訳器、複数データベースの GORM クライアントは `biz.BaseCase` に注入され、同時に `kratos-kit/sdk.Runtime` にも保存されます。業務コードは必要に応じて BaseCase または SDK から取得できます。
+1. HTTP、gRPC、MCP を登録する `module.Module`。
+2. モデル、マイグレーション、OpenAPI、ローカライズファイルを返す `module.Resource`。
+3. 必要に応じた `job.Tasks`、`queue.Consumers`、`sse.Streams`。使わない機能は空の集合にします。
+4. 起動同期、ジョブ、ログ、権限に使う `data` のストレージ契約の実装。
 
-## Wire の統合
-
-ホストは `module.Module` を実装する業務モジュールを提供し、Core で唯一公開されている Wire の入口を使用します。
-
-```go
-//go:build wireinject
-
-package main
-
-import (
-	"github.com/go-kratos/kratos/v3"
-	"github.com/google/wire"
-	core "github.com/liujitcn/kratos-core"
-	"github.com/liujitcn/kratos-core/module"
-	"github.com/liujitcn/kratos-kit/bootstrap"
-	"github.com/liujitcn/kratos-kit/redact"
-)
-
-// initializeApp 将宿主提供的实例策略解析器交给 Core 各协议入口。
-func initializeApp(ctx *bootstrap.Context, policyResolver redact.PolicyResolver) (*kratos.App, func(), error) {
-	panic(wire.Build(
-		core.ProviderSet,
-		newHostModule,
-		newHostModules,
-	))
-}
-
-func newHostModules(host *hostModule) []module.Module {
-	return []module.Module{host}
-}
-```
-
-Core の `ProviderSet` は設定、インフラストラクチャ、モジュールリソース、データアクセス、リソース同期、各プロトコルランタイムをまとめ、`NewApp` を含みます。ホスト固有の Provider と `[]module.Module` を追加し、Core の ProviderSet を重複して追加しないでください。Core のルートでは `wire.go` と `wire_gen.go` を管理しません。ホストプロジェクト自身の Wire コマンドで組み立てルートと `wire_gen.go` を生成するか、`make wire WIRE_DIR=<ホストの Wire ディレクトリ>` を使用してください。
-
-Core のジョブ、ログ、権限リソースのランタイムは、`data` パッケージの `Store`/`Writer` 契約に依存します。ホストは Wire の合成ルートで実装を提供してください。Admin の実装は `backend/adapter/core` にあります。Core はホストのデータベースモデルや生成 Repository に依存しません。
-
-ホストの Wire グラフは `redact.PolicyResolver` を明示的に提供する必要があります。これは `server.NewHTTPServer`、`server.NewGRPCServer`、`mcp.NewServer` の最後のコンストラクター引数です。上記の引数、またはホストの Provider と `wire.Bind` を使用してください。Core はデフォルト Provider やプロセス全体の resolver を持ちません。明示的な nil は上流の resolver を遮断し、Kit の静的ルールとデフォルトのテキスト処理を維持します。
-
-resolver は HTTP リクエスト（middleware、通常の Handler、encoder を含む）、gRPC unary と全 stream、および全 MCP トランスポートの SDK 受信コンテキストに注入されます。gRPC はネイティブ interceptor と先頭の Kratos middleware を使い、モジュールには元の `*kratosGRPC.Server` を渡すため、`Use` は引き続き利用できます。Core は追加のマスキングを実行せず、既存 wrapper の `ApplyWith(ctx, nil, value)` がリクエストの resolver を取得します。Proto の再生成は不要です。HTTP にマウントした MCP も自身のコンストラクター引数を使い、キャンセルと deadline は保持されます。
-
-ホストは Wire を再生成し、`WithPolicyResolver` / `PolicyResolverFromContext` を含む Kit/redact と `CreateGrpcServerWithOptions` を含む Kit/server/grpc を使用してください。未リリースのローカル版は一時的な `GOWORK` で検証し、永続的な replace は追加しません。
+`NewApp` は依存関係を集めて Kratos アプリを作成します。HTTP、gRPC、独立 MCP、独立 SSE、キュー、Cron は任意です。対応する設定がなければ listener は作られず、空の集合でもサービス起動を妨げません。プロセス内 MCP と SSE は HTTP にマウントするため、HTTP 設定も必要です。
 
 ## モジュール契約
 
-業務モジュールは `module.Module` を実装します。モジュール自身が業務 Service を保持し、プロトコル登録メソッドで登録します。
+現在の契約は次の 3 つの登録メソッドです。
 
 ```go
-type hostModule struct{}
-
-func (*hostModule) RegisterGRPC(grpc.ServiceRegistrar) {}
-func (*hostModule) RegisterHTTP(*kratosHTTP.Server)    {}
-func (*hostModule) RegisterMCP(*mcpserver.Server)      {}
-func (*hostModule) RegisterQueue(*queueTransport.Server) {}
-func (*hostModule) RegisterCron(*cronTransport.Server) error { return nil }
-func (*hostModule) RegisterSSE(*sseTransport.Server) error    { return nil }
-func (*hostModule) Resources() module.Resources                { return module.Resources{} }
-```
-
-| メソッド | 役割 |
-| --- | --- |
-| `RegisterGRPC` | 生成された gRPC Service を登録します。gRPC が設定されていない場合、Core は gRPC Server を作成しません。 |
-| `RegisterHTTP` | HTTP Service とルートを登録します。HTTP が設定されていない場合、Core は HTTP Server を作成しません。 |
-| `RegisterMCP` | MCP ツールを登録します。MCP は単独で待ち受けることも、HTTP にマウントすることもできます。 |
-| `RegisterQueue` | キューコンシューマーを登録します。Core は組み込みのログおよびジョブログコンシューマーも登録します。 |
-| `RegisterCron` | 永続データベースタスクの実行器を登録します。通常は `server.RegisterTask` を呼び出します。エラーを返すと組み立てを中止します。 |
-| `RegisterSSE` | 業務 SSE ストリームを登録します。通常は `server.RegisterStream` を呼び出します。エラーを返すと組み立てを中止します。 |
-| `Resources` | モデル、マイグレーション、OpenAPI、プロジェクトi18n リソースを返します。 |
-
-複数の業務モジュールは、ホストの Wire 組み立てルートから `module.Module` として提供できます。Core は提供順にリソースを収集し、プロトコル登録を転送します。競合する OpenAPI ドキュメント、内容の異なる i18n メッセージキー、重複する SSE ストリーム ID は組み立て時に拒否されます。
-
-## ビルド時リソース
-
-`module.Resources` は各モジュールが提供する一度きりのリソーススナップショットです。
-
-| フィールド | 内容と制約 |
-| --- | --- |
-| `ProjectKey` | OpenAPI の名前空間に使う安定したプロジェクト識別子です。空の場合は `kratos-core` を使用します。 |
-| `ProjectName` | プロジェクトの表示名です。空の場合は `ProjectKey` にフォールバックします。 |
-| `Models` | データソース名ごとにグループ化された GORM モデルです。モデルを含むすべてのデータソースは設定に存在し、デフォルトデータソースは必須です。 |
-| `Migrations` | バージョン管理されたマイグレーションです。各 `module.Migration` は `Name`、`FS`、`Path`、`Dependencies` を宣言し、Core は依存関係の順に実行します。 |
-| `OpenAPI` | `openapi.yaml`、`openapi.yml`、`openapi.json` と、任意の `openapi.<locale>.yaml` などの言語ファイルを含む `fs.FS` です。Swagger が有効な場合、Core はプロジェクトと言語ごとに原文と Swagger UI をマウントします。 |
-| `I18n` | `zh-CN.json`、`zh-TW.json`、`en-US.json`、`ja-JP.json` などの言語ファイルを含む `fs.FS` です。Core は組み込みメッセージとマージします。 |
-
-ホストは通常、`embed.FS`、コードジェネレーター、`fstest.MapFS` を使って次のリソースを提供します。
-
-```go
-func NewModuleResources() module.Resources {
-	return module.Resources{
-		ProjectKey:  "host",
-		ProjectName: "Host Service",
-		Models:      map[string][]interface{}{defaultDataSource: models.Models()},
-		OpenAPI:     openAPIFS,
-		I18n:        i18nFS,
-		Migrations: []module.Migration{
-			{Name: "host", FS: migrationFS, Path: "."},
-		},
-	}
+type Module interface {
+	RegisterGRPC(grpc.ServiceRegistrar)
+	RegisterHTTP(*http.Server)
+	RegisterMCP(*mcp.Server)
 }
 ```
 
-## ランタイム機能
+Core はモジュールの順番で登録を転送します。OpenAPI、ローカライズキー、SSE ストリーム ID は全モジュールで一意でなければならず、競合時は組み立てを失敗させます。
 
-### 共有コンテキスト
+## ビルド時リソース
 
-`biz.BaseCase` はホストの業務で共有する基本コンテキストです。`bootstrap.Context`、キャッシュ、キュー、OSS、翻訳器、複数データベースの GORM クライアントを保持し、現在認証されているユーザーを取得する `GetAuthInfo` を提供します。
+`module.Resource` の契約は次のとおりです。
 
-Core は次の具体的なランタイムサービスもホストへ提供します。
+| メソッド | 契約 |
+| --- | --- |
+| `ProjectKey()` / `ProjectName()` | 安定した識別子と表示名。空の場合は `kratos-core` と識別子にフォールバック。 |
+| `Models()` | データソース名ごとの GORM モデル。モデルのデータソースと既定データソースは設定必須。 |
+| `Migrations()` | 名前、ファイルシステム、依存関係を持つバージョン付きマイグレーション。 |
+| `OpenAPI()` | `openapi.yaml`、`openapi.yml`、`openapi.json` と任意の locale ファイルを含む `fs.FS`。 |
+| `I18n()` | locale 名の JSON ファイル。競合する重複キーは拒否。 |
 
-- `job.Job`: データベースの永続タスクを開始、停止、即時実行します。
-- `resource/openapi.OpenAPI`: リクエスト言語、Service、HTTP 操作ごとに OpenAPI 情報を検索します。
-- `sse.SSE`: SSE サブスクリプションを作成し、JSON イベントを発行します。
-
-### サービスとミドルウェア
-
-HTTP と gRPC のサービスは、設定に応じて request ID、i18n、ログ、認証・認可、バリデーションのミドルウェアを追加します。HTTP はローカル OSS 静的ファイル、SPA フォールバック、Swagger にも対応します。プロセス内 MCP または SSE のエンドポイントは HTTP Server にマウントされるため、いずれかを使用する場合は HTTP の設定が必要です。
-
-キューランタイムは Core のログおよびジョブログメッセージを消費し、ホストが登録したコンシューマーへ転送します。Cron ランタイムはデータベースから有効な `BaseJob` を再読み込みし、モジュールが `RegisterCron` で登録したハンドラーを実行します。
-
-## 組み立てと起動順序
-
-`ProviderSet` と `NewApp` の主な組み立て順序は次のとおりです。
-
-1. 起動設定を解析してモジュールのリソースを収集し、モジュールのモデルからデータソースとマイグレーションレジストリを作成します。
-2. データベースマイグレーションを実行し、同じトランザクション内で OpenAPI API、`base_api_i18n` のロケールスナップショット、テナントのロール・メニュー、Casbin のデータベースルールを同期します。ロケール行は `operation + locale` を一意キーに使い、変更される `base_api.id` は参照しません。コミット後にメモリ上のポリシーを更新します。
-3. 共有インフラストラクチャ、認証・認可、HTTP/gRPC/MCP/SSE、キュー、Cron のランタイムを作成し、モジュールの登録メソッドを呼び出します。
-4. Kratos App を組み立てます。Kratos がトランスポートの起動と停止を管理し、Wire が生成するクリーンアップ関数が残りの基盤リソースを解放します。
-
-## ディレクトリの責務
+マイグレーションは依存順に実行し、次の配置を使います。
 
 ```text
-api/
-  proto/common/v1/      Core 共通 protobuf 定義
-  gen/go/common/v1/     生成済み protobuf Go コード
+assets/<version>/<database-type>/README.md
+assets/<version>/<database-type>/README.<locale>.md
+assets/<version>/<database-type>/<data-source>/README.md
+assets/<version>/<database-type>/<data-source>/README.<locale>.md
+```
 
-client/
-  connection.go         リモートまたはプロセス内 gRPC 接続アダプター
-  localgrpc/             プロセス内 gRPC サービスの登録と呼び出し
+記録にはファイル参照と SHA-256 が保存されます。`resource/migration.Migration.ReadFiles` は順序と境界を保ったまま、パス、データソース、存在、内容を検証します。SQL の摘要は実行時にコメントを除いた内容から計算されます。過去のマイグレーションファイルは保持し、公開静的ファイルとして配信しないでください。
 
-biz/                     共有コンテキスト、認証・認可、ログイベント、公開ランタイムケース
+## ランタイム機能
+
+### 共通コンテキストとデータ
+
+`biz.BaseCase` は起動コンテキスト、キャッシュ、キュー、オブジェクトストレージ、翻訳器、複数データベースクライアントを保持し、`GetAuthInfo` で認証主体を取得できます。`data.Transaction` はトランザクション境界を定義します。API、ジョブ、ログ、権限ストアは業務プロジェクトが実装し、Core は契約だけに依存します。
+
+`errorsx` の統一エラー、非同期 `biz.LogPipeline`、`api/common/v1` の状態・エラー・分析・オプション・配列・Secret メッセージも提供します。
+
+### HTTP と gRPC
+
+設定に応じて request ID、ローカライズ、ログ、認証・認可、テナント範囲、検証、レート制限 middleware を追加します。HTTP は `/data/` のローカルストレージ、`web` の SPA（`index.html` フォールバック）、`/api/docs/openapi` と `/api/docs/swagger` のドキュメント、プロセス内 MCP/SSE のマウントをサポートします。
+
+HTTP、gRPC、MCP はポリシーリゾルバーを受け取り、リクエストコンテキストへ伝播します。Core はレスポンスを二重に変更せず、キャンセルと deadline を保持します。
+
+### MCP
+
+モジュールは `RegisterMCP` でツールを登録します。独立 HTTP、Legacy SSE、STDIO、HTTP へのプロセス内マウントに対応します。プロセス内は HTTP listener を共有し、独立モードは別ライフサイクルで動作します。
+
+### SSE
+
+`sse.Streams` は業務ストリームを宣言します。`stream`、`channel`、ユーザー、テナントから実際のストリームを解決し、Bearer token、ロール、テナント範囲、キャッシュ上の token 有効性を検証します。`sse.SSE` は `Serve`、`PublishJSON`、`PublishEnabled` を提供します。HTTP 購読ではサービス deadline を外し、クライアント切断のキャンセルは保持します。
+
+### キュー
+
+`queue.Server` は Core ログ、ジョブログ、業務コンシューマーを処理します。`queue.AddQueue` で JSON を送り、`ScheduleQueue` と `CancelQueue` で遅延メッセージを管理し、`queue.Decode[T]` で `data` フィールドを検証・デコードします。
+
+### 永続ジョブ
+
+`job.Tasks` が実行器を登録し、起動時に有効な `BaseJob` を再ロードします。`job.Job` の `Start`、`Stop`、`Run` でスケジュール、削除、即時実行を行います。実行ロックは Redis を優先し、利用できない場合は単一プロセス内ロックへフォールバックします。
+
+### OpenAPI、ローカライズ、同期
+
+OpenAPI レジストリはプロジェクト、言語、操作ごとに文書を保持します。同一 key は名前と内容が同じ場合だけ重複を許可し、同一言語の重複操作は拒否します。言語が不足する場合は既定文書へフォールバックできます。
+
+`resource/openapi.OpenAPI` はリクエスト言語、サービス名、HTTP パス、メソッドで文書を検索するランタイム入口です。
+
+ローカライズカタログは Core とモジュールの JSON を統合し、競合キーで失敗します。マイグレーション後に OpenAPI から権限・翻訳スナップショットを作り、テナントロールのメニューとデータベースポリシーを同期してメモリ上のポリシーを更新します。
+
+## 組み立て順序
+
+1. 起動設定、モジュールリソース、データソース別クライアントを準備します。
+2. マイグレーションを登録・実行し、ファイルと依存関係を検証します。
+3. OpenAPI、ローカライズ、テナントメニュー、ポリシーをトランザクションで同期し、commit 後にポリシーを更新します。
+4. 共通コンテキスト、認証・認可、プロトコル、キュー、Cron を作り、モジュールと集合を登録します。
+5. Kratos App を組み立てます。Wire の cleanup が残りのリソースを解放します。
+
+## ディレクトリ
+
+```text
+api/                     共通 protobuf と生成コード
+client/                  gRPC クライアント、middleware、プロセス内接続
+biz/                     BaseCase、認証、ログパイプライン、共通ランタイム
 config/                  起動設定の解析
 const/                   公開定数
-data/                    複数データベースクライアント、トランザクション、ホストストレージ契約
-errorsx/                 統一エラー生成
-job/                     Cron 登録、永続ジョブ、ランタイム
-mcp/                     MCP サービスとライフサイクルアダプター
-module/                  ホストモジュール、リソース、プロトコル契約
-queue/                   キューメッセージヘルパーとコンシューマーのライフサイクル
-resource/                i18n、マイグレーション、OpenAPI、起動同期
-  biz/                    API、テナント、Casbin のリソース同期
-    dto/                  リソース同期 DTO
-  i18n/                   i18n リソースのマージ
-  locale/                 ロケール識別子の解析
-  migration/              データベースマイグレーション
-  openapi/                OpenAPI の登録、検索、HTTP マウント
-    dto/                  OpenAPI 検索 DTO
-server/                  HTTP、gRPC、ミドルウェア
-  middleware/             共通 HTTP/gRPC ミドルウェア
-sse/                     SSE ストリームの登録、トランスポート、発行
-bootstrap.go             公開 ProviderSet とアプリケーションのライフサイクル組み立て
-Makefile                 生成、フォーマット、テスト、静的チェックのコマンド
+data/                    複数 DB、トランザクション、ストレージ契約
+errorsx/                 統一エラー
+job/                     Cron、永続ジョブ、ライフサイクル
+mcp/                     MCP サービスとライフサイクル
+module/                  モジュール、リソース、プロトコル契約
+queue/                   キュー送信、デコード、コンシューマー
+resource/                OpenAPI、ローカライズ、マイグレーション、同期
+server/                  HTTP、gRPC、request metadata、middleware
+sse/                     SSE 登録、購読、発行
+bootstrap.go             ProviderSet とアプリ組み立て
+Makefile                 生成、整形、テスト、検査、バージョン操作
 ```
 
 ## 開発コマンド
 
-```bash
-make tools     # 固定バージョンのコード生成・フォーマットツールをインストール
-make api       # api/gen/go を生成
-make wire      # WIRE_DIR で指定したホストディレクトリに Wire コードを生成
-make fmt       # goimports で Go ソースをフォーマット
-make test      # ルート、api、client の 3 つの Go モジュールを検証
-make vet       # ルート、api、client の 3 つの Go モジュールを静的検査
-make lint      # 現在は make vet と同じ
-```
-
-## リリースタグ
-
-`scripts/tag_release.py` は `kratos-kit` に倣い、各 Go module を独立してリリースします。実行前に変更をコミットしてプッシュしてください。スクリプトはリモートのデフォルトブランチ上のコミットだけを確認し、ワークツリーの変更をコミットしません。
+Go `1.27.0` が必要です。ルート、`api`、`client` は独立した Go モジュールです。
 
 ```bash
-git add -A
-git commit -m "コミットメッセージ"
-git push origin main
-
-make tag
+make init                         # 生成、整形、Wire ツールを導入
+make api                          # proto から api/gen/go を生成
+make wire WIRE_DIR=<directory>    # 指定した Wire ルートで生成
+make fmt                          # Go ソースと import を整形
+make test                         # 3 モジュールをテスト
+make vet                          # 3 モジュールで go vet
+make lint                         # make vet の別名
+make buf-push                     # protobuf schema を push（ログインが必要）
+make tag                          # commit 済み変更の patch tag を作成
 ```
 
-デフォルトではルートモジュール、`api`、`client` をスキャンし、前回のタグ以降にプッシュ済みのコード変更がある場合だけ次の patch タグを作成してプッシュします。
+`make tag` は `vX.Y.Z`、`api/vX.Y.Z`、`client/vX.Y.Z` を作成します。`MODULE=api make tag` で開始モジュールを指定し、`EXACT=1` でそのモジュールだけを処理できます。作業ツリーを commit することはありません。
 
-| モジュール | タグ形式 |
-| --- | --- |
-| ルートモジュール | `vX.Y.Z` |
-| `api` | `api/vX.Y.Z` |
-| `client` | `client/vX.Y.Z` |
-
-特定のモジュールだけを処理することもできます。
-
-```bash
-MODULE=api make tag              # api から再帰的にスキャン
-MODULE=api EXACT=1 make tag      # api モジュールだけを処理
-```
-
-コード変更がないモジュールやタグが既に存在するモジュールは自動的にスキップします。ルートモジュールの変更検出では `api` と `client` サブモジュールを除外し、サブモジュールの変更でルートタグが重複して作成されないようにします。
-
-プロジェクトは Go `1.27.0` を必要とします。`api` と `client` は独立した Go モジュールのため、どちらかを変更した場合は `cd api && go test ./...` または `cd client && go test ./...` も実行してください。公開モジュールの契約を変更した場合は、Core に依存するホストプロジェクトでも追加のコンパイル確認が必要です。
-
-クライアント接続の個別ガイドは [client/README.md](client/README.md) を参照してください。
+クライアント接続の詳細は [client/README.md](client/README.md) を参照してください。

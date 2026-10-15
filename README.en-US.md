@@ -2,230 +2,168 @@
 
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en-US.md) | [日本語](README.ja-JP.md)
 
-`kratos-core` is the shared runtime for Kratos services. The host project owns its business cases, services, APIs, and process entry point; Core owns infrastructure, transports, resource registration, and application lifecycle.
+`kratos-core` is the shared runtime for Kratos services. It assembles infrastructure, protocol servers, resource synchronization, and application lifecycle. A business project owns its cases, services, APIs, models, and process entry point. Core documents and implements the capabilities in this repository and contains no concrete business module.
 
-Core is not a complete business template. A host supplies one `module.Module` containing its business services and build-time resources, and `NewApp` assembles it and hands it to the host to start.
+## Capabilities
 
-## Core Responsibilities
+- Parse startup settings and create multi-database clients, cache, queue, object storage, translators, authentication, authorization, and profiling runtimes.
+- Register HTTP, gRPC, and MCP services through `module.Module`; inject jobs, queue consumers, and SSE streams through `job.Tasks`, `queue.Consumers`, and `sse.Streams`.
+- Create optional HTTP, gRPC, MCP, SSE, queue, and persistent Cron services and let Kratos manage their lifecycle and errors.
+- Run database migrations, OpenAPI synchronization, API localization, tenant role-menu synchronization, and policy rebuilding during assembly.
+- Provide shared business context, transaction boundaries, log pipeline, error reasons, OpenAPI queries, SSE publishing, and persistent job controls.
+- Provide the public protobuf module in `api` and the gRPC client module in `client`, including remote, discovery, and in-process calls.
 
-- Parse database, Redis, queue, OSS, JWT, translator, and profiling settings from `bootstrap.Context`.
-- Build multi-database GORM clients, cache, queue, OSS, translator, and the shared `biz.BaseCase` from module resources.
-- Create HTTP, gRPC, MCP, SSE, queue, and persistent Cron runtimes according to configuration, then register host services with the matching transport.
-- Run database migrations, OpenAPI synchronization, tenant role/menu synchronization, and Casbin policy rebuilds during assembly.
-- Assemble optional services and hand their lifecycle to Kratos; Wire-generated cleanup functions release the remaining infrastructure.
+## Public Packages
 
-## Public Boundary
+| Package | Responsibility |
+| --- | --- |
+| Root package | Exposes `ProviderSet` and `NewApp` for configuration, resources, data access, and protocol runtimes. |
+| `biz` | Shared `BaseCase`, authentication and authorization, log pipeline, infrastructure clients, and runtime context. |
+| `config` | Parses application, database, Redis, queue, object storage, JWT, translator, and profiling settings. |
+| `data` | Creates multi-database clients and defines storage contracts for APIs, jobs, logs, permissions, and transactions. |
+| `errorsx` | Builds consistent invalid-argument, authentication, permission, conflict, rate-limit, and internal errors. |
+| `job` / `queue` / `sse` / `mcp` | Registration, runtime, and lifecycle adapters for persistent jobs, queues, SSE, and MCP. |
+| `module` / `resource` | Module contracts, models, migrations, OpenAPI, localization, and startup synchronization. |
+| `server` | HTTP and gRPC servers plus authentication, tenant, validation, logging, rate-limit, and policy middleware. |
+| `api` | Independent Go module containing common protobuf definitions and generated code. |
+| `client` | Independent Go module for remote, discovery, and in-process gRPC connections. |
 
-Cross-project Go code is exposed through four entry points:
+## Integration
 
-- The root package provides `ProviderSet` and `NewApp`. A host normally only adds `ProviderSet` to its own Wire graph.
-- The root `biz`, `config`, `const`, `data`, `errorsx`, `job`, `mcp`, `module`, `queue`, `resource`, `server`, and `sse` directories provide the cross-project public packages.
-- `api` is an independent Go module. `api/proto` contains Core protobuf definitions and `api/gen/go` contains generated Go types.
-- `client` is an independent Go module that provides gRPC connections based on `kratos-kit` configuration, including in-process gRPC connections.
+The root of Core does not maintain a business project's Wire composition root. The business project adds `core.ProviderSet` to its own Wire graph and supplies:
 
-The `data` package exposes only multi-database client initialization, transaction boundaries, and host storage contracts for API, job, log, and permission resources; database models and generated repositories remain owned by the host project. Core-created cache, queue, OSS, translator, and multi-database GORM clients are injected into `biz.BaseCase` and also stored in `kratos-kit/sdk.Runtime`; host code can use either BaseCase or the SDK as needed.
+1. One or more `module.Module` values for HTTP, gRPC, and MCP registration.
+2. `module.Resource` values for models, migrations, OpenAPI, and localization file systems.
+3. Optional `job.Tasks`, `queue.Consumers`, and `sse.Streams` collections; use empty collections when a capability is not needed.
+4. Implementations of the storage interfaces declared by `data` for startup synchronization, jobs, logs, and permissions.
 
-## Wire Integration
-
-The host provides a business module implementing `module.Module` and uses Core's only public Wire entry point:
-
-```go
-//go:build wireinject
-
-package main
-
-import (
-	"github.com/go-kratos/kratos/v3"
-	"github.com/google/wire"
-	core "github.com/liujitcn/kratos-core"
-	"github.com/liujitcn/kratos-core/module"
-	"github.com/liujitcn/kratos-kit/bootstrap"
-	"github.com/liujitcn/kratos-kit/redact"
-)
-
-// initializeApp 将宿主提供的实例策略解析器交给 Core 各协议入口。
-func initializeApp(ctx *bootstrap.Context, policyResolver redact.PolicyResolver) (*kratos.App, func(), error) {
-	panic(wire.Build(
-		core.ProviderSet,
-		newHostModule,
-		newHostModules,
-	))
-}
-
-func newHostModules(host *hostModule) []module.Module {
-	return []module.Module{host}
-}
-```
-
-Core's `ProviderSet` combines configuration, infrastructure, module resources, data access, resource synchronization, and all protocol runtimes, and includes `NewApp`. Add the host's own providers and provide a `[]module.Module`; do not add Core's ProviderSets again. Core no longer maintains `wire.go` or `wire_gen.go` at its root. The host project should generate its composition root and `wire_gen.go` with its own Wire command, or use `make wire WIRE_DIR=<host Wire directory>`.
-
-Core's job, log, and permission runtimes depend on the `Store`/`Writer` contracts in `data`. The host must provide their implementations in its Wire composition root; Admin implements them under `backend/adapter/core`. Core does not depend on host database models or generated repositories.
-
-Core requires an explicit `redact.PolicyResolver` in the host Wire graph. It is the final constructor argument of `server.NewHTTPServer`, `server.NewGRPCServer`, and `mcp.NewServer`; use an injector argument as above or a host provider with `wire.Bind` for a concrete implementation. Core has no default provider or process-global resolver. An explicit nil retains static rules and default text sanitization when redaction is invoked.
-
-The resolver is attached to HTTP request contexts (including middleware, raw handlers and encoders), business gRPC unary and all streaming contexts, and MCP SDK receiving contexts across HTTP, Legacy SSE, STDIO and in-process modes. gRPC uses native interceptors plus a leading Kratos middleware; modules still receive the original `*kratosGRPC.Server` and can attach middleware with `Use`. Core only injects context: existing wrappers call `ApplyWith(ctx, nil, value)` without regenerating Proto or applying redaction twice. MCP uses its own constructor argument even when mounted on HTTP. Nil masks an inherited resolver; cancellation and deadlines are preserved. The host must regenerate Wire code and use Kit/redact with `WithPolicyResolver` / `PolicyResolverFromContext` and Kit/server/grpc with `CreateGrpcServerWithOptions`; use a temporary `GOWORK` for unreleased local APIs, not a permanent replace.
+`NewApp` collects these dependencies and creates the Kratos application. HTTP, gRPC, standalone MCP, standalone SSE, queue, and Cron are optional. No listener is created when the corresponding configuration is absent; an empty collection does not prevent a service from starting. In-process MCP and SSE are hosted by HTTP, so HTTP must be configured for those modes.
 
 ## Module Contract
 
-The business module implements `module.Module`. It owns its business services and registers them in the protocol methods:
+The current module contract has three protocol registration methods:
 
 ```go
-type hostModule struct{}
-
-func (*hostModule) RegisterGRPC(grpc.ServiceRegistrar) {}
-func (*hostModule) RegisterHTTP(*kratosHTTP.Server)    {}
-func (*hostModule) RegisterMCP(*mcpserver.Server)      {}
-func (*hostModule) RegisterQueue(*queueTransport.Server) {}
-func (*hostModule) RegisterCron(*cronTransport.Server) error { return nil }
-func (*hostModule) RegisterSSE(*sseTransport.Server) error    { return nil }
-func (*hostModule) Resources() module.Resources                { return module.Resources{} }
-```
-
-| Method | Responsibility |
-| --- | --- |
-| `RegisterGRPC` | Register generated gRPC services. Core skips the gRPC server when it is not configured. |
-| `RegisterHTTP` | Register HTTP services and routes. Core skips the HTTP server when it is not configured. |
-| `RegisterMCP` | Register MCP tools. MCP can listen independently or be mounted on HTTP. |
-| `RegisterQueue` | Register queue consumers; Core also registers built-in log and job-log consumers. |
-| `RegisterCron` | Register persistent database task executors, usually with `server.RegisterTask`. An error aborts assembly. |
-| `RegisterSSE` | Register business SSE streams, usually with `server.RegisterStream`. An error aborts assembly. |
-| `Resources` | Return models, migrations, OpenAPI and i18n resources. |
-
-Multiple business modules can be provided as `module.Module` values by the host's Wire composition root. Core collects resources and forwards protocol registration in provider order. Conflicting OpenAPI documents, i18n keys with different contents, or duplicate SSE stream IDs are rejected during assembly.
-
-## Build-Time Resources
-
-`module.Resources` is a one-time resource snapshot supplied by each module:
-
-| Field | Contents and constraints |
-| --- | --- |
-| `ProjectKey` | Stable project identifier used for OpenAPI namespacing; defaults to `kratos-core`. |
-| `ProjectName` | Display name for the project; falls back to `ProjectKey`. |
-| `Models` | GORM models grouped by data-source name. Every data source containing models must be configured, and the default data source is required. |
-| `Migrations` | Versioned migrations. Each `module.Migration` declares `Name`, `FS`, `Path`, and `Dependencies`; Core runs them in dependency order. |
-| `OpenAPI` | An `fs.FS` containing `openapi.yaml`, `openapi.yml`, or `openapi.json`, plus optional `openapi.<locale>.yaml` language files. When Swagger is enabled, Core mounts raw documents and Swagger UI by project and locale. |
-| `I18n` | An `fs.FS` containing locale files such as `zh-CN.json`, `zh-TW.json`, `en-US.json`, and `ja-JP.json`; Core merges them with its built-in messages. |
-
-Hosts commonly provide these resources through `embed.FS`, a code generator, or `fstest.MapFS`:
-
-```go
-func NewModuleResources() module.Resources {
-	return module.Resources{
-		ProjectKey:  "host",
-		ProjectName: "Host Service",
-		Models:      map[string][]interface{}{defaultDataSource: models.Models()},
-		OpenAPI:     openAPIFS,
-		I18n:        i18nFS,
-		Migrations: []module.Migration{
-			{Name: "host", FS: migrationFS, Path: "."},
-		},
-	}
+type Module interface {
+	RegisterGRPC(grpc.ServiceRegistrar)
+	RegisterHTTP(*http.Server)
+	RegisterMCP(*mcp.Server)
 }
 ```
 
+Core forwards registration in module order. A module may register only the protocols it uses. OpenAPI documents, localization keys, and SSE stream IDs must remain unique across modules; conflicts fail application assembly.
+
+## Build-Time Resources
+
+Business modules implement `module.Resource`:
+
+| Method | Contract |
+| --- | --- |
+| `ProjectKey()` / `ProjectName()` | Stable project identifier and display name; empty values fall back to `kratos-core` and the identifier. |
+| `Models()` | GORM models grouped by data-source name. Every model data source and the default data source must be configured. |
+| `Migrations()` | Versioned migrations with a stable name, file system root, and dependencies. |
+| `OpenAPI()` | An `fs.FS` containing `openapi.yaml`, `openapi.yml`, or `openapi.json`, optionally with locale variants. |
+| `I18n()` | JSON message files named with locale identifiers. Conflicting duplicate keys are rejected. |
+
+Migration resources follow this layout and run in dependency order:
+
+```text
+assets/<version>/<database-type>/README.md
+assets/<version>/<database-type>/README.<locale>.md
+assets/<version>/<database-type>/<data-source>/README.md
+assets/<version>/<database-type>/<data-source>/README.<locale>.md
+```
+
+Migration records store file references and SHA-256 digests. `resource/migration.Migration.ReadFiles` preserves file order and boundaries while validating resource ownership, data source, file existence, and content digests. SQL digests use the content after execution-time comment removal. Historical migration files must remain available and should not be exposed as public static files.
+
 ## Runtime Capabilities
 
-### Shared Context
+### Shared Context and Data
 
-`biz.BaseCase` is the shared host business context. It contains `bootstrap.Context`, cache, queue, OSS, translator, and multi-database GORM clients, and provides `GetAuthInfo` for reading the authenticated user.
+`biz.BaseCase` contains the startup context, cache, queue, object storage, translator, and multi-database clients, and exposes `GetAuthInfo` for the current authenticated principal. `data.Transaction` defines the transaction boundary. Business projects implement API, job, log, and permission stores; Core depends only on those contracts.
 
-Core also provides these concrete runtime services:
+Core also provides consistent `errorsx` reasons, the asynchronous `biz.LogPipeline`, and common protobuf messages under `api/common/v1` for status, errors, analytics, options, array wrappers, and secret transport.
 
-- `job.Job`: start, stop, or immediately run persistent database jobs.
-- `resource/openapi.OpenAPI`: query OpenAPI information by request locale, service, or HTTP operation.
-- `sse.SSE`: create SSE subscriptions and publish JSON events.
+### HTTP and gRPC
 
-### Services and Middleware
+Configured services can add request ID, localization, logging, authentication and authorization, tenant scope, validation, and rate-limit middleware. HTTP also supports:
 
-HTTP and gRPC services add request ID, i18n, logging, authentication/authorization, and validation middleware according to configuration. HTTP also supports local OSS static files, SPA fallback, and Swagger. In-process MCP or SSE endpoints are mounted on the HTTP server, so HTTP must be configured when either mode is used.
+- Read-only local object storage at `/data/`, with a configurable root directory.
+- SPA directories under `web`, falling back to `index.html` when a file is not found.
+- OpenAPI and Swagger at `/api/docs/openapi` and `/api/docs/swagger`.
+- In-process MCP and SSE routes, with configurable paths.
 
-The queue runtime consumes Core log and job-log messages and forwards host consumers. The Cron runtime reloads enabled `BaseJob` records from the database and executes handlers registered by modules in `RegisterCron`.
+HTTP, gRPC, and MCP constructors accept a policy resolver. Core puts the resolver into request context so business wrappers can read the request policy; Core does not modify business responses a second time. Cancellation and deadlines remain attached to the request context.
 
-## Assembly and Startup Order
+### MCP
 
-The main `ProviderSet` and `NewApp` assembly sequence is:
+Modules register tools through `RegisterMCP`. MCP supports standalone HTTP, Legacy SSE, STDIO, and in-process mounting on the Core HTTP server. In-process mode reuses the HTTP listener; standalone mode has its own Kratos-managed lifecycle.
 
-1. Parse startup settings and collect module resources, then create data sources and the migration registry from module models.
-2. Run database migrations, then synchronize OpenAPI APIs, the `base_api_i18n` locale snapshot, tenant role menus, and Casbin database rules in one transaction; locale rows use the `operation + locale` key and do not reference the mutable `base_api.id`; refresh in-memory policies after commit.
-3. Create shared infrastructure, authentication/authorization, HTTP/gRPC/MCP/SSE, queue, and Cron runtimes, invoking module registration methods.
-4. Assemble the Kratos App. Kratos owns transport startup and shutdown; Wire-generated cleanup functions release the remaining infrastructure.
+### SSE
+
+`sse.Streams` declare business streams. Core resolves a transport stream from `stream`, `channel`, user, and tenant information. Requests validate the Bearer token, role, tenant scope, and cached token validity. `sse.SSE` exposes `Serve`, `PublishJSON`, and `PublishEnabled`. HTTP subscriptions remove the service deadline while preserving cancellation when the client disconnects.
+
+### Queue
+
+`queue.Server` handles Core logs, job logs, and business consumers. Use `queue.AddQueue` for JSON messages, `ScheduleQueue` and `CancelQueue` for delayed messages, and `queue.Decode[T]` to validate and decode the `data` field.
+
+### Persistent Jobs
+
+`job.Tasks` registers task executors. The scheduler reloads enabled `BaseJob` records at startup. `job.Job` exposes `Start`, `Stop`, and `Run` for scheduling, removal, and immediate execution. Redis is preferred for execution locks; an in-process lock is used as a fallback and guarantees mutual exclusion only within one instance. Startup failures clean up registered jobs and execution context.
+
+### OpenAPI, Localization, and Synchronization
+
+The OpenAPI registry stores documents by project, locale, and operation. Duplicate keys are accepted only when name and content match; duplicate operations in one locale are rejected. Queries can fall back from the request locale to the default document and return the document or schema tree for an operation.
+
+`resource/openapi.OpenAPI` is the runtime entry point for queries by request locale, service name, HTTP path, and method.
+
+The localization catalog merges Core and module JSON files and rejects conflicting duplicate keys. After migrations, startup synchronization converts OpenAPI into API permission and localization snapshots, copies the default tenant administrator menu to ordinary tenant role copies, rebuilds database policies, and refreshes in-memory policies.
+
+## Assembly Order
+
+1. Parse startup settings, collect module resources, and create database clients by data source.
+2. Register and run migrations, validating files and dependency order.
+3. Synchronize OpenAPI, localization, tenant role menus, and policies in a transaction; refresh in-memory policies after commit.
+4. Create shared context, authentication and authorization, protocol servers, queue, and Cron, then register modules and independent collections.
+5. Assemble the Kratos App. Kratos starts and stops transport servers; Wire-generated cleanup releases the remaining infrastructure.
 
 ## Directory Responsibilities
 
 ```text
-api/
-  proto/common/v1/      Core protobuf definitions
-  gen/go/common/v1/     Generated protobuf Go code
-
-client/
-  connection.go         Remote or in-process gRPC connection adapter
-  localgrpc/             In-process gRPC registration and invocation
-
-biz/                     Shared context, authentication, log events, and public runtime cases
+api/                     Common protobuf definitions and generated code
+client/                  gRPC clients, client middleware, and in-process connection
+biz/                     BaseCase, auth, log pipeline, and shared business runtime
 config/                  Startup configuration parsing
 const/                   Public constants
-data/                    Multi-database clients, transactions, and host storage contracts
-errorsx/                 Unified error constructors
-job/                     Cron registration, persistent jobs, and runtime
+data/                    Multi-database clients, transactions, and storage contracts
+errorsx/                 Consistent error construction
+job/                     Cron registration, persistent jobs, and lifecycle
 mcp/                     MCP service and lifecycle adapter
-module/                  Host module, resource, and protocol contracts
-queue/                   Queue message helpers and consumer lifecycle
-resource/                i18n, migration, OpenAPI, and startup sync
-  biz/                    API, tenant, and Casbin resource synchronization
-    dto/                  Resource synchronization DTOs
-  i18n/                   I18n resource merging
-  locale/                 Locale identifier parsing
-  migration/              Database migrations
-  openapi/                OpenAPI registration, queries, and HTTP mounting
-    dto/                  OpenAPI query DTOs
-server/                  HTTP, gRPC, and middleware
-  middleware/             Shared HTTP/gRPC middleware
-sse/                     SSE stream registration, transport, and publishing
-bootstrap.go             Public ProviderSet and application lifecycle assembly
-Makefile                 Generation, formatting, testing, and static checks
+module/                  Module, resource, and protocol contracts
+queue/                   Queue publishing, decoding, and consumer lifecycle
+resource/                OpenAPI, localization, migrations, and startup sync
+server/                  HTTP, gRPC, request metadata, and middleware
+sse/                     SSE stream registration, subscriptions, and publishing
+bootstrap.go             ProviderSet and application assembly
+Makefile                 Generation, formatting, testing, checks, and version scripts
 ```
 
 ## Development Commands
 
-```bash
-make tools     # Install pinned code-generation and formatting tools
-make api       # Generate api/gen/go
-make wire      # Generate Wire code in the host directory specified by WIRE_DIR
-make fmt       # Format Go code with goimports
-make test      # Check the root, api, and client Go modules
-make vet       # Vet the root, api, and client Go modules
-make lint      # Currently equivalent to make vet
-```
-
-## Release Tags
-
-`scripts/tag_release.py` follows `kratos-kit` and releases each Go module independently. Commit and push changes before running it; the script only checks commits on the remote default branch and does not commit working-tree changes:
+The project requires Go `1.27.0`. The root, `api`, and `client` directories are independent Go modules; run the relevant tests after changing any module.
 
 ```bash
-git add -A
-git commit -m "commit message"
-git push origin main
-
-make tag
+make init                         # Install generation, formatting, and Wire tools
+make api                          # Generate api/gen/go from proto files
+make wire WIRE_DIR=<directory>    # Generate Wire code in a composition root
+make fmt                          # Format Go code and imports
+make test                         # Test the root, api, and client modules
+make vet                          # Run go vet for all three modules
+make lint                         # Alias for make vet
+make buf-push                     # Generate and push the protobuf schema (login required)
+make tag                          # Create patch tags for committed module changes
 ```
 
-By default, the script scans the root module, `api`, and `client`. It creates and pushes the next patch tag only when a module has pushed code changes since its previous tag:
+`make tag` handles the root, `api`, and `client` modules by default. Tags are `vX.Y.Z`, `api/vX.Y.Z`, and `client/vX.Y.Z`; use `MODULE=api make tag` to choose a starting module and `EXACT=1` to process only that module. The script never commits working-tree changes.
 
-| Module | Tag format |
-| --- | --- |
-| Root module | `vX.Y.Z` |
-| `api` | `api/vX.Y.Z` |
-| `client` | `client/vX.Y.Z` |
-
-You can also process a specific module:
-
-```bash
-MODULE=api make tag              # Recursively scan from api
-MODULE=api EXACT=1 make tag      # Process only the api module
-```
-
-The script skips modules without code changes or with an existing tag. Root-module change detection excludes the `api` and `client` submodules so their changes do not trigger a duplicate root tag.
-
-The project requires Go `1.27.0`. `api` and `client` are independent Go modules; when changing either one, also run `cd api && go test ./...` or `cd client && go test ./...`. Changes to public module contracts should additionally be compile-checked against the host projects that depend on Core.
-
-See [client/README.md](client/README.md) for the standalone client connection guide.
+See [client/README.md](client/README.md) for the client connection guide.
