@@ -8,7 +8,7 @@
 
 - 起動設定を解析し、複数データベース、キャッシュ、キュー、オブジェクトストレージ、翻訳、認証・認可、プロファイリングを初期化します。
 - `module.Module` で HTTP、gRPC、MCP を登録し、`job.Tasks`、`queue.Consumers`、`sse.Streams` でジョブ、キューコンシューマー、SSE ストリームを注入します。
-- 設定に応じて HTTP、gRPC、MCP、SSE、キュー、永続 Cron を作成し、Kratos がライフサイクルとエラーを管理します。
+- 設定に応じて HTTP、gRPC、MCP、SSE、キュー、永続 Cron、MQTT 購読を作成し、Kratos がライフサイクルとエラーを管理します。
 - 組み立て時にデータベースマイグレーション、OpenAPI、API ローカライズ、テナントのロール・メニュー、権限ポリシーを同期します。
 - 共通コンテキスト、トランザクション境界、ログパイプライン、エラー理由、OpenAPI 検索、SSE 発行、永続ジョブ制御を提供します。
 - `api` の共通 protobuf モジュールと、リモート・サービスディスカバリー・プロセス内呼び出しに対応する `client` を提供します。
@@ -22,7 +22,7 @@
 | `config` | アプリ、データベース、Redis、キュー、ストレージ、JWT、翻訳、プロファイリング設定の解析。 |
 | `data` | 複数データベースクライアントと API、ジョブ、ログ、権限、トランザクションの契約。 |
 | `errorsx` | 引数、認証、権限、競合、レート制限、内部エラーの統一生成。 |
-| `job` / `queue` / `sse` / `mcp` | 永続ジョブ、キュー、SSE、MCP の登録、実行、ライフサイクル。 |
+| `job` / `queue` / `sse` / `mcp` / `mqtt` | 永続ジョブ、キュー、SSE、MCP、MQTT 購読の登録、実行、ライフサイクル。 |
 | `module` / `resource` | モジュール、モデル、マイグレーション、OpenAPI、ローカライズ、起動同期。 |
 | `server` | HTTP、gRPC と認証、テナント、検証、ログ、レート制限、ポリシー middleware。 |
 | `api` | 共通 protobuf 定義と生成コードを持つ独立 Go モジュール。 |
@@ -37,7 +37,7 @@ Core のルートには業務プロジェクトの Wire 合成ルートを置き
 3. 必要に応じた `job.Tasks`、`queue.Consumers`、`sse.Streams`。使わない機能は空の集合にします。
 4. 起動同期、ジョブ、ログ、権限に使う `data` のストレージ契約の実装。
 
-`NewApp` は依存関係を集めて Kratos アプリを作成します。HTTP、gRPC、独立 MCP、独立 SSE、キュー、Cron は任意です。対応する設定がなければ listener は作られず、空の集合でもサービス起動を妨げません。プロセス内 MCP と SSE は HTTP にマウントするため、HTTP 設定も必要です。
+`NewApp` は依存関係を集めて Kratos アプリを作成します。HTTP、gRPC、独立 MCP、独立 SSE、キュー、Cron、MQTT は任意です。対応する設定がなければサービスは作られません。プロセス内 MCP と SSE は HTTP にマウントするため、HTTP 設定も必要です。MQTT は Broker クライアントと購読ライフサイクルだけを提供し、マルチテナントのデバイス認証、ACL、トピック、メッセージ規則はホストが管理します。
 
 ## モジュール契約
 
@@ -101,6 +101,10 @@ HTTP、gRPC、MCP はポリシーリゾルバーを受け取り、リクエス�
 ### キュー
 
 `queue.Server` は Core ログ、ジョブログ、業務コンシューマーを処理します。`queue.AddQueue` で JSON を送り、`ScheduleQueue` と `CancelQueue` で遅延メッセージを管理し、`queue.Decode[T]` で `data` フィールドを検証・デコードします。
+
+### MQTT
+
+`mqtt.Server` は `server.mqtt` 設定ノードが存在する場合に外部 Broker へ接続します。サービスを作成しない場合はノード全体を削除します。ホストモジュールは起動前に `Register` または `RegisterSubscriber[T]` でデバイストピックを登録し、`$share/<group>/...` の共有購読もそのまま Broker へ渡します。再接続後に購読を復元しますが、マルチテナントのデバイス認証や ACL は内蔵しません。
 
 ### 永続ジョブ
 

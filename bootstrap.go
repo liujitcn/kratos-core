@@ -13,6 +13,7 @@ import (
 	"github.com/liujitcn/kratos-core/job"
 	"github.com/liujitcn/kratos-core/mcp"
 	"github.com/liujitcn/kratos-core/module"
+	"github.com/liujitcn/kratos-core/mqtt"
 	"github.com/liujitcn/kratos-core/queue"
 	"github.com/liujitcn/kratos-core/resource"
 	"github.com/liujitcn/kratos-core/server"
@@ -29,12 +30,13 @@ var ProviderSet = wire.NewSet(
 	biz.ProviderSet,
 	module.ProviderSet,
 	data.ProviderSet,
-	// 注册文档、国际化、OpenAPI、迁移等资源能力，以及 SSE、队列、任务和 MCP 运行组件。
+	// 注册文档、国际化、OpenAPI、迁移等资源能力，以及 SSE、队列、任务、MCP 和 MQTT 运行组件。
 	resource.ProviderSet,
 	sse.ProviderSet,
 	queue.ProviderSet,
 	job.ProviderSet,
 	mcp.ProviderSet,
+	mqtt.ProviderSet,
 	// 注册 HTTP 与 gRPC 的中间件链和协议服务器。
 	server.ProviderSet,
 	// 将已解析的可选服务汇总为最终 Kratos 应用。
@@ -44,7 +46,7 @@ var ProviderSet = wire.NewSet(
 // NewApp 将 Wire 创建的 Core 组件组装为最终的 Kratos 应用。
 // syncResult 记录依赖注入阶段已经完成的资源同步结果；HTTP 与 gRPC 服务按配置可选创建；
 // MCP 和 SSE 仅在独立传输模式下加入应用生命周期，进程内模式由 HTTP 服务统一承载；
-// 队列消费者和定时任务作为后台服务随应用共同启动和停止。
+// 队列消费者、定时任务和 MQTT 客户端作为后台服务随应用共同启动和停止。
 func NewApp(
 	ctx *bootstrap.Context,
 	syncResult *resource.SyncResult,
@@ -54,6 +56,7 @@ func NewApp(
 	sseServer *sse.Server,
 	queueServer *queue.Server,
 	jobServer *job.Server,
+	mqttServer *mqtt.Server,
 ) *kratos.App {
 	// 资源同步已在应用构造前完成，此处只记录最终统计，避免启动后再次执行同步。
 	if syncResult != nil {
@@ -63,8 +66,8 @@ func NewApp(
 		)
 	}
 
-	// 最多挂载 HTTP、gRPC、MCP、SSE、队列和定时任务六类服务；未配置的服务保持 nil 并直接跳过。
-	servers := make([]transport.Server, 0, 6)
+	// 最多挂载 HTTP、gRPC、MCP、SSE、队列、定时任务和 MQTT 七类服务；未配置的服务保持 nil 并直接跳过。
+	servers := make([]transport.Server, 0, 7)
 	// HTTP 和 gRPC 是常规对外协议服务，创建成功后直接交由 Kratos 管理生命周期。
 	if httpServer != nil {
 		servers = append(servers, httpServer)
@@ -86,6 +89,9 @@ func NewApp(
 	}
 	if jobServer != nil {
 		servers = append(servers, jobServer)
+	}
+	if mqttServer != nil {
+		servers = append(servers, mqttServer)
 	}
 	// bootstrap 负责注入日志、注册中心等基础能力，并按上述顺序管理所有独立服务。
 	return bootstrap.NewApp(ctx, servers...)

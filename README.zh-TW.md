@@ -8,7 +8,7 @@
 
 - 解析啟動設定，建立多資料源資料庫用戶端、快取、佇列、物件儲存、翻譯器、認證授權與效能分析執行時。
 - 透過 `module.Module` 註冊 HTTP、gRPC、MCP，透過 `job.Tasks`、`queue.Consumers`、`sse.Streams` 注入定時任務、佇列消費者與 SSE 流。
-- 按設定建立 HTTP、gRPC、MCP、SSE、佇列和持久化 Cron 服務，由 Kratos 統一管理啟停與錯誤。
+- 按設定建立 HTTP、gRPC、MCP、SSE、佇列、持久化 Cron 和 MQTT 訂閱服務，由 Kratos 統一管理啟停與錯誤。
 - 在組裝階段執行資料庫遷移、OpenAPI 同步、介面國際化、租戶角色選單同步與權限策略重建。
 - 提供共用業務上下文、交易邊界、日誌流水線、錯誤原因、OpenAPI 查詢、SSE 發布與持久化任務控制。
 - 提供 `api` 公共 protobuf 模組和 `client` gRPC 用戶端模組，支援遠端、服務發現與行程內呼叫。
@@ -22,7 +22,7 @@
 | `config` | 解析應用、資料庫、Redis、佇列、物件儲存、JWT、翻譯器與效能分析設定。 |
 | `data` | 建立多資料源用戶端，定義 API、任務、日誌、權限與交易儲存契約。 |
 | `errorsx` | 統一建立參數、認證、權限、衝突、限流與內部錯誤。 |
-| `job` / `queue` / `sse` / `mcp` | 提供持久化任務、佇列、SSE、MCP 的註冊、執行與生命週期。 |
+| `job` / `queue` / `sse` / `mcp` / `mqtt` | 提供持久化任務、佇列、SSE、MCP 和 MQTT 訂閱的註冊、執行與生命週期。 |
 | `module` / `resource` | 定義模組、模型、遷移、OpenAPI、國際化資源與啟動同步。 |
 | `server` | HTTP、gRPC 服務及認證、租戶、校驗、日誌、限流與策略中介軟體。 |
 | `api` | 保存公共 protobuf 定義與產生程式碼的獨立 Go 模組。 |
@@ -37,7 +37,7 @@ Core 根目錄不維護業務專案的 Wire 組合根。業務專案在自己的
 3. 可選的 `job.Tasks`、`queue.Consumers`、`sse.Streams` 集合；不用時提供空集合。
 4. `data` 宣告的啟動同步、任務、日誌和權限儲存介面實作。
 
-`NewApp` 會收集依賴並建立 Kratos 應用。HTTP、gRPC、獨立 MCP、獨立 SSE、佇列和 Cron 都是可選服務；缺少對應設定時不會建立監聽器，空集合不會阻止服務啟動。行程內 MCP、SSE 由 HTTP 承載，因此必須同時設定 HTTP。
+`NewApp` 會收集依賴並建立 Kratos 應用。HTTP、gRPC、獨立 MCP、獨立 SSE、佇列、Cron 和 MQTT 都是可選服務；缺少對應設定時不會建立服務。行程內 MCP、SSE 由 HTTP 承載，因此必須同時設定 HTTP。MQTT 只提供 Broker 用戶端和訂閱生命週期，多租戶設備身份、ACL、主題和訊息規則由宿主模組負責。
 
 ## 模組契約
 
@@ -106,6 +106,10 @@ HTTP、gRPC、MCP 建構時可注入策略解析器。Core 將解析器放入請
 ### 佇列
 
 `queue.Server` 管理 Core 日誌、任務日誌和業務消費者。`queue.AddQueue` 投遞 JSON，`ScheduleQueue`、`CancelQueue` 管理延遲訊息，`queue.Decode[T]` 驗證並解碼 `data` 欄位。
+
+### MQTT
+
+`mqtt.Server` 在存在 `server.mqtt` 設定節點時連接外部 Broker；刪除整個節點即可不建立服務。宿主模組在啟動前使用 `Register` 或 `RegisterSubscriber[T]` 註冊設備主題；`$share/<group>/...` 共享訂閱會原樣傳給 Broker。重新連線後會恢復訂閱，不內建多租戶設備身份或 ACL 規則。
 
 ### 持久化任務
 

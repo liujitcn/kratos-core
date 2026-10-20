@@ -13,7 +13,7 @@ require (
 	github.com/liujitcn/go-utils/translator v0.0.6
 	github.com/liujitcn/kratos-core/api v0.0.7
 	github.com/liujitcn/kratos-kit v0.0.96
-	github.com/liujitcn/kratos-kit/api v0.0.41
+	github.com/liujitcn/kratos-kit/api v0.0.42
 	github.com/liujitcn/kratos-kit/auth v0.0.34
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.27
 	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.23
@@ -38,6 +38,7 @@ require (
 	github.com/liujitcn/kratos-kit/translator v0.0.12
 	github.com/liujitcn/kratos-kit/transport/cron v0.0.21
 	github.com/liujitcn/kratos-kit/transport/mcp v0.0.19
+	github.com/liujitcn/kratos-kit/transport/mqtt v0.0.1
 	github.com/liujitcn/kratos-kit/transport/queue v0.0.9
 	github.com/liujitcn/kratos-kit/transport/sse v0.0.18
 	github.com/liujitcn/kratos-kit/utils v0.0.28
@@ -116,6 +117,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/eclipse/paho.mqtt.golang v1.5.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.14.0 // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
@@ -191,6 +193,7 @@ require (
 	github.com/liujitcn/go-utils/translator/google v0.0.6 // indirect
 	github.com/liujitcn/go-utils/translator/volc v0.0.5 // indirect
 	github.com/liujitcn/kratos-kit/broker v0.0.15 // indirect
+	github.com/liujitcn/kratos-kit/broker/mqtt v0.0.1 // indirect
 	github.com/liujitcn/kratos-kit/config v0.0.42 // indirect
 	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.24 // indirect
 	github.com/liujitcn/kratos-kit/key v0.0.11 // indirect

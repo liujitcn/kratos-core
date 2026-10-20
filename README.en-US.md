@@ -8,7 +8,7 @@
 
 - Parse startup settings and create multi-database clients, cache, queue, object storage, translators, authentication, authorization, and profiling runtimes.
 - Register HTTP, gRPC, and MCP services through `module.Module`; inject jobs, queue consumers, and SSE streams through `job.Tasks`, `queue.Consumers`, and `sse.Streams`.
-- Create optional HTTP, gRPC, MCP, SSE, queue, and persistent Cron services and let Kratos manage their lifecycle and errors.
+- Create optional HTTP, gRPC, MCP, SSE, queue, persistent Cron, and MQTT subscription services and let Kratos manage their lifecycle and errors.
 - Run database migrations, OpenAPI synchronization, API localization, tenant role-menu synchronization, and policy rebuilding during assembly.
 - Provide shared business context, transaction boundaries, log pipeline, error reasons, OpenAPI queries, SSE publishing, and persistent job controls.
 - Provide the public protobuf module in `api` and the gRPC client module in `client`, including remote, discovery, and in-process calls.
@@ -22,7 +22,7 @@
 | `config` | Parses application, database, Redis, queue, object storage, JWT, translator, and profiling settings. |
 | `data` | Creates multi-database clients and defines storage contracts for APIs, jobs, logs, permissions, and transactions. |
 | `errorsx` | Builds consistent invalid-argument, authentication, permission, conflict, rate-limit, and internal errors. |
-| `job` / `queue` / `sse` / `mcp` | Registration, runtime, and lifecycle adapters for persistent jobs, queues, SSE, and MCP. |
+| `job` / `queue` / `sse` / `mcp` / `mqtt` | Registration, runtime, and lifecycle adapters for persistent jobs, queues, SSE, MCP, and MQTT subscriptions. |
 | `module` / `resource` | Module contracts, models, migrations, OpenAPI, localization, and startup synchronization. |
 | `server` | HTTP and gRPC servers plus authentication, tenant, validation, logging, rate-limit, and policy middleware. |
 | `api` | Independent Go module containing common protobuf definitions and generated code. |
@@ -37,7 +37,7 @@ The root of Core does not maintain a business project's Wire composition root. T
 3. Optional `job.Tasks`, `queue.Consumers`, and `sse.Streams` collections; use empty collections when a capability is not needed.
 4. Implementations of the storage interfaces declared by `data` for startup synchronization, jobs, logs, and permissions.
 
-`NewApp` collects these dependencies and creates the Kratos application. HTTP, gRPC, standalone MCP, standalone SSE, queue, and Cron are optional. No listener is created when the corresponding configuration is absent; an empty collection does not prevent a service from starting. In-process MCP and SSE are hosted by HTTP, so HTTP must be configured for those modes.
+`NewApp` collects these dependencies and creates the Kratos application. HTTP, gRPC, standalone MCP, standalone SSE, queue, Cron, and MQTT are optional. No service is created when the corresponding configuration is absent. In-process MCP and SSE are hosted by HTTP, so HTTP must be configured for those modes. MQTT provides the Broker client and subscription lifecycle; the host owns device authentication, tenant ACLs, topics, and message rules.
 
 ## Module Contract
 
@@ -106,6 +106,10 @@ Modules register tools through `RegisterMCP`. MCP supports standalone HTTP, Lega
 ### Queue
 
 `queue.Server` handles Core logs, job logs, and business consumers. Use `queue.AddQueue` for JSON messages, `ScheduleQueue` and `CancelQueue` for delayed messages, and `queue.Decode[T]` to validate and decode the `data` field.
+
+### MQTT
+
+`mqtt.Server` connects to an external Broker when the `server.mqtt` node exists; remove the entire node to omit the service. Host modules register device topics with `Register` or `RegisterSubscriber[T]` before startup; shared subscriptions such as `$share/<group>/...` are passed to the Broker unchanged. The service restores subscriptions after reconnect and does not embed multi-tenant device identity or ACL rules.
 
 ### Persistent Jobs
 

@@ -287,6 +287,8 @@ github.com/eapache/go-resiliency v1.1.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5m
 github.com/eapache/go-resiliency v1.2.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
 github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21/go.mod h1:+020luEh2TKB4/GOp8oxxtq0Daoen/Cii55CzbTV6DU=
 github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFPTqq+I=
+github.com/eclipse/paho.mqtt.golang v1.5.1 h1:/VSOv3oDLlpqR2Epjn1Q7b2bSTplJIeV2ISgCl2W7nE=
+github.com/eclipse/paho.mqtt.golang v1.5.1/go.mod h1:1/yJCneuyOoCOzKSsOTUc0AJfpsItBGWvYpBLimhArU=
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
 github.com/emicklei/go-restful/v3 v3.14.0 h1:6V6Ba8/5W1Z7amPinklZeCMlHBMwj53thpfxazCLMX4=
 github.com/emicklei/go-restful/v3 v3.14.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
@@ -658,8 +660,8 @@ github.com/liujitcn/kratos-core/api v0.0.7 h1:/AXnWx2VIpqjlL6qXeo6zMrutIboQjrbLM
 github.com/liujitcn/kratos-core/api v0.0.7/go.mod h1:UUzA7haVM1PF+AQH8CMSwGNLvpKx0sPC9vFT/+sVQU4=
 github.com/liujitcn/kratos-kit v0.0.96 h1:qPDLis90yWqhV42Roc/4PewHMVN9maeSyGEAMHzEeT4=
 github.com/liujitcn/kratos-kit v0.0.96/go.mod h1:i5hw4Ww3uKgBrDFW4wjRVP765d87+y/YMnpAZq3TbsQ=
-github.com/liujitcn/kratos-kit/api v0.0.41 h1:CDt/IfeJBPnTweIwlMvwQSvWMcNXzhi/q0NxVTSD6XE=
-github.com/liujitcn/kratos-kit/api v0.0.41/go.mod h1:DVRd76dXC0xH2h1qxgY3WqWlxefwIPvE69wiNM8PQnk=
+github.com/liujitcn/kratos-kit/api v0.0.42 h1:4Bh7SKv+Zcdb0QATSIuv2tBJUqRyDuCmrMIYKYTYg9Y=
+github.com/liujitcn/kratos-kit/api v0.0.42/go.mod h1:DVRd76dXC0xH2h1qxgY3WqWlxefwIPvE69wiNM8PQnk=
 github.com/liujitcn/kratos-kit/auth v0.0.34 h1:b3DMA3zCjecWJimnotkleRTq2hS4MFm5I/Q87OsjSSk=
 github.com/liujitcn/kratos-kit/auth v0.0.34/go.mod h1:BZpQR8KFGtT9YYa3xknK6wenf9khxTvF0AByr7Ciwnk=
 github.com/liujitcn/kratos-kit/auth/authn v0.0.27 h1:NdonRu7MjsuxKST6cAz3+6qxRr7H2OP8h3zxeZQibDA=
@@ -678,6 +680,8 @@ github.com/liujitcn/kratos-kit/bootstrap v0.0.38 h1:KaBIDEfRNf8X+4DwXRRIpiPq6M++
 github.com/liujitcn/kratos-kit/bootstrap v0.0.38/go.mod h1:/mpnd+Vydug2xs089+0TUKIbqgKSU8OCfRECUk+gOWw=
 github.com/liujitcn/kratos-kit/broker v0.0.15 h1:8gDmoDAZhJLdkk5n8gwBghbPJ9WZmgMzbYX5kdSLvLc=
 github.com/liujitcn/kratos-kit/broker v0.0.15/go.mod h1:JmhmfdcQdSlvmexhOVyEOrzZRRrWACLFarO22ug7Gv8=
+github.com/liujitcn/kratos-kit/broker/mqtt v0.0.1 h1:eJnhAf1uIBq17IP3k4eJgn+wEKdyXYiC96PjyqQlp08=
+github.com/liujitcn/kratos-kit/broker/mqtt v0.0.1/go.mod h1:HIWQrVUy6/WABDJxufn/Y4V2CxzkGs8Oqzed5fZEkQw=
 github.com/liujitcn/kratos-kit/cache v0.0.29 h1:Jtf5O/JOcC1QYd9ct0jHwtIw24eFzGLiR1SO+fv+7oc=
 github.com/liujitcn/kratos-kit/cache v0.0.29/go.mod h1:FtO24IZrsdr4Ca2iOGbgV8uO1MXzEbvhIFVtMMYsjBQ=
 github.com/liujitcn/kratos-kit/config v0.0.42 h1:Oxti456QQ/wjdP4x5mr3EBTiL1sAewPPEUtCLUpHiQA=
@@ -734,6 +738,8 @@ github.com/liujitcn/kratos-kit/transport/keepalive v0.0.17 h1:wc1KZa5gHvPdHluZpL
 github.com/liujitcn/kratos-kit/transport/keepalive v0.0.17/go.mod h1:RuOLdfzI1Rk0K8d2td29I6aMHw250MuUH9Tij4BZ9dk=
 github.com/liujitcn/kratos-kit/transport/mcp v0.0.19 h1:jxKm4vHKCpT85UqEJZn6jYDNfXZaV76BpRjAEbVoXYc=
 github.com/liujitcn/kratos-kit/transport/mcp v0.0.19/go.mod h1:qE5Uonh2qMYDMpS3kn/F4ZZNz97nFME3B2sPKtaz4ko=
+github.com/liujitcn/kratos-kit/transport/mqtt v0.0.1 h1:XTVHt0oSif5+aWvzA5GHgauSqbl0QS9oA0BEot1wnjw=
+github.com/liujitcn/kratos-kit/transport/mqtt v0.0.1/go.mod h1:zQ9sxF+7LUzmj7IZSzRnNnAjG8YxyRPqFXGLaYsaC5A=
 github.com/liujitcn/kratos-kit/transport/queue v0.0.9 h1:iLYqCQ6ap+7mPgSFs5Ju07W+oM6L8qTdweictyMsJlQ=
 github.com/liujitcn/kratos-kit/transport/queue v0.0.9/go.mod h1:mrkR75zn1FsL7MaiN1CRuyDOCdsSiBJXE0895eARC4Y=
 github.com/liujitcn/kratos-kit/transport/sse v0.0.18 h1:eB9k3egFpOBMiWvx37Pv4dJgOB4xmO1VRY7Z47I2TsE=

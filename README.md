@@ -8,7 +8,7 @@
 
 - 解析启动配置，创建多数据源数据库客户端、缓存、队列、对象存储、翻译器、认证授权和性能分析运行时。
 - 通过 `module.Module` 注册 HTTP、gRPC 和 MCP 服务，通过独立的 `job.Tasks`、`queue.Consumers`、`sse.Streams` 注入定时任务、队列消费者和 SSE 流。
-- 按配置创建 HTTP、gRPC、MCP、SSE、队列和持久化 Cron 服务，并由 Kratos 统一启动、停止和传播服务错误。
+- 按配置创建 HTTP、gRPC、MCP、SSE、队列、持久化 Cron 和 MQTT 订阅服务，并由 Kratos 统一启动、停止和传播服务错误。
 - 在应用组装阶段执行数据库迁移、OpenAPI 接口同步、接口国际化、租户角色菜单同步和权限策略重建。
 - 提供通用业务上下文、事务边界、日志流水线、错误原因、OpenAPI 查询、SSE 发布和持久化任务控制能力。
 - 提供 `api` 公共 protobuf 模块和 `client` gRPC 客户端模块，支持远程、服务发现和进程内调用。
@@ -22,7 +22,7 @@
 | `config` | 从启动上下文解析应用、数据库、Redis、队列、对象存储、JWT、翻译器和性能分析配置。 |
 | `data` | 创建多数据源客户端，并定义 API、任务、日志、权限和事务的存储契约。 |
 | `errorsx` | 统一构造参数错误、认证失败、无权限、冲突、限流和内部错误。 |
-| `job` / `queue` / `sse` / `mcp` | 提供持久化任务、队列、SSE 和 MCP 的注册、运行时与生命周期适配。 |
+| `job` / `queue` / `sse` / `mcp` / `mqtt` | 提供持久化任务、队列、SSE、MCP 和 MQTT 订阅的注册、运行时与生命周期适配。 |
 | `module` / `resource` | 定义业务模块、模型、迁移、OpenAPI、国际化资源以及启动期同步流程。 |
 | `server` | 创建 HTTP、gRPC 服务和请求中间件，包括认证、租户范围、校验、日志、限流和策略上下文。 |
 | `api` | 独立 Go 模块，保存公共 protobuf 定义和生成代码。 |
@@ -34,10 +34,10 @@ Core 根目录不维护业务项目的 Wire 组合根。业务项目在自己的
 
 1. 一个或多个 `module.Module`，用于注册 HTTP、gRPC 和 MCP 服务。
 2. `module.Resource`，用于提供模型、迁移、OpenAPI 和国际化文件系统。
-3. 可选的 `job.Tasks`、`queue.Consumers` 和 `sse.Streams` 集合；没有对应能力时提供空集合。
+3. 可选的 `job.Tasks`、`queue.Consumers` 和 `sse.Streams` 集合；MQTT 订阅由宿主在 MQTT 服务启动前注册。
 4. `data` 包声明的存储接口实现，用于启动同步、任务、日志和权限资源。
 
-`NewApp` 会收集这些依赖并创建最终的 Kratos 应用。HTTP、gRPC、独立 MCP、独立 SSE、队列和 Cron 均为可选服务；没有对应配置时不会创建监听器，空集合不会阻止服务启动。进程内 MCP 和 SSE 由 HTTP 服务承载，因此启用进程内模式时必须同时配置 HTTP。
+`NewApp` 会收集这些依赖并创建最终的 Kratos 应用。HTTP、gRPC、独立 MCP、独立 SSE、队列、Cron 和 MQTT 均为可选服务；没有对应配置时不会创建服务。进程内 MCP 和 SSE 由 HTTP 服务承载，因此启用进程内模式时必须同时配置 HTTP。MQTT 只维护 Broker 客户端和订阅生命周期，设备认证、租户 ACL、主题和消息业务规则由宿主模块负责。
 
 ## 模块契约
 
@@ -115,6 +115,10 @@ HTTP、gRPC 和 MCP 构造时可注入策略解析器。Core 将解析器放入�
 - `queue.ScheduleQueue` 投递延迟消息，`queue.CancelQueue` 取消尚未触发的消息。
 - `queue.Decode[T]` 从消息的 `data` 字段解码业务对象，并校验空消息和 JSON 格式。
 
+### MQTT
+
+`mqtt.Server` 在配置存在 `server.mqtt` 节点时连接外部 MQTT Broker；删除整个节点即可不创建服务。宿主模块在构造阶段使用 `Register` 或 `RegisterSubscriber[T]` 注册设备主题；`$share/<group>/...` 等共享订阅主题会原样交给 Broker。服务启动后负责连接、订阅、重连恢复和优雅停止，不内置多租户设备身份或 ACL 规则。
+
 ### 持久化任务
 
 `job.Tasks` 注册任务执行器；调度器启动时从存储重新加载启用的 `BaseJob`。`job.Job` 提供 `Start`、`Stop` 和 `Run`，分别用于创建调度入口、移除调度和立即执行一次任务。任务入口优先使用 Redis 分布式锁；Redis 不可用时降级为进程内锁，只保证单实例互斥。启动失败会清理已注册任务和执行上下文。
@@ -156,6 +160,7 @@ queue/                   队列投递、解码和消费者生命周期
 resource/                OpenAPI、国际化、迁移和启动同步
 server/                  HTTP、gRPC、请求元数据和中间件
 sse/                     SSE 流注册、订阅和发布
+mqtt/                    MQTT 服务配置、订阅注册和生命周期适配
 bootstrap.go             ProviderSet 和应用生命周期组装
 Makefile                 生成、格式化、测试、检查和版本脚本入口
 ```
