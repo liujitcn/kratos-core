@@ -32,17 +32,17 @@ require (
 	github.com/liujitcn/kratos-kit/redact v0.0.17
 	github.com/liujitcn/kratos-kit/server/grpc v0.0.12
 	github.com/liujitcn/kratos-kit/server/http v0.0.13
-	github.com/liujitcn/kratos-kit/server/mcp v0.0.9
+	github.com/liujitcn/kratos-kit/server/mcp v0.0.10
 	github.com/liujitcn/kratos-kit/server/sse v0.0.9
 	github.com/liujitcn/kratos-kit/swagger-ui v0.0.18
 	github.com/liujitcn/kratos-kit/translator v0.0.12
 	github.com/liujitcn/kratos-kit/transport/cron v0.0.21
-	github.com/liujitcn/kratos-kit/transport/mcp v0.0.19
+	github.com/liujitcn/kratos-kit/transport/mcp v0.0.20
 	github.com/liujitcn/kratos-kit/transport/mqtt v0.0.2
 	github.com/liujitcn/kratos-kit/transport/queue v0.0.9
 	github.com/liujitcn/kratos-kit/transport/sse v0.0.18
 	github.com/liujitcn/kratos-kit/utils v0.0.28
-	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/mark3labs/mcp-go v1.5.0
 	github.com/nicksnyder/go-i18n/v2 v2.0.2
 	github.com/robfig/cron/v3 v3.0.1
 	go.opentelemetry.io/otel/trace v1.47.0
@@ -236,9 +236,10 @@ require (
 	github.com/redis/go-redis/v9 v9.23.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
-	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/shopspring/decimal v1.5.0 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/swaggest/swgui v1.8.9 // indirect

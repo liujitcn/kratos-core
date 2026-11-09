@@ -13,7 +13,8 @@ import (
 	"github.com/liujitcn/kratos-kit/redact"
 	servermcp "github.com/liujitcn/kratos-kit/server/mcp"
 	"github.com/liujitcn/kratos-kit/transport/mcp"
-	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 )
 
 // Server 描述 Core MCP 服务及其传输模式。
@@ -54,13 +55,13 @@ func NewServer(ctx *bootstrap.Context, modules module.Modules, policyResolver re
 		}
 	}
 	if server != nil {
-		modules.RegisterMCP(server)
-		// SDK 接收中间件统一覆盖独立 HTTP、SSE、STDIO 和挂载模式，且先于模块中间件执行。
-		server.MCPServer().AddReceivingMiddleware(func(next mcpsdk.MethodHandler) mcpsdk.MethodHandler {
-			return func(ctx context.Context, method string, request mcpsdk.Request) (mcpsdk.Result, error) {
-				return next(redact.WithPolicyResolver(ctx, policyResolver), method, request)
+		// mcp-go 按注册顺序从外向内执行，宿主策略必须先于模块中间件注入。
+		server.MCPServer().Use(func(next mcpserver.ToolHandlerFunc) mcpserver.ToolHandlerFunc {
+			return func(ctx context.Context, request mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
+				return next(redact.WithPolicyResolver(ctx, policyResolver), request)
 			}
 		})
+		modules.RegisterMCP(server)
 	}
 	return runtime, cleanup, nil
 }

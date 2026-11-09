@@ -280,6 +280,8 @@ github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/dlclark/regexp2 v1.12.0 h1:0j4c5qQmnC6XOWNjP3PIXURXN2gWx76rd3KvgdPkCz8=
+github.com/dlclark/regexp2 v1.12.0/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/dustin/go-humanize v1.1.0 h1:dbKTrvD0klcbBV/h4AWJdMuZogJACoMlvWIWZ5b2xWg=
 github.com/dustin/go-humanize v1.1.0/go.mod h1:hc1CvRkJMsgxqjmjMQF3QNRAZBwY8AXBAzKYoSX9sFI=
@@ -316,6 +318,8 @@ github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHqu
 github.com/franela/goblin v0.0.0-20210519012713-85d372ac71e2/go.mod h1:VzmDKDJVZI3aJmnRI9VjAn9nJ8qPPsN1fqzr9dqInIo=
 github.com/franela/goreq v0.0.0-20171204163338-bcd34c9993f8/go.mod h1:ZhphrRTfi2rbfLwlschooIH4+wKKDR4Pdxhh+TRoA20=
 github.com/frankban/quicktest v1.11.3/go.mod h1:wRf/ReqHper53s+kmmSZizM8NamnL3IM0I9ntUbOk+k=
+github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
+github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
 github.com/fsnotify/fsnotify v1.10.1 h1:b0/UzAf9yR5rhf3RPm9gf3ehBPpf0oZKIjtpKrx59Ho=
@@ -717,8 +721,8 @@ github.com/liujitcn/kratos-kit/server/grpc v0.0.12 h1:VrsEBYNTFr8EVlbUmONj0F22NN
 github.com/liujitcn/kratos-kit/server/grpc v0.0.12/go.mod h1:g11xkjd+ywMrC0dwroIoULr8Ik2jfWmFfR8WNnYn1HA=
 github.com/liujitcn/kratos-kit/server/http v0.0.13 h1:Y3uC7wfhqlGnVd+4ZbEE3slFwXfTj6bDRCAsqvSl2fA=
 github.com/liujitcn/kratos-kit/server/http v0.0.13/go.mod h1:MD/mpZ99oeNtWZDN+hYqS9ufIjoKeGZJSCzcP3cCyHA=
-github.com/liujitcn/kratos-kit/server/mcp v0.0.9 h1:F7ak3olJP60uJ6QJkNeKZgYzkcczO6Hx6jIMMNgqyKw=
-github.com/liujitcn/kratos-kit/server/mcp v0.0.9/go.mod h1:l5BmHhVfJbNIjo/xj5yMr/ytQiIOVKjYQJxi7gFbn2s=
+github.com/liujitcn/kratos-kit/server/mcp v0.0.10 h1:ZOJXp+db/2BMDp4hAEKDbDKBatm1k2mcHjjFM1txYxA=
+github.com/liujitcn/kratos-kit/server/mcp v0.0.10/go.mod h1:l9YhJu067qPHMrtwEZLB9SFy8AcUx7DtkSmTNeywqr8=
 github.com/liujitcn/kratos-kit/server/sse v0.0.9 h1:9KbHGqwF6Kgj2lC12ZYedJj+sfIc+Y8sPh7vNxjOLYo=
 github.com/liujitcn/kratos-kit/server/sse v0.0.9/go.mod h1:oAUA9tGK2G6hm0qODDu/eGrSz+iU60ylyOLtXrzD2HI=
 github.com/liujitcn/kratos-kit/swagger-ui v0.0.18 h1:8ZlhotK2usJkoYNaP+MSWFC8wBxzBtMaE6Igup0Bht0=
@@ -737,8 +741,8 @@ github.com/liujitcn/kratos-kit/transport/hptimer v0.0.10 h1:OCTqDbx3hH/hIkieb7CK
 github.com/liujitcn/kratos-kit/transport/hptimer v0.0.10/go.mod h1:ndM/wv5Inp54JnMXLxvp/5nlEVEik4Id2D+rO4jBjQU=
 github.com/liujitcn/kratos-kit/transport/keepalive v0.0.17 h1:wc1KZa5gHvPdHluZpL/mT2PUWtta0Q6R8gujE86cWAw=
 github.com/liujitcn/kratos-kit/transport/keepalive v0.0.17/go.mod h1:RuOLdfzI1Rk0K8d2td29I6aMHw250MuUH9Tij4BZ9dk=
-github.com/liujitcn/kratos-kit/transport/mcp v0.0.19 h1:jxKm4vHKCpT85UqEJZn6jYDNfXZaV76BpRjAEbVoXYc=
-github.com/liujitcn/kratos-kit/transport/mcp v0.0.19/go.mod h1:qE5Uonh2qMYDMpS3kn/F4ZZNz97nFME3B2sPKtaz4ko=
+github.com/liujitcn/kratos-kit/transport/mcp v0.0.20 h1:8OveU73RcFKZ8avTk0tanyiwnzOQbeTkIQdA9vqVkmI=
+github.com/liujitcn/kratos-kit/transport/mcp v0.0.20/go.mod h1:5ta6wk0THKfXNdfZdOtn3h0is6Se6qONexUfnFjtjdc=
 github.com/liujitcn/kratos-kit/transport/mqtt v0.0.2 h1:i2tVB68tBZzj0HiWMGK4VkvUtTx5Nd6liAn/NbaDZPk=
 github.com/liujitcn/kratos-kit/transport/mqtt v0.0.2/go.mod h1:Zcgc5DVZITxl6IAfyzgc053tusVL1wd6UtywRx7xq1I=
 github.com/liujitcn/kratos-kit/transport/queue v0.0.9 h1:iLYqCQ6ap+7mPgSFs5Ju07W+oM6L8qTdweictyMsJlQ=
@@ -747,6 +751,8 @@ github.com/liujitcn/kratos-kit/transport/sse v0.0.18 h1:eB9k3egFpOBMiWvx37Pv4dJg
 github.com/liujitcn/kratos-kit/transport/sse v0.0.18/go.mod h1:nLabgi3Q95OzA1AqBLNAcqRz3WVJqr0zDcVx5djQWWk=
 github.com/liujitcn/kratos-kit/utils v0.0.28 h1:5pyLl0UZdr5FCOuIVv04kt3wfQsySPBr40alp8DvqPA=
 github.com/liujitcn/kratos-kit/utils v0.0.28/go.mod h1:BD5/q10xg4pS8jH27QewShAl98ucR7bjPvr+UakLq9I=
+github.com/mark3labs/mcp-go v1.5.0 h1:XMfliGOAan2zHQJHVQb9Y6KZDr/73nLfsxlsByTwHjk=
+github.com/mark3labs/mcp-go v1.5.0/go.mod h1:6L8eBboqlAMnYrvl8rpbUeV2qE/SJh52aVGrXIomVb0=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
 github.com/mattn/go-colorable v0.1.4/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
 github.com/mattn/go-colorable v0.1.6/go.mod h1:u6P/XSegPjTcexA+o6vUJrdnUu04hMope9wVRipJSqc=
@@ -787,8 +793,6 @@ github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh
 github.com/mitchellh/mapstructure v1.4.2/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
-github.com/modelcontextprotocol/go-sdk v1.8.0 h1:KIvahhYqwtbeniWVPs3TcXEA7b8jEtwfBpOTAI+Urx4=
-github.com/modelcontextprotocol/go-sdk v1.8.0/go.mod h1:dL7u98E/zjJTGzEq+j30jQ8K2k1mb6LeAH4inEcSGts=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
@@ -929,11 +933,11 @@ github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQD
 github.com/ryanuber/columnize v0.0.0-20160712163229-9b3edd62028f/go.mod h1:sm1tb6uqfes/u+d4ooFouqFdy9/2g9QGwK3SQygK0Ts=
 github.com/ryanuber/go-glob v1.0.0 h1:iQh3xXAumdQ+4Ufa5b25cRpC5TYKlno6hsv6Cb3pkBk=
 github.com/ryanuber/go-glob v1.0.0/go.mod h1:807d1WSdnB0XRJzKNil9Om6lcp/3a0v4qIHxIXzX/Yc=
+github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=
+github.com/santhosh-tekuri/jsonschema/v6 v6.0.2/go.mod h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU=
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
 github.com/segmentio/asm v1.2.1 h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0=
 github.com/segmentio/asm v1.2.1/go.mod h1:BqMnlJP91P8d+4ibuonYZw9mfnzI9HfxselHZr5aAcs=
-github.com/segmentio/encoding v0.5.4 h1:OW1VRern8Nw6ITAtwSZ7Idrl3MXCFwXHPgqESYfvNt0=
-github.com/segmentio/encoding v0.5.4/go.mod h1:HS1ZKa3kSN32ZHVZ7ZLPLXWvOVIiZtyJnO1gPH1sKt0=
 github.com/shopspring/decimal v1.5.0 h1:HxSWk31RmJv0EyY4oLiGQB9u7WPludUwPBdvQZnYFPc=
 github.com/shopspring/decimal v1.5.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
@@ -946,6 +950,8 @@ github.com/smartystreets/assertions v1.1.0/go.mod h1:tcbTF8ujkAEcZ8TElKY+i30BzYl
 github.com/smartystreets/goconvey v1.6.4/go.mod h1:syvi0/a8iFYH4r/RixwvyeAJjdLS9QV7WQ/tjFTllLA=
 github.com/sony/gobreaker v0.4.1/go.mod h1:ZKptC7FHNvhBz7dN2LGjPVBz2sZJmc0/PkyDJOjmxWY=
 github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
+github.com/spf13/cast v1.7.1 h1:cuNEagBQEHWN1FnbGEjCXL2szYEXqfJPbP2HNUaca9Y=
+github.com/spf13/cast v1.7.1/go.mod h1:ancEpBxwJDODSW/UG4rDrAqiKolqNNh2DX3mk86cAdo=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
 github.com/spf13/pflag v1.0.9/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=

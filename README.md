@@ -103,6 +103,8 @@ HTTP、gRPC 和 MCP 构造时可注入策略解析器。Core 将解析器放入�
 
 模块通过 `RegisterMCP` 注册工具。MCP 支持独立 HTTP、Legacy SSE、STDIO 和挂载到 Core HTTP 的进程内模式。进程内模式复用 HTTP 监听器，独立模式由 Kratos 单独管理生命周期。
 
+MCP 统一使用 `github.com/mark3labs/mcp-go`。Core 在业务工具中间件执行前注入当前实例的脱敏策略；业务模块升级时需使用新版 `protoc-gen-go-mcp-tool` 重新生成注册代码。
+
 ### SSE
 
 `sse.Streams` 注册业务流，Core 根据 `stream`、`channel`、用户和租户解析实际传输流。请求会校验 Bearer 令牌、用户角色、租户范围以及缓存中的令牌有效性；失效令牌不会因为同账号其他设备在线而恢复访问。`sse.SSE` 提供 `Serve` 建立订阅、`PublishJSON` 发布 JSON 事件和 `PublishEnabled` 状态查询。HTTP 订阅会移除服务级 deadline，但保留客户端断开产生的取消信号。
