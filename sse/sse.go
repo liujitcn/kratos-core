@@ -7,11 +7,12 @@ import (
 	"sync"
 
 	kratosHTTP "github.com/go-kratos/kratos/v3/transport/http"
-	_const "github.com/liujitcn/kratos-core/const"
-	"github.com/liujitcn/kratos-core/errorsx"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/auth/data"
 	"github.com/liujitcn/kratos-kit/transport/sse"
+
+	_const "github.com/liujitcn/kratos-core/const"
+	"github.com/liujitcn/kratos-core/errorsx"
 )
 
 // SSE 实现 Core 的 SSE 订阅与发布能力。
@@ -58,7 +59,7 @@ func (r *SSE) Serve(ctx context.Context, streamID, channelID string) error {
 	}
 	var transportID string
 	var found bool
-	transportID, found, err = registry.ResolveWithTenant(streamID, channelID, userToken.UserId, userToken.TenantId)
+	transportID, found, err = registry.ResolveContext(ctx, streamID, channelID, userToken)
 	if !found {
 		return errorsx.InvalidArgument("SSE流不支持")
 	}
@@ -67,6 +68,9 @@ func (r *SSE) Serve(ctx context.Context, streamID, channelID string) error {
 	}
 	streamRequest, cleanup := DetachRequestContext(request)
 	defer cleanup()
+	var cancel context.CancelFunc
+	streamRequest, cancel = watchSubscription(streamRequest, registry, r.authenticator, r.userToken, streamID, channelID, transportID)
+	defer cancel()
 	server.ServeStreamHTTP(w, streamRequest, sse.StreamID(transportID))
 	return nil
 }

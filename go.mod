@@ -8,11 +8,11 @@ require (
 	github.com/go-kratos/kratos/v3 v3.0.0
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/wire v0.7.0
-	github.com/liujitcn/go-utils v0.0.43
+	github.com/liujitcn/go-utils v0.0.44
 	github.com/liujitcn/go-utils/geoip v0.0.6
-	github.com/liujitcn/go-utils/translator v0.0.6
+	github.com/liujitcn/go-utils/translator v0.0.7
 	github.com/liujitcn/kratos-core/api v0.0.7
-	github.com/liujitcn/kratos-kit v0.0.97
+	github.com/liujitcn/kratos-kit v0.0.99
 	github.com/liujitcn/kratos-kit/api v0.0.44
 	github.com/liujitcn/kratos-kit/auth v0.0.35
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.27
@@ -29,13 +29,14 @@ require (
 	github.com/liujitcn/kratos-kit/oss v0.0.25
 	github.com/liujitcn/kratos-kit/pprof v0.0.20
 	github.com/liujitcn/kratos-kit/queue v0.0.37
-	github.com/liujitcn/kratos-kit/redact v0.0.17
+	github.com/liujitcn/kratos-kit/redact v0.0.19
 	github.com/liujitcn/kratos-kit/server/grpc v0.0.12
 	github.com/liujitcn/kratos-kit/server/http v0.0.13
 	github.com/liujitcn/kratos-kit/server/mcp v0.0.10
 	github.com/liujitcn/kratos-kit/server/sse v0.0.9
 	github.com/liujitcn/kratos-kit/swagger-ui v0.0.18
 	github.com/liujitcn/kratos-kit/translator v0.0.12
+	github.com/liujitcn/kratos-kit/transport v0.0.30
 	github.com/liujitcn/kratos-kit/transport/cron v0.0.21
 	github.com/liujitcn/kratos-kit/transport/mcp v0.0.20
 	github.com/liujitcn/kratos-kit/transport/mqtt v0.0.2
@@ -203,7 +204,6 @@ require (
 	github.com/liujitcn/kratos-kit/registry v0.0.27 // indirect
 	github.com/liujitcn/kratos-kit/tracer v0.0.23 // indirect
 	github.com/liujitcn/kratos-kit/tracing v0.0.15 // indirect
-	github.com/liujitcn/kratos-kit/transport v0.0.28 // indirect
 	github.com/liujitcn/kratos-kit/transport/hptimer v0.0.10 // indirect
 	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.17 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect

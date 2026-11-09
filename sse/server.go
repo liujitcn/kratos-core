@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-kratos/kratos/v3/log"
 	"github.com/go-kratos/kratos/v3/transport"
-	_const "github.com/liujitcn/kratos-core/const"
 	configv1 "github.com/liujitcn/kratos-kit/api/gen/go/config/v1"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/auth/data"
@@ -18,6 +17,8 @@ import (
 	serversse "github.com/liujitcn/kratos-kit/server/sse"
 	"github.com/liujitcn/kratos-kit/transport/sse"
 	"google.golang.org/protobuf/proto"
+
+	_const "github.com/liujitcn/kratos-core/const"
 )
 
 var errStreamNotRegistered = errors.New("SSE流未注册")
@@ -45,20 +46,22 @@ func NewStreamResolver(registry *Registry, authenticator engine.Authenticator, u
 		}
 		streamID := request.URL.Query().Get("stream")
 		channelID := request.URL.Query().Get("channel")
-		userID, tenantID, err := requestUserID(request, streamID, authenticator, userToken)
+		identity, err := requestIdentity(request, streamID, authenticator, userToken)
 		if err != nil {
 			return "", err
 		}
 		if registry == nil {
-			return streamID, nil
+			return "", fmt.Errorf("SSE 授权注册表未初始化")
 		}
 		var transportID string
 		var found bool
-		transportID, found, err = registry.ResolveWithTenant(streamID, channelID, userID, tenantID)
+		transportID, found, err = registry.ResolveContext(request.Context(), streamID, channelID, identity)
 		if err != nil {
 			return "", err
 		}
 		if found {
+			validated, _ := watchSubscription(request, registry, authenticator, userToken, streamID, channelID, transportID)
+			*request = *validated
 			return transportID, nil
 		}
 		return "", fmt.Errorf("%w: %s", errStreamNotRegistered, streamID)
@@ -144,42 +147,29 @@ func (t *Server) Resolver() sse.StreamIDResolver {
 	return t.resolver
 }
 
-// requestUserID 校验当前请求令牌，并提取 SSE 用户和租户范围。
-func requestUserID(request *http.Request, streamID string, authenticator engine.Authenticator, userToken *data.UserToken) (int64, int64, error) {
-	if authenticator == nil {
-		return 0, 0, nil
+// requestIdentity 校验当前请求令牌并提取完整身份，频道授权不可只依赖用户或租户编号。
+func requestIdentity(request *http.Request, streamID string, authenticator engine.Authenticator, userToken *data.UserToken) (*data.UserTokenPayload, error) {
+	if authenticator == nil || userToken == nil {
+		return nil, fmt.Errorf("SSE 认证未配置")
 	}
 	parts := strings.Fields(request.Header.Get("Authorization"))
-	if len(parts) == 0 {
-		return 0, 0, fmt.Errorf("SSE 请求需要认证")
-	}
 	if len(parts) != 2 || !strings.EqualFold(parts[0], engine.BearerWord) {
-		return 0, 0, fmt.Errorf("SSE Authorization 请求头格式错误")
+		return nil, fmt.Errorf("SSE Authorization 请求头格式错误")
 	}
 	claims, err := authenticator.AuthenticateToken(parts[1])
 	if err != nil {
-		return 0, 0, err
+		return nil, err
 	}
-	var userID int64
-	userID, err = claims.GetInt64(data.ClaimFieldUserID)
-	if err != nil {
-		return 0, 0, err
+	var identity *data.UserTokenPayload
+	identity, err = data.NewUserTokenPayloadWithClaims(claims)
+	if err != nil || identity.UserId <= 0 {
+		return nil, fmt.Errorf("SSE 访问主体无效")
 	}
-	var roleCode string
-	roleCode, err = claims.GetString(data.ClaimFieldRoleCode)
-	if err != nil {
-		return 0, 0, err
+	if (identity.RoleCode == _const.BASE_ROLE_CODE_USER || identity.RoleCode == _const.BASE_ROLE_CODE_AUTHUSER) && streamID != "base.notification" {
+		return nil, fmt.Errorf("SSE 仅允许后台用户访问")
 	}
-	if (roleCode == _const.BASE_ROLE_CODE_USER || roleCode == _const.BASE_ROLE_CODE_AUTHUSER) && streamID != "base.notification" {
-		return 0, 0, fmt.Errorf("SSE 仅允许后台用户访问")
+	if !userToken.IsAccessTokenValid(identity.UserId, parts[1]) {
+		return nil, fmt.Errorf("SSE 访问令牌已失效")
 	}
-	if userID <= 0 {
-		return 0, 0, fmt.Errorf("SSE 访问主体无效")
-	}
-	var tenantID int64
-	tenantID, _ = claims.GetInt64(data.ClaimFieldTenantID)
-	if userID != 0 && userToken != nil && !userToken.IsAccessTokenValid(userID, parts[1]) {
-		return 0, 0, fmt.Errorf("SSE 访问令牌已失效")
-	}
-	return userID, tenantID, nil
+	return identity, nil
 }

@@ -7,9 +7,11 @@ import (
 	"strings"
 
 	"github.com/liujitcn/go-utils/geoip/qqwry"
-	"github.com/liujitcn/kratos-core/server/requestmeta"
 	"github.com/liujitcn/kratos-kit/auth/authn/engine"
 	"github.com/liujitcn/kratos-kit/auth/data"
+	"github.com/liujitcn/kratos-kit/transport/clientip"
+
+	"github.com/liujitcn/kratos-core/server/requestmeta"
 )
 
 var ipClient = qqwry.NewClient()
@@ -37,49 +39,12 @@ func extractAuthToken(authToken string, authenticator engine.Authenticator) *dat
 	return ut
 }
 
-// getClientRealIP 获取客户端真实IP
+// getClientRealIP 与登录及业务审计共用受信代理解析规则，未配置时只使用 TCP 对端。
 func getClientRealIP(request *http.Request) string {
-	// 请求对象为空时，无法继续解析客户端地址。
 	if request == nil {
 		return ""
 	}
-
-	// 先检查 X-Forwarded-For 头。由于它可以记录整个代理链中的IP地址，因此适用于多级代理的情况。当请求经过多个代理服务器时，X-Forwarded-For字段可以完整地记录原始请求的客户端 IP地址和所有代理服务器的IP地址。需要注意：最外层Nginx配置为：proxy_set_header X-Forwarded-For $remote_addr; 如此做可以覆写掉ip，以防止ip伪造。里层Nginx配置为：proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-	xff := request.Header.Get(HEADER_KEY_X_FORWARDED_FOR)
-	// 请求头携带代理链地址时，优先从中提取首个合法 IP。
-	if xff != "" {
-		// X-Forwarded-For字段的值是一个逗号分隔的IP地址列表，一般来说，第一个IP地址是原始请求的客户端 IP地址（当然，它可以被伪造）。
-		ips := strings.SplitSeq(xff, ",")
-
-		for ip := range ips {
-			// 检查是否是合法的IP地址，命中合法 IP 时，直接作为客户端真实地址返回。
-			if net.ParseIP(ip) != nil {
-				return ip
-			}
-		}
-	}
-
-	// 接着检查反向代理的 X-Real-IP 头。通常只在反向代理服务器中使用，并且只记录原始请求的客户端 IP地址。它不适用于多级代理的情况，因为每经过一个代理服务器，X-Real-IP字段的值都会被覆盖为最新的客户端 IP地址。
-	xri := request.Header.Get(HEADER_KEY_X_REAL_IP)
-	// 反向代理头存在时，优先校验并返回该地址。
-	if xri != "" {
-		// 反向代理头是合法 IP 时，直接作为客户端地址返回。
-		if net.ParseIP(xri) != nil {
-			return xri
-		}
-	}
-
-	// 最后兼容部分网关透传的 X-Client-IP 头。
-	xci := request.Header.Get(HEADER_KEY_X_CLIENT_IP)
-	// 网关透传头存在时，校验并返回该地址。
-	if xci != "" {
-		// 网关透传头是合法 IP 时，直接作为客户端地址返回。
-		if net.ParseIP(xci) != nil {
-			return xci
-		}
-	}
-
-	return getIPFromRemoteAddr(request.RemoteAddr)
+	return clientip.FromRequest(request)
 }
 
 // getRequestID 获取请求 ID

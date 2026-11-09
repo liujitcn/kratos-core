@@ -15,6 +15,10 @@
 
 ## 公共入口
 
+SSE 业务流通过 `sse.ContextResolver` 使用完整认证上下文校验目标资源，Core 不推断频道字符串格式。尚未声明授权边界的流拒绝访问；原有声明租户授权的流继续使用 `ResolveTenant`。业务客户端存在构造依赖环时，可在启动完成前通过 `Registry.SetContextResolver` 绑定授权器，未绑定期间拒绝订阅。两类 HTTP 入口均在回放前校验，每 30 秒复查会话及资源范围。
+
+来源 IP 只有在 TCP 对端命中 `SECURITY_TRUSTED_PROXY_CIDRS` 时才读取转发头，默认使用对端地址；访问日志和业务安全检查应共用该规则。
+
 | 入口 | 当前职责 |
 | --- | --- |
 | 根包 | 提供 `ProviderSet` 和 `NewApp`，汇总配置、资源、数据访问和协议运行时。 |
