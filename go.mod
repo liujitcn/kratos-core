@@ -9,40 +9,40 @@ require (
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/wire v0.7.0
 	github.com/liujitcn/go-utils v0.0.44
-	github.com/liujitcn/go-utils/geoip v0.0.6
+	github.com/liujitcn/go-utils/geoip v0.0.7
 	github.com/liujitcn/go-utils/translator v0.0.7
 	github.com/liujitcn/kratos-core/api v0.0.7
 	github.com/liujitcn/kratos-kit v0.0.99
 	github.com/liujitcn/kratos-kit/api v0.0.44
-	github.com/liujitcn/kratos-kit/auth v0.0.35
-	github.com/liujitcn/kratos-kit/auth/authn v0.0.27
-	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.23
-	github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.24
-	github.com/liujitcn/kratos-kit/auth/authz v0.0.26
-	github.com/liujitcn/kratos-kit/auth/authz/engine/casbin v0.0.25
-	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.23
-	github.com/liujitcn/kratos-kit/bootstrap v0.0.38
-	github.com/liujitcn/kratos-kit/cache v0.0.29
-	github.com/liujitcn/kratos-kit/database/gorm v0.0.59
-	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.21
-	github.com/liujitcn/kratos-kit/locker v0.0.25
-	github.com/liujitcn/kratos-kit/oss v0.0.25
-	github.com/liujitcn/kratos-kit/pprof v0.0.20
-	github.com/liujitcn/kratos-kit/queue v0.0.37
+	github.com/liujitcn/kratos-kit/auth v0.0.36
+	github.com/liujitcn/kratos-kit/auth/authn v0.0.28
+	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.24
+	github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.25
+	github.com/liujitcn/kratos-kit/auth/authz v0.0.27
+	github.com/liujitcn/kratos-kit/auth/authz/engine/casbin v0.0.26
+	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.24
+	github.com/liujitcn/kratos-kit/bootstrap v0.0.39
+	github.com/liujitcn/kratos-kit/cache v0.0.30
+	github.com/liujitcn/kratos-kit/database/gorm v0.0.60
+	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.22
+	github.com/liujitcn/kratos-kit/locker v0.0.26
+	github.com/liujitcn/kratos-kit/oss v0.0.26
+	github.com/liujitcn/kratos-kit/pprof v0.0.21
+	github.com/liujitcn/kratos-kit/queue v0.0.38
 	github.com/liujitcn/kratos-kit/redact v0.0.19
-	github.com/liujitcn/kratos-kit/server/grpc v0.0.12
-	github.com/liujitcn/kratos-kit/server/http v0.0.13
-	github.com/liujitcn/kratos-kit/server/mcp v0.0.10
-	github.com/liujitcn/kratos-kit/server/sse v0.0.9
-	github.com/liujitcn/kratos-kit/swagger-ui v0.0.18
-	github.com/liujitcn/kratos-kit/translator v0.0.12
+	github.com/liujitcn/kratos-kit/server/grpc v0.0.13
+	github.com/liujitcn/kratos-kit/server/http v0.0.14
+	github.com/liujitcn/kratos-kit/server/mcp v0.0.11
+	github.com/liujitcn/kratos-kit/server/sse v0.0.10
+	github.com/liujitcn/kratos-kit/swagger-ui v0.0.19
+	github.com/liujitcn/kratos-kit/translator v0.0.13
 	github.com/liujitcn/kratos-kit/transport v0.0.30
-	github.com/liujitcn/kratos-kit/transport/cron v0.0.21
-	github.com/liujitcn/kratos-kit/transport/mcp v0.0.20
-	github.com/liujitcn/kratos-kit/transport/mqtt v0.0.2
-	github.com/liujitcn/kratos-kit/transport/queue v0.0.9
-	github.com/liujitcn/kratos-kit/transport/sse v0.0.18
-	github.com/liujitcn/kratos-kit/utils v0.0.28
+	github.com/liujitcn/kratos-kit/transport/cron v0.0.22
+	github.com/liujitcn/kratos-kit/transport/mcp v0.0.21
+	github.com/liujitcn/kratos-kit/transport/mqtt v0.0.3
+	github.com/liujitcn/kratos-kit/transport/queue v0.0.10
+	github.com/liujitcn/kratos-kit/transport/sse v0.0.19
+	github.com/liujitcn/kratos-kit/utils v0.0.29
 	github.com/mark3labs/mcp-go v1.5.0
 	github.com/nicksnyder/go-i18n/v2 v2.0.2
 	github.com/robfig/cron/v3 v3.0.1
@@ -187,25 +187,25 @@ require (
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
-	github.com/liujitcn/go-utils/crypto v0.0.18 // indirect
-	github.com/liujitcn/go-utils/http v0.0.9 // indirect
-	github.com/liujitcn/go-utils/translator/alibaba v0.0.6 // indirect
-	github.com/liujitcn/go-utils/translator/baidu v0.0.6 // indirect
-	github.com/liujitcn/go-utils/translator/google v0.0.6 // indirect
-	github.com/liujitcn/go-utils/translator/volc v0.0.5 // indirect
-	github.com/liujitcn/kratos-kit/broker v0.0.15 // indirect
-	github.com/liujitcn/kratos-kit/broker/mqtt v0.0.2 // indirect
-	github.com/liujitcn/kratos-kit/config v0.0.42 // indirect
+	github.com/liujitcn/go-utils/crypto v0.0.19 // indirect
+	github.com/liujitcn/go-utils/http v0.0.10 // indirect
+	github.com/liujitcn/go-utils/translator/alibaba v0.0.7 // indirect
+	github.com/liujitcn/go-utils/translator/baidu v0.0.7 // indirect
+	github.com/liujitcn/go-utils/translator/google v0.0.7 // indirect
+	github.com/liujitcn/go-utils/translator/volc v0.0.6 // indirect
+	github.com/liujitcn/kratos-kit/broker v0.0.16 // indirect
+	github.com/liujitcn/kratos-kit/broker/mqtt v0.0.3 // indirect
+	github.com/liujitcn/kratos-kit/config v0.0.43 // indirect
 	github.com/liujitcn/kratos-kit/database/gorm/driver v0.0.24 // indirect
-	github.com/liujitcn/kratos-kit/key v0.0.11 // indirect
-	github.com/liujitcn/kratos-kit/logger v0.0.37 // indirect
-	github.com/liujitcn/kratos-kit/oss/s3 v0.0.5 // indirect
-	github.com/liujitcn/kratos-kit/queue/redisqueue v0.0.19 // indirect
-	github.com/liujitcn/kratos-kit/registry v0.0.27 // indirect
-	github.com/liujitcn/kratos-kit/tracer v0.0.23 // indirect
-	github.com/liujitcn/kratos-kit/tracing v0.0.15 // indirect
-	github.com/liujitcn/kratos-kit/transport/hptimer v0.0.10 // indirect
-	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.17 // indirect
+	github.com/liujitcn/kratos-kit/key v0.0.12 // indirect
+	github.com/liujitcn/kratos-kit/logger v0.0.38 // indirect
+	github.com/liujitcn/kratos-kit/oss/s3 v0.0.6 // indirect
+	github.com/liujitcn/kratos-kit/queue/redisqueue v0.0.20 // indirect
+	github.com/liujitcn/kratos-kit/registry v0.0.28 // indirect
+	github.com/liujitcn/kratos-kit/tracer v0.0.24 // indirect
+	github.com/liujitcn/kratos-kit/tracing v0.0.16 // indirect
+	github.com/liujitcn/kratos-kit/transport/hptimer v0.0.11 // indirect
+	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.18 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.31 // indirect
