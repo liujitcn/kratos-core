@@ -405,8 +405,8 @@ github.com/liujitcn/go-utils v0.0.44 h1:VxPW4rGA350hl0Gp9V6M5UoL5F76Zg2GfxpN3m2N
 github.com/liujitcn/go-utils v0.0.44/go.mod h1:ImLolWJAHtl5sRi56JessklnuxEoOqtvKyOtsRxXGa4=
 github.com/liujitcn/go-utils/translator v0.0.7 h1:bExZqHjqX5+H9750DzLnnstQ7KZWkQ2PwZmwDgEfu/s=
 github.com/liujitcn/go-utils/translator v0.0.7/go.mod h1:c7K/fvl1m/YcSTI33929VoesSTD1Lx5olMsMIXaJnUA=
-github.com/liujitcn/kratos-kit v0.0.99 h1:3cvVe78HixJ5JtA3bp/1QQt8WIHxTajsWm33Cu8gG9I=
-github.com/liujitcn/kratos-kit v0.0.99/go.mod h1:EwpeHs0O17WZMZABdqDLyaYfi69LfR8jg2Zk706NLwc=
+github.com/liujitcn/kratos-kit v0.1.0 h1:qpYQJ1Z6D8YVm6mk8jd4aYPsVdu1TyI/LWpet3pnr9c=
+github.com/liujitcn/kratos-kit v0.1.0/go.mod h1:EwpeHs0O17WZMZABdqDLyaYfi69LfR8jg2Zk706NLwc=
 github.com/liujitcn/kratos-kit/api v0.0.44 h1:dNvFACdMVfQu33T6BgTNYKu8o7Uzp19HW1q05vymGqQ=
 github.com/liujitcn/kratos-kit/api v0.0.44/go.mod h1:DVRd76dXC0xH2h1qxgY3WqWlxefwIPvE69wiNM8PQnk=
 github.com/liujitcn/kratos-kit/auth v0.0.36 h1:poHhj7+KX1dL+K1A5m+oY8qnb91+1lxBSL0fhC9feaw=
@@ -453,12 +453,12 @@ github.com/liujitcn/kratos-kit/retry v0.0.4 h1:tPYkEID0NhKJXE3Xw62ZrwqJWj9i//eeC
 github.com/liujitcn/kratos-kit/retry v0.0.4/go.mod h1:jCSP/HsFhKC6Es5I1JuG1w9uDwWwmnnHdVADALE0nZw=
 github.com/liujitcn/kratos-kit/tracing v0.0.16 h1:wL06L5b1opDvHdG/q5mMV1AssGaCFmuDnE7v3B0jorQ=
 github.com/liujitcn/kratos-kit/tracing v0.0.16/go.mod h1:G9KWUMaT6CPWrprr00wuxEAZqVE/e6O+3ujA63aXXgs=
-github.com/liujitcn/kratos-kit/transport v0.0.30 h1:Jjj7HU7nVpAE/MWwEv1o/kvIF58OginF/vBprW6ki5o=
-github.com/liujitcn/kratos-kit/transport v0.0.30/go.mod h1:Myibj/5n6r9DvW3oJ20rgg38ctqRDjNyjtVnKTIoMLY=
+github.com/liujitcn/kratos-kit/transport v0.0.31 h1:uUsPfRO2Otkcwyezrjcc9zNnFyrXcY3dNK/4EJw8bTY=
+github.com/liujitcn/kratos-kit/transport v0.0.31/go.mod h1:Myibj/5n6r9DvW3oJ20rgg38ctqRDjNyjtVnKTIoMLY=
 github.com/liujitcn/kratos-kit/transport/hptimer v0.0.11 h1:KN7LW+fC5dopDumYgzdbYULQLfl/VOao4WfU64wiBcU=
 github.com/liujitcn/kratos-kit/transport/hptimer v0.0.11/go.mod h1:4V+vHnFEbmSFgAFKWCKxJgFRH6qgetTB2ank/2kipQw=
-github.com/liujitcn/kratos-kit/transport/keepalive v0.0.18 h1:Tojcl//JuLU8GzedQO+HKyEdc751KX7CujzxcdN7+lA=
-github.com/liujitcn/kratos-kit/transport/keepalive v0.0.18/go.mod h1:3Zgzo8KXq1uKeSl13BKhDaLgSHF9crpqFHr+G44rluM=
+github.com/liujitcn/kratos-kit/transport/keepalive v0.0.19 h1:hrNsAmuog6fmA/hdbl6vyd026o+bZGDfKP0tC6uuNcE=
+github.com/liujitcn/kratos-kit/transport/keepalive v0.0.19/go.mod h1:3Zgzo8KXq1uKeSl13BKhDaLgSHF9crpqFHr+G44rluM=
 github.com/liujitcn/kratos-kit/utils v0.0.29 h1:fWHLgCb6YXUb36SikCXuYCCG8mJ6+IIxxZlEiwwUPwQ=
 github.com/liujitcn/kratos-kit/utils v0.0.29/go.mod h1:TyoU8/UR9lZbeDQqQtucH5FwcKDVjEW5pmnYISHaHFw=
 github.com/mattn/go-colorable v0.1.16 h1:+2YjeAe7xP1OQbZW1jERPWWCDLlNqFNCvjiqGiAt84A=

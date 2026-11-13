@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	github.com/go-kratos/kratos/v3 v3.0.0
 	github.com/liujitcn/go-utils v0.0.44
-	github.com/liujitcn/kratos-kit v0.0.99
+	github.com/liujitcn/kratos-kit v0.1.0
 	github.com/liujitcn/kratos-kit/api v0.0.44
 	github.com/liujitcn/kratos-kit/auth/authn/engine/jwt v0.0.24
 	github.com/liujitcn/kratos-kit/auth/authn/middleware v0.0.25
@@ -137,9 +137,9 @@ require (
 	github.com/liujitcn/kratos-kit/oss/s3 v0.0.6 // indirect
 	github.com/liujitcn/kratos-kit/queue v0.0.38 // indirect
 	github.com/liujitcn/kratos-kit/queue/redisqueue v0.0.20 // indirect
-	github.com/liujitcn/kratos-kit/transport v0.0.30 // indirect
+	github.com/liujitcn/kratos-kit/transport v0.0.31 // indirect
 	github.com/liujitcn/kratos-kit/transport/hptimer v0.0.11 // indirect
-	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.18 // indirect
+	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.19 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/minio/minio-go/v7 v7.3.0 // indirect

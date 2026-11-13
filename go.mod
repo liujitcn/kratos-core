@@ -12,7 +12,7 @@ require (
 	github.com/liujitcn/go-utils/geoip v0.0.7
 	github.com/liujitcn/go-utils/translator v0.0.7
 	github.com/liujitcn/kratos-core/api v0.0.7
-	github.com/liujitcn/kratos-kit v0.0.99
+	github.com/liujitcn/kratos-kit v0.1.0
 	github.com/liujitcn/kratos-kit/api v0.0.44
 	github.com/liujitcn/kratos-kit/auth v0.0.36
 	github.com/liujitcn/kratos-kit/auth/authn v0.0.28
@@ -21,7 +21,7 @@ require (
 	github.com/liujitcn/kratos-kit/auth/authz v0.0.27
 	github.com/liujitcn/kratos-kit/auth/authz/engine/casbin v0.0.26
 	github.com/liujitcn/kratos-kit/auth/authz/middleware v0.0.24
-	github.com/liujitcn/kratos-kit/bootstrap v0.0.39
+	github.com/liujitcn/kratos-kit/bootstrap v0.0.40
 	github.com/liujitcn/kratos-kit/cache v0.0.30
 	github.com/liujitcn/kratos-kit/database/gorm v0.0.60
 	github.com/liujitcn/kratos-kit/database/gorm/migration v0.0.22
@@ -29,14 +29,14 @@ require (
 	github.com/liujitcn/kratos-kit/oss v0.0.26
 	github.com/liujitcn/kratos-kit/pprof v0.0.21
 	github.com/liujitcn/kratos-kit/queue v0.0.38
-	github.com/liujitcn/kratos-kit/redact v0.0.19
+	github.com/liujitcn/kratos-kit/redact v0.0.20
 	github.com/liujitcn/kratos-kit/server/grpc v0.0.13
 	github.com/liujitcn/kratos-kit/server/http v0.0.14
 	github.com/liujitcn/kratos-kit/server/mcp v0.0.11
 	github.com/liujitcn/kratos-kit/server/sse v0.0.10
 	github.com/liujitcn/kratos-kit/swagger-ui v0.0.19
 	github.com/liujitcn/kratos-kit/translator v0.0.13
-	github.com/liujitcn/kratos-kit/transport v0.0.30
+	github.com/liujitcn/kratos-kit/transport v0.0.31
 	github.com/liujitcn/kratos-kit/transport/cron v0.0.22
 	github.com/liujitcn/kratos-kit/transport/mcp v0.0.21
 	github.com/liujitcn/kratos-kit/transport/mqtt v0.0.3
@@ -205,7 +205,7 @@ require (
 	github.com/liujitcn/kratos-kit/tracer v0.0.24 // indirect
 	github.com/liujitcn/kratos-kit/tracing v0.0.16 // indirect
 	github.com/liujitcn/kratos-kit/transport/hptimer v0.0.11 // indirect
-	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.18 // indirect
+	github.com/liujitcn/kratos-kit/transport/keepalive v0.0.19 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.31 // indirect
